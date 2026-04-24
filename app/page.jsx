@@ -117,7 +117,8 @@ function DistributorMapColumn({ distributor, bottles }) {
 function TruckCard({ event }) {
   const col          = distColor(event.distributor)
   const { date, time } = formatDate(event.timestamp)
-  const storeName    = event.storeName ?? event.storeCode ?? 'Unknown Store'
+  // Legacy events (pre-multi-store) have no storeName/storeCode — default to Orland Park
+  const storeName    = event.storeName ?? event.storeCode ?? 'Orland Park'
 
   // checkFor may be {tier,names}[] (new) or string[] (legacy Redis entries)
   const flatCheckFor = (event.checkFor ?? []).flatMap(item =>
@@ -240,10 +241,12 @@ export default function Home() {
   // Distributor map (static, derived from hotlineBottles)
   const { map: distMap, order: distOrder } = buildDistributorMap()
 
-  // Group truck events by store for the activity summary
+  // Group truck events by store for the activity summary.
+  // Legacy Redis events (pre-multi-store) have no storeName/storeCode — they
+  // were always from Orland Park, so default to that.
   const storeMap = {}
   for (const e of truckEvents) {
-    const key = e.storeName ?? e.storeCode ?? 'Unknown'
+    const key = e.storeName ?? e.storeCode ?? 'Orland Park'
     if (!storeMap[key]) storeMap[key] = []
     storeMap[key].push(e)
   }
