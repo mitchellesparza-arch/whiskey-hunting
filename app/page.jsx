@@ -160,7 +160,7 @@ function TruckCard({ event }) {
 
         {/* Check for */}
         <div>
-          <p className="text-xs text-[#6b5030] uppercase tracking-wide mb-1.5">Head in and ask about</p>
+          <p className="text-xs text-[#6b5030] uppercase tracking-wide mb-1.5">Allocated bottles from this distributor</p>
           <ul className="space-y-0.5">
             {flatCheckFor.slice(0, 8).map((name, j) => (
               <li key={j} className="text-xs text-[#c9a87a]">· {name}</li>
@@ -332,7 +332,7 @@ export default function Home() {
             <div>
               <h2 className="section-title">Distributor Map</h2>
               <p className="text-xs text-[#9a7c55]">
-                Which truck brings which allocated bottles — head in and ask when a delivery is detected
+                Which truck brings which allocated bottles — use as a reference when a delivery is detected
               </p>
             </div>
           </div>
