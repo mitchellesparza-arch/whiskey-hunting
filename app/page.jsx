@@ -369,10 +369,10 @@ export default function Home() {
                 onChange={e => setSelectedStore(e.target.value || null)}
                 className="flex-1 sm:flex-none sm:w-64 bg-[#0f0a05] border border-[#3d2b10] rounded-lg px-3 py-2 text-sm text-[#f5e6cc] focus:outline-none focus:border-[#e8943a] appearance-none cursor-pointer"
               >
-                <option value="">All Stores ({truckEvents.length} events)</option>
+                <option value="">All Stores</option>
                 {storeNames.map(name => (
                   <option key={name} value={name}>
-                    {name} ({storeMap[name].length} event{storeMap[name].length !== 1 ? 's' : ''})
+                    {name} · {timeAgo(storeMap[name][0]?.timestamp)}
                   </option>
                 ))}
               </select>

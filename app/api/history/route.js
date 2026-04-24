@@ -22,8 +22,7 @@ import { getHistory }   from '../../../lib/history.js'
  */
 export async function GET() {
   try {
-    const all    = await getHistory(500)
-    const events = all.filter(e => e.type === 'truck_detected')
+    const events = await getHistory()  // already filtered to truck_detected, 10 per store
     return NextResponse.json({ events })
   } catch (err) {
     console.error('[history] GET error:', err)
