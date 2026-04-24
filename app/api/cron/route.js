@@ -1,15 +1,16 @@
-import { NextResponse } from 'next/server'
-import { checkAllBottles }                    from '../../../lib/checker.js'
-import { sendAlertEmail }                     from '../../../lib/email.js'
-import { getLastState, saveState, logEvent }  from '../../../lib/history.js'
-import { alertBottles, hotlineBottles }        from '../../../lib/bottles.js'
+import { NextResponse }              from 'next/server'
+import { fetchChicagolandStores }   from '../../../lib/stores.js'
+import { checkAllCanaries }          from '../../../lib/checker.js'
+import { hotlineBottles }            from '../../../lib/bottles.js'
+import { getLastState, saveState, logEvent } from '../../../lib/history.js'
+import { sendTruckEmail }            from '../../../lib/email.js'
+
+const RESTOCK_THRESHOLD = 5   // quantity jump of ≥5 = truck signal
 
 /**
- * Builds the grouped list of non-API-trackable hotline bottles to check when a
- * delivery from `distributor` is detected.
- *
- * Returns [{tier, names}] — one entry per tier divider that has at least one
- * matching bottle.  Empty array if the distributor has no hotline bottles.
+ * Build the tiered "check for" list for a given distributor.
+ * Returns [{tier, names}] — one group per hotline tier that has bottles
+ * from this distributor.  Empty array = nothing to flag.
  */
 function hotlineCheckList(distributor) {
   const groups = []
@@ -26,179 +27,145 @@ function hotlineCheckList(distributor) {
     }
   }
 
-  return groups  // [{tier, names}], empty array means nothing to flag
+  return groups
 }
 
 /**
  * GET /api/cron
  *
- * Runs 4× per day via Vercel Cron (see vercel.json).
+ * Runs 4× per day via Vercel Cron (see vercel.json: 7 AM, 11 AM, 3 PM, 7 PM CDT).
  * Protected by CRON_SECRET Bearer token.
  *
  * Manual trigger:
- *   curl -H "Authorization: Bearer YOUR_CRON_SECRET" https://your-app.vercel.app/api/cron
+ *   curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+ *        https://whiskey-hunter.vercel.app/api/cron
  */
 export async function GET(request) {
   // ── Auth ───────────────────────────────────────────────────────────────────
   const secret = process.env.CRON_SECRET
   if (secret) {
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+    const auth  = request.headers.get('authorization') ?? ''
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
     if (token !== secret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
   } else {
-    console.warn('CRON_SECRET is not set — endpoint is unprotected!')
+    console.warn('[cron] CRON_SECRET not set — endpoint is unprotected!')
   }
 
-  console.log('[cron] Starting bottle sweep — calling Algolia directly')
+  const checkedAt = new Date().toISOString()
 
   try {
-    // ── Run all checks ────────────────────────────────────────────────────────
-    const { alertResults, trackResults, alertsInStock, checkedAt } =
-      await checkAllBottles()
+    // ── Discover all Chicagoland stores ───────────────────────────────────────
+    const stores = await fetchChicagolandStores()
+    console.log(`[cron] ${stores.length} stores · ${5} canaries`)
 
-    console.log(
-      `[cron] Done. Alert in-stock: ${alertsInStock.length}/${alertResults.length}  ` +
-      `Track checked: ${trackResults.length}`
-    )
+    // ── Load previous state ───────────────────────────────────────────────────
+    // State key format: "{storeCode}:{bottleName}"
+    const lastState = await getLastState()
 
-    // ── State diff — detect in/out-of-stock transitions ───────────────────────
-    const allResults = [...alertResults, ...trackResults]
-    const lastState  = await getLastState()
-    const stockEvents = []  // type: in_stock | out_of_stock | quantity_increase
-    // Threshold: a count jump of this many bottles or more signals a truck restock
-    const RESTOCK_THRESHOLD = 5
+    // ── Check all canaries across all stores ──────────────────────────────────
+    const canaryResults = await checkAllCanaries(stores)
 
-    for (const r of allResults) {
-      if (r.error) continue
-      const prev        = lastState[r.name]
-      const wasInStock  = prev?.inStock  ?? null   // null = first time seeing this bottle
-      const prevQty     = prev?.quantity ?? null
+    // ── Detect truck arrivals ─────────────────────────────────────────────────
+    // trucksByStore: Map(storeCode → Map(distributor → triggeredBy[]))
+    const trucksByStore = new Map()
+    const newState      = {}
 
-      if (wasInStock === false && r.inStock === true) {
-        // Binary out → in transition
-        stockEvents.push({
-          type:        'in_stock',
-          name:        r.name,
-          objectID:    r.objectID,
-          distributor: r.distributor,
-          url:         r.url,
-          price:       r.price,
-          quantity:    r.quantity,
-          timestamp:   checkedAt,
-        })
-      } else if (wasInStock === true && r.inStock === false) {
-        stockEvents.push({
-          type:        'out_of_stock',
-          name:        r.name,
-          objectID:    r.objectID,
-          distributor: r.distributor,
-          url:         r.url,
-          price:       r.price,
-          quantity:    0,
-          timestamp:   checkedAt,
-        })
-      } else if (
-        r.inStock &&
-        r.quantity != null &&
-        prevQty != null &&
-        r.quantity - prevQty >= RESTOCK_THRESHOLD
-      ) {
-        // Bottle was already in stock but count jumped — strong truck signal
-        stockEvents.push({
-          type:        'quantity_increase',
-          name:        r.name,
-          objectID:    r.objectID,
-          distributor: r.distributor,
-          url:         r.url,
-          price:       r.price,
-          quantity:    r.quantity,
-          prevQuantity: prevQty,
-          timestamp:   checkedAt,
-        })
+    for (const { bottle, byStore } of canaryResults) {
+      for (const store of stores) {
+        const stateKey = `${store.code}:${bottle.name}`
+        const curr     = byStore[store.code]
+        const prev     = lastState[stateKey]
+
+        // Always persist the latest reading
+        newState[stateKey] = {
+          inStock:     curr?.inStock  ?? false,
+          quantity:    curr?.quantity ?? null,
+          distributor: bottle.distributor,
+          storeName:   store.name,
+          checkedAt,
+        }
+
+        if (!curr) continue
+
+        const wasInStock = prev?.inStock  ?? null   // null = first time we've ever seen this
+        const prevQty    = prev?.quantity ?? null
+
+        let triggered = false
+        let label     = bottle.name
+
+        if (wasInStock === false && curr.inStock === true) {
+          // Out → in transition: clear truck signal
+          triggered = true
+        } else if (
+          curr.inStock &&
+          curr.quantity != null &&
+          prevQty      != null &&
+          curr.quantity - prevQty >= RESTOCK_THRESHOLD
+        ) {
+          // Already in stock but quantity jumped: restock signal
+          triggered = true
+          label     = `${bottle.name} (${prevQty}→${curr.quantity})`
+        }
+
+        if (triggered) {
+          if (!trucksByStore.has(store.code)) trucksByStore.set(store.code, new Map())
+          const byDist = trucksByStore.get(store.code)
+          if (!byDist.has(bottle.distributor)) byDist.set(bottle.distributor, [])
+          byDist.get(bottle.distributor).push(label)
+        }
       }
     }
 
-    for (const event of stockEvents) {
-      await logEvent(event)
-    }
-    if (stockEvents.length) {
-      console.log('[cron] Stock events:', stockEvents.map((e) => `${e.type}:${e.name}`).join(', '))
-    }
-
-    // ── Truck detection ───────────────────────────────────────────────────────
-    // Triggered by two signals, both meaning "a truck just came in":
-    //   1. Binary out→in transition (in_stock)
-    //   2. Quantity jump of ≥5 on a bottle already in stock (quantity_increase)
-    // Group by distributor — one truck event per distributor per run.
-    const truckTriggers = stockEvents.filter(
-      (e) => e.type === 'in_stock' || e.type === 'quantity_increase'
-    )
-    const byDistributor = new Map()
-    for (const e of truckTriggers) {
-      if (!e.distributor) continue
-      if (!byDistributor.has(e.distributor)) byDistributor.set(e.distributor, [])
-      const label = e.type === 'quantity_increase'
-        ? `${e.name} (${e.prevQuantity}→${e.quantity})`
-        : e.name
-      byDistributor.get(e.distributor).push(label)
-    }
-
+    // ── Log truck events & send email ─────────────────────────────────────────
     const truckEvents = []
-    for (const [distributor, triggeredBy] of byDistributor) {
-      const checkFor = hotlineCheckList(distributor)
-      if (checkFor.length === 0) continue  // nothing untrackable to flag for this distributor
-      const truck = { type: 'truck_detected', distributor, triggeredBy, checkFor, timestamp: checkedAt }
-      truckEvents.push(truck)
-      await logEvent(truck)
-    }
-    if (truckEvents.length) {
-      console.log('[cron] Truck events:', truckEvents.map((t) => t.distributor).join(', '))
-    }
 
-    // ── Persist new state snapshot ────────────────────────────────────────────
-    const newState = {}
-    for (const r of allResults) {
-      if (!r.error) {
-        newState[r.name] = { objectID: r.objectID, distributor: r.distributor, inStock: r.inStock, price: r.price, quantity: r.quantity, checkedAt }
+    for (const [storeCode, byDist] of trucksByStore) {
+      const store = stores.find(s => s.code === storeCode)
+
+      for (const [distributor, triggeredBy] of byDist) {
+        const checkFor = hotlineCheckList(distributor)
+        if (!checkFor.length) continue  // no hotline bottles for this distributor
+
+        const event = {
+          type:        'truck_detected',
+          storeCode,
+          storeName:   store?.name ?? storeCode,
+          distributor,
+          triggeredBy,
+          checkFor,
+          timestamp:   checkedAt,
+        }
+
+        truckEvents.push(event)
+        await logEvent(event)
       }
     }
-    for (const [name, val] of Object.entries(lastState)) {
-      if (!newState[name]) newState[name] = val
+
+    if (truckEvents.length) {
+      console.log('[cron] Truck events:', truckEvents.map(e => `${e.storeName}/${e.distributor}`).join(', '))
+      await sendTruckEmail(truckEvents, checkedAt)
+    } else {
+      console.log('[cron] No truck activity detected')
+    }
+
+    // ── Persist new state (preserve keys we didn't check this run) ────────────
+    for (const [k, v] of Object.entries(lastState)) {
+      if (!newState[k]) newState[k] = v
     }
     await saveState(newState)
 
-    // ── Email — only send when something NEW happened ─────────────────────────
-    // Use stock transitions (out→in) for alert bottles rather than "currently in
-    // stock", so a bottle sitting in stock all day doesn't trigger repeated emails.
-    const alertNames = new Set(alertBottles.map((b) => b.name))
-    const newAlertInStock = stockEvents.filter(
-      (e) => e.type === 'in_stock' && alertNames.has(e.name)
-    )
-    const shouldEmail = newAlertInStock.length > 0 || truckEvents.length > 0
-    if (shouldEmail) {
-      console.log('[cron] Sending email — new alerts:', newAlertInStock.map((e) => e.name), '  trucks:', truckEvents.map((t) => t.distributor))
-      await sendAlertEmail(newAlertInStock, truckEvents, checkedAt)
-    } else {
-      console.log('[cron] No new transitions or truck activity — no email sent.')
-    }
-
-    // ── Summary response ──────────────────────────────────────────────────────
-    const errors = allResults.filter((r) => r.error)
+    // ── Response ──────────────────────────────────────────────────────────────
     return NextResponse.json({
-      ok: true,
+      ok:          true,
       checkedAt,
-      alertsInStock:  alertsInStock.map((b) => b.name),
-      alertsChecked:  alertResults.length,
-      trackChecked:   trackResults.length,
-      errors:         errors.length,
-      errorDetails:   errors.slice(0, 5).map((r) => `${r.name}: ${r.error}`),
-      emailSent:      shouldEmail,
-      newAlertEvents: newAlertInStock.map((e) => e.name),
-      stockEvents:    stockEvents.map((e) => `${e.type}:${e.name}`),
-      truckEvents:    truckEvents.map((t) => ({ distributor: t.distributor, triggeredBy: t.triggeredBy })),
+      stores:      stores.length,
+      canaries:    canaryResults.length,
+      truckEvents: truckEvents.map(e => ({ store: e.storeName, distributor: e.distributor, triggeredBy: e.triggeredBy })),
+      emailSent:   truckEvents.length > 0,
     })
+
   } catch (err) {
     console.error('[cron] Fatal error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
