@@ -177,8 +177,9 @@ function TruckCard({ event }) {
 
 // ── Per-store summary ─────────────────────────────────────────────────────────
 // Shows the most recent truck event per distributor for each store.
+// Clicking a card filters the Truck History below to that store.
 
-function StoreActivityCard({ storeName, events }) {
+function StoreActivityCard({ storeName, events, isSelected, onSelect }) {
   // Latest event per distributor for this store
   const byDist = {}
   for (const e of events) {
@@ -186,8 +187,15 @@ function StoreActivityCard({ storeName, events }) {
   }
 
   return (
-    <div className="card p-4">
-      <p className="text-sm font-bold text-[#f5e6cc] mb-3">📍 Binny's {storeName}</p>
+    <button
+      onClick={onSelect}
+      className="card p-4 text-left w-full transition-all"
+      style={isSelected ? { borderColor: '#e8943a', boxShadow: '0 0 0 1px #e8943a' } : {}}
+    >
+      <p className="text-sm font-bold text-[#f5e6cc] mb-3">
+        📍 Binny's {storeName}
+        {isSelected && <span className="ml-2 text-xs font-normal text-[#e8943a]">● filtered</span>}
+      </p>
       <div className="space-y-2">
         {Object.entries(byDist).map(([dist, event]) => {
           const col = distColor(dist)
@@ -206,7 +214,7 @@ function StoreActivityCard({ storeName, events }) {
           <p className="text-xs text-[#6b5030]">No trucks detected yet</p>
         )}
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -216,6 +224,7 @@ export default function Home() {
   const [truckEvents,   setTruckEvents]   = useState([])
   const [historyLoaded, setHistoryLoaded] = useState(false)
   const [refreshing,    setRefreshing]    = useState(false)
+  const [selectedStore, setSelectedStore] = useState(null)  // null = all stores
 
   const loadHistory = useCallback(async () => {
     try {
@@ -252,7 +261,10 @@ export default function Home() {
   }
   const storeNames = Object.keys(storeMap).sort()
 
-  const lastEvent  = truckEvents[0]
+  const lastEvent     = truckEvents[0]
+  const filteredEvents = selectedStore
+    ? truckEvents.filter(e => (e.storeName ?? e.storeCode ?? 'Orland Park') === selectedStore)
+    : truckEvents
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
@@ -305,6 +317,8 @@ export default function Home() {
                   key={name}
                   storeName={name}
                   events={storeMap[name]}
+                  isSelected={selectedStore === name}
+                  onSelect={() => setSelectedStore(prev => prev === name ? null : name)}
                 />
               ))}
             </div>
@@ -340,10 +354,38 @@ export default function Home() {
             <div>
               <h2 className="section-title">Truck History</h2>
               <p className="text-xs text-[#9a7c55]">
-                Delivery activity across all Chicagoland Binny's · detected by canary bottle restocks · cron runs 4× daily
+                {selectedStore
+                  ? `Binny's ${selectedStore} · ${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}`
+                  : `All Chicagoland locations · ${truckEvents.length} event${truckEvents.length !== 1 ? 's' : ''} · cron runs 4× daily`}
               </p>
             </div>
           </div>
+
+          {/* Store filter bar */}
+          {historyLoaded && storeNames.length > 0 && (
+            <div className="flex items-center gap-2 mb-4">
+              <select
+                value={selectedStore ?? ''}
+                onChange={e => setSelectedStore(e.target.value || null)}
+                className="flex-1 sm:flex-none sm:w-64 bg-[#0f0a05] border border-[#3d2b10] rounded-lg px-3 py-2 text-sm text-[#f5e6cc] focus:outline-none focus:border-[#e8943a] appearance-none cursor-pointer"
+              >
+                <option value="">All Stores ({truckEvents.length} events)</option>
+                {storeNames.map(name => (
+                  <option key={name} value={name}>
+                    {name} ({storeMap[name].length} event{storeMap[name].length !== 1 ? 's' : ''})
+                  </option>
+                ))}
+              </select>
+              {selectedStore && (
+                <button
+                  onClick={() => setSelectedStore(null)}
+                  className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] border border-[#3d2b10] rounded-lg px-3 py-2 transition-colors"
+                >
+                  ✕ Clear
+                </button>
+              )}
+            </div>
+          )}
 
           {!historyLoaded ? (
             <div className="card px-4 py-6 text-center text-sm text-[#6b5030]">
@@ -359,14 +401,18 @@ export default function Home() {
                 curl -H &quot;Authorization: Bearer YOUR_CRON_SECRET&quot; https://whiskey-hunter.vercel.app/api/cron
               </code>
             </div>
+          ) : filteredEvents.length === 0 ? (
+            <div className="card px-4 py-6 text-center text-sm text-[#6b5030]">
+              No truck events recorded for Binny&apos;s {selectedStore} yet.
+            </div>
           ) : (
             <div className="space-y-3">
-              {truckEvents.slice(0, 50).map((event, i) => (
+              {filteredEvents.slice(0, 50).map((event, i) => (
                 <TruckCard key={i} event={event} />
               ))}
-              {truckEvents.length > 50 && (
+              {filteredEvents.length > 50 && (
                 <p className="text-center text-xs text-[#6b5030] py-2">
-                  Showing 50 of {truckEvents.length} events
+                  Showing 50 of {filteredEvents.length} events
                 </p>
               )}
             </div>
