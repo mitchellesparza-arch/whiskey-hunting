@@ -1,5 +1,5 @@
 'use client'
-// v3
+// v4
 import dynamic          from 'next/dynamic'
 import Link             from 'next/link'
 import { useSession }   from 'next-auth/react'
@@ -17,7 +17,7 @@ const FindsMap = dynamic(() => import('./FindsMap.jsx'), { ssr: false, loading: 
 
 function fmtDate(ts) {
   if (!ts) return '—'
-  const d = new Date(ts)
+  const d    = new Date(ts)
   const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   return `${date} at ${time}`
@@ -47,31 +47,40 @@ export default function FindsPage() {
   }, [status, session])
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [finds,       setFinds]       = useState([])
-  const [loading,     setLoading]     = useState(true)
+  const [finds,        setFinds]        = useState([])
+  const [loading,      setLoading]      = useState(true)
 
-  // Form state
-  const [bottleName,  setBottleName]  = useState('')
-  const [upc,         setUpc]         = useState('')
-  const [store,       setStore]       = useState(null)       // { name, address, lat, lng, placeId }
-  const [storeInput,  setStoreInput]  = useState('')
-  const [notes,       setNotes]       = useState('')
-  const [photoFile,   setPhotoFile]   = useState(null)
-  const [photoPreview,setPhotoPreview]= useState(null)
-  const [photoError,  setPhotoError]  = useState(null)
-  const [submitting,  setSubmitting]  = useState(false)
-  const [submitError, setSubmitError] = useState(null)
-  const [submitted,   setSubmitted]   = useState(false)
+  // Form
+  const [bottleName,   setBottleName]   = useState('')
+  const [upc,          setUpc]          = useState('')
+  const [store,        setStore]        = useState(null)       // { name, address, lat, lng, placeId }
+  const [storeInput,   setStoreInput]   = useState('')
+  const [notes,        setNotes]        = useState('')
+  const [photoFile,    setPhotoFile]    = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [photoError,   setPhotoError]   = useState(null)
+  const [submitting,   setSubmitting]   = useState(false)
+  const [submitError,  setSubmitError]  = useState(null)
+  const [submitted,    setSubmitted]    = useState(false)
+
+  // Camera / barcode scanner
+  const [showCamera,   setShowCamera]   = useState(false)
+  const [cameraError,  setCameraError]  = useState(null)
+  const [scanError,    setScanError]    = useState(null)
+
+  // UPC lookup status
+  const [upcLooking,   setUpcLooking]   = useState(false)
+  const [upcStatus,    setUpcStatus]    = useState(null)   // 'found' | 'not-found' | null
 
   // UI
-  const [scanError,   setScanError]   = useState(null)
-  const [view,        setView]        = useState('map')   // 'map' | 'list'
-  const [deletingId,  setDeletingId]  = useState(null)
+  const [view,         setView]         = useState('map')  // 'map' | 'list'
+  const [deletingId,   setDeletingId]   = useState(null)
 
   // Refs
   const storeInputRef   = useRef(null)
   const autocompleteRef = useRef(null)
-  const scanInputRef    = useRef(null)
+  const videoRef        = useRef(null)
+  const readerRef       = useRef(null)
 
   // ── Load finds ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -110,7 +119,6 @@ export default function FindsPage() {
       })
     }
 
-    // Load Google Maps script if not already present
     const scriptId = 'gm-places-script'
     if (!document.getElementById(scriptId) && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
       const script = document.createElement('script')
@@ -120,7 +128,6 @@ export default function FindsPage() {
       script.onload = loadAutocomplete
       document.head.appendChild(script)
     } else {
-      // Script already present; wait for it to be ready
       const check = setInterval(() => {
         if (window.google?.maps?.places) {
           clearInterval(check)
@@ -131,37 +138,90 @@ export default function FindsPage() {
     }
   }, [storeInputRef.current])
 
-  // ── UPC lookup — tries two databases ──────────────────────────────────────
-  async function lookupUpc(code) {
-    if (!code) return
+  // ── Live camera scanning ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!showCamera) return
+    let cancelled = false
 
-    // 1. UPC Item DB — better spirits/whiskey coverage
-    try {
-      const r = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${code}`)
-      if (r.ok) {
-        const d    = await r.json()
-        const name = d?.items?.[0]?.title
-        if (name && !bottleName.trim()) { setBottleName(name); return }
-      }
-    } catch {}
+    async function startScan() {
+      setCameraError(null)
+      try {
+        const { BrowserMultiFormatReader } = await import('@zxing/browser')
+        const reader = new BrowserMultiFormatReader()
+        readerRef.current = reader
 
-    // 2. Open Food Facts — broad fallback
-    try {
-      const r = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`)
-      if (r.ok) {
-        const d    = await r.json()
-        const name = d?.product?.product_name || d?.product?.product_name_en
-        if (name && !bottleName.trim()) setBottleName(name)
+        const devices = await BrowserMultiFormatReader.listVideoInputDevices()
+        const rearCam = devices.find(d => /back|rear|environment/i.test(d.label)) ?? devices[0]
+        if (!rearCam) throw new Error('No camera found on this device')
+
+        let fired = false
+        await reader.decodeFromVideoDevice(
+          rearCam.deviceId,
+          videoRef.current,
+          (result) => {
+            if (result && !fired && !cancelled) {
+              fired = true
+              const code = result.getText()
+              stopCamera()
+              setShowCamera(false)
+              setUpc(code)
+              setScanError(null)
+              lookupUpc(code)
+            }
+          }
+        )
+      } catch (err) {
+        if (!cancelled) setCameraError(err.message || 'Camera unavailable — use a photo instead')
       }
-    } catch {}
+    }
+
+    startScan()
+    return () => {
+      cancelled = true
+      stopCamera()
+    }
+  }, [showCamera])
+
+  // ── Camera helpers ─────────────────────────────────────────────────────────
+  function stopCamera() {
+    try { readerRef.current?.reset(); readerRef.current = null } catch {}
   }
 
-  // ── Barcode scan from image file ───────────────────────────────────────────
+  function closeCamera() {
+    stopCamera()
+    setShowCamera(false)
+    setCameraError(null)
+  }
+
+  // ── UPC lookup via server-side proxy ───────────────────────────────────────
+  async function lookupUpc(code) {
+    if (!code) return
+    setUpcLooking(true)
+    setUpcStatus(null)
+    try {
+      const r = await fetch(`/api/upc?code=${encodeURIComponent(code)}`)
+      const d = await r.json()
+      if (d.name) {
+        setBottleName(prev => prev.trim() ? prev : d.name)
+        setUpcStatus('found')
+      } else {
+        setUpcStatus('not-found')
+      }
+    } catch {
+      setUpcStatus('not-found')
+    } finally {
+      setUpcLooking(false)
+    }
+  }
+
+  // ── Barcode scan from an image file (fallback) ────────────────────────────
   async function handleScanFile(e) {
     const file = e.target.files?.[0]
-    e.target.value = ''   // reset so same file can be re-selected
+    e.target.value = ''   // allow re-selecting same file
     if (!file) return
     setScanError(null)
+    // Close overlay if open (file-picker triggered from inside overlay)
+    if (showCamera) { stopCamera(); setShowCamera(false) }
     try {
       const { BrowserMultiFormatReader } = await import('@zxing/browser')
       const reader = new BrowserMultiFormatReader()
@@ -181,8 +241,7 @@ export default function FindsPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setPhotoFile(file)
-    const url = URL.createObjectURL(file)
-    setPhotoPreview(url)
+    setPhotoPreview(URL.createObjectURL(file))
   }
 
   // ── Submit find ────────────────────────────────────────────────────────────
@@ -195,7 +254,6 @@ export default function FindsPage() {
     setSubmitError(null)
 
     try {
-      // Upload photo first if one was selected
       let photoUrl = null
       setPhotoError(null)
       if (photoFile) {
@@ -222,6 +280,7 @@ export default function FindsPage() {
       // Reset form
       setBottleName('')
       setUpc('')
+      setUpcStatus(null)
       setStore(null)
       setStoreInput('')
       setNotes('')
@@ -248,17 +307,14 @@ export default function FindsPage() {
     setDeletingId(null)
   }
 
-  const isOwner = session?.user?.email?.toLowerCase() === (process.env.NEXT_PUBLIC_OWNER_EMAIL ?? '').toLowerCase()
-    || session?.user?.approved  // anyone approved can delete their own (server enforces nothing here — soft delete)
-
   // ── Render ─────────────────────────────────────────────────────────────────
   if (status === 'loading') return null
 
   const cardStyle = {
-    background: '#1a1a2e',
-    border:     '1px solid #4a3728',
+    background:   '#1a1a2e',
+    border:       '1px solid #4a3728',
     borderRadius: 10,
-    padding: 20,
+    padding:      20,
     marginBottom: 20,
   }
 
@@ -277,6 +333,68 @@ export default function FindsPage() {
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 12px', fontFamily: 'system-ui, sans-serif', color: '#e8d5b7', background: '#0d0d1a', minHeight: '100vh' }}>
+
+      {/* ── Fullscreen camera overlay ─────────────────────────────────────── */}
+      {showCamera && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: '#000',
+          zIndex: 9999,
+          overflow: 'hidden',
+        }}>
+          {/* Live viewfinder — fills entire screen */}
+          <video
+            ref={videoRef}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+            playsInline
+            muted
+          />
+
+          {/* Top bar */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0,
+            padding: '14px 16px',
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            zIndex: 1,
+          }}>
+            <span style={{ color: '#d4a054', fontWeight: 700, fontSize: 16 }}>📷 Scan Barcode</span>
+            <button
+              onClick={closeCamera}
+              style={{ background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer', lineHeight: 1, padding: '4px 8px' }}
+            >✕</button>
+          </div>
+
+          {/* Targeting frame — amber rectangle in center */}
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%',
+            transform: 'translate(-50%, -60%)',
+            width: 260, height: 130,
+            border: '2.5px solid rgba(212,160,84,0.9)',
+            borderRadius: 10,
+            boxShadow: '0 0 0 9999px rgba(0,0,0,0.4)',
+            zIndex: 1,
+          }} />
+
+          {/* Bottom bar */}
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            padding: '20px 20px 40px',
+            background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)',
+            textAlign: 'center', zIndex: 1,
+          }}>
+            {cameraError
+              ? <p style={{ color: '#e87', fontSize: 14, margin: '0 0 16px' }}>{cameraError}</p>
+              : <p style={{ color: '#ccc', fontSize: 14, margin: '0 0 16px' }}>Hold barcode inside the frame</p>
+            }
+            {/* Fallback to image file */}
+            <label style={{ color: '#d4a054', fontSize: 14, cursor: 'pointer', textDecoration: 'underline' }}>
+              Use a saved photo instead
+              <input type="file" accept="image/*" onChange={handleScanFile} style={{ display: 'none' }} />
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -297,7 +415,8 @@ export default function FindsPage() {
         <h2 style={{ margin: '0 0 14px', fontSize: 16, color: '#d4a054' }}>Report a Find</h2>
 
         <form onSubmit={handleSubmit}>
-          {/* Bottle name */}
+
+          {/* Bottle name + barcode button */}
           <label style={labelStyle}>Bottle Name *</label>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
@@ -307,49 +426,44 @@ export default function FindsPage() {
               onChange={e => setBottleName(e.target.value)}
               required
             />
-            {/* Hidden file input — triggered by the 📷 button */}
-            <input
-              ref={scanInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleScanFile}
-              style={{ display: 'none' }}
-            />
             <button
               type="button"
-              onClick={() => scanInputRef.current?.click()}
+              onClick={() => { setScanError(null); setShowCamera(true) }}
               title="Scan barcode"
               style={{
-                padding: '8px 12px',
-                background: '#2d2d2d',
-                border: '1px solid #4a3728',
+                padding:      '8px 12px',
+                background:   '#2d2d2d',
+                border:       '1px solid #4a3728',
                 borderRadius: 5,
-                color: '#d4a054',
-                cursor: 'pointer',
-                fontSize: 18,
-                flexShrink: 0,
+                color:        '#d4a054',
+                cursor:       'pointer',
+                fontSize:     18,
+                flexShrink:   0,
               }}
-            >
-              📷
-            </button>
+            >📷</button>
           </div>
 
-          {/* UPC / scan feedback */}
+          {/* UPC & lookup status */}
           {upc && (
-            <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, color: '#888' }}>UPC: {upc}</span>
+              {upcLooking && (
+                <span style={{ fontSize: 12, color: '#aaa' }}>🔍 Looking up…</span>
+              )}
+              {!upcLooking && upcStatus === 'found' && (
+                <span style={{ fontSize: 12, color: '#6a9' }}>✓ Name filled from barcode</span>
+              )}
+              {!upcLooking && upcStatus === 'not-found' && (
+                <span style={{ fontSize: 12, color: '#fa8' }}>Not in database — enter name above</span>
+              )}
               <button
                 type="button"
-                onClick={() => setUpc('')}
-                style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 12 }}
-              >
-                ✕ clear
-              </button>
+                onClick={() => { setUpc(''); setUpcStatus(null) }}
+                style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 12 }}
+              >✕ clear</button>
             </div>
           )}
-          {scanError && (
-            <p style={{ fontSize: 12, color: '#e87', margin: '4px 0 0' }}>{scanError}</p>
-          )}
+          {scanError && <p style={{ fontSize: 12, color: '#e87', margin: '4px 0 0' }}>{scanError}</p>}
 
           {/* Store search */}
           <label style={labelStyle}>Store Location * (search for the store)</label>
@@ -358,10 +472,7 @@ export default function FindsPage() {
             style={inputStyle}
             placeholder="e.g. Binny's Orland Park…"
             value={storeInput}
-            onChange={e => {
-              setStoreInput(e.target.value)
-              if (!e.target.value) setStore(null)
-            }}
+            onChange={e => { setStoreInput(e.target.value); if (!e.target.value) setStore(null) }}
             autoComplete="off"
           />
           {store && (
@@ -387,21 +498,20 @@ export default function FindsPage() {
           {/* Photo */}
           <label style={labelStyle}>Photo (optional)</label>
           <label style={{
-            display: 'block',
-            background: '#0d0d1a',
-            border: '1px dashed #4a3728',
+            display:      'block',
+            background:   '#0d0d1a',
+            border:       '1px dashed #4a3728',
             borderRadius: 5,
-            padding: '10px',
-            cursor: 'pointer',
-            textAlign: 'center',
-            color: '#888',
-            fontSize: 13,
+            padding:      '10px',
+            cursor:       'pointer',
+            textAlign:    'center',
+            color:        '#888',
+            fontSize:     13,
           }}>
-            {photoPreview ? (
-              <img src={photoPreview} alt="preview" style={{ maxHeight: 120, borderRadius: 4, maxWidth: '100%' }} />
-            ) : (
-              '📸 Tap to attach a photo'
-            )}
+            {photoPreview
+              ? <img src={photoPreview} alt="preview" style={{ maxHeight: 120, borderRadius: 4, maxWidth: '100%' }} />
+              : '📸 Tap to attach a photo'
+            }
             <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: 'none' }} />
           </label>
           {photoFile && (
@@ -409,9 +519,7 @@ export default function FindsPage() {
               type="button"
               onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
               style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 12, marginTop: 4 }}
-            >
-              ✕ Remove photo
-            </button>
+            >✕ Remove photo</button>
           )}
 
           {photoError  && <p style={{ color: '#fa8', fontSize: 12, margin: '6px 0 0' }}>⚠️ {photoError}</p>}
@@ -422,16 +530,16 @@ export default function FindsPage() {
             type="submit"
             disabled={submitting}
             style={{
-              marginTop: 16,
-              width: '100%',
-              padding: '10px 0',
-              background: submitting ? '#555' : '#8B4513',
-              color: '#fff',
-              border: 'none',
+              marginTop:    16,
+              width:        '100%',
+              padding:      '10px 0',
+              background:   submitting ? '#555' : '#8B4513',
+              color:        '#fff',
+              border:       'none',
               borderRadius: 6,
-              cursor: submitting ? 'not-allowed' : 'pointer',
-              fontSize: 15,
-              fontWeight: 600,
+              cursor:       submitting ? 'not-allowed' : 'pointer',
+              fontSize:     15,
+              fontWeight:   600,
             }}
           >
             {submitting ? '⏳ Submitting…' : '📍 Submit Find'}
@@ -451,13 +559,13 @@ export default function FindsPage() {
                 key={v}
                 onClick={() => setView(v)}
                 style={{
-                  padding: '4px 12px',
+                  padding:    '4px 12px',
                   borderRadius: 4,
-                  border: 'none',
-                  cursor: 'pointer',
+                  border:     'none',
+                  cursor:     'pointer',
                   background: view === v ? '#8B4513' : '#2d2d2d',
-                  color: view === v ? '#fff' : '#aaa',
-                  fontSize: 12,
+                  color:      view === v ? '#fff' : '#aaa',
+                  fontSize:   12,
                 }}
               >
                 {v === 'map' ? '🗺 Map' : '📋 List'}
@@ -474,18 +582,16 @@ export default function FindsPage() {
           </p>
         )}
 
-        {!loading && finds.length > 0 && view === 'map' && (
-          <FindsMap finds={finds} />
-        )}
+        {!loading && finds.length > 0 && view === 'map' && <FindsMap finds={finds} />}
 
         {!loading && finds.length > 0 && view === 'list' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {finds.map(find => (
               <div key={find.id} style={{
-                background: '#0d0d1a',
-                border: '1px solid #2d2d2d',
+                background:   '#0d0d1a',
+                border:       '1px solid #2d2d2d',
                 borderRadius: 8,
-                padding: 12,
+                padding:      12,
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
@@ -519,11 +625,11 @@ export default function FindsPage() {
                     title="Remove find"
                     style={{
                       background: 'none',
-                      border: 'none',
-                      color: '#666',
-                      cursor: 'pointer',
-                      fontSize: 16,
-                      padding: '0 0 0 10px',
+                      border:     'none',
+                      color:      '#666',
+                      cursor:     'pointer',
+                      fontSize:   16,
+                      padding:    '0 0 0 10px',
                       flexShrink: 0,
                     }}
                   >
