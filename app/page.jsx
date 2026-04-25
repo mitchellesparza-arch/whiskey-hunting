@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import { hotlineBottles } from '../lib/bottles.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -221,10 +222,13 @@ function StoreActivityCard({ storeName, events, isSelected, onSelect }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [truckEvents,   setTruckEvents]   = useState([])
-  const [historyLoaded, setHistoryLoaded] = useState(false)
-  const [refreshing,    setRefreshing]    = useState(false)
-  const [selectedStore, setSelectedStore] = useState(null)  // null = all stores
+  const { data: session } = useSession()
+
+  const [truckEvents,    setTruckEvents]    = useState([])
+  const [lastCheckedAt,  setLastCheckedAt]  = useState(null)
+  const [historyLoaded,  setHistoryLoaded]  = useState(false)
+  const [refreshing,     setRefreshing]     = useState(false)
+  const [selectedStore,  setSelectedStore]  = useState(null)  // null = all stores
 
   const loadHistory = useCallback(async () => {
     try {
@@ -232,6 +236,7 @@ export default function Home() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setTruckEvents(data.events ?? [])
+      setLastCheckedAt(data.lastCheckedAt ?? null)
     } catch {
       setTruckEvents([])
     } finally {
@@ -281,11 +286,14 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {lastEvent && (
-              <span className="text-xs text-[#9a7c55] hidden sm:block">
-                Last truck: {timeAgo(lastEvent.timestamp)}
-              </span>
-            )}
+            <div className="text-right hidden sm:block leading-snug">
+              {lastCheckedAt && (
+                <p className="text-xs text-[#9a7c55]">Checked {timeAgo(lastCheckedAt)}</p>
+              )}
+              {lastEvent && (
+                <p className="text-xs text-[#6b5030]">Last truck {timeAgo(lastEvent.timestamp)}</p>
+              )}
+            </div>
             <button
               onClick={refresh}
               disabled={refreshing}
@@ -293,6 +301,15 @@ export default function Home() {
             >
               {refreshing ? 'Refreshing…' : 'Refresh'}
             </button>
+            {session?.user && (
+              <button
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                title={session.user.email}
+                className="text-xs text-[#6b5030] hover:text-[#9a7c55] transition-colors border border-[#3d2b10] rounded-lg px-2.5 py-1.5 hidden sm:block"
+              >
+                Sign out
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -325,28 +342,6 @@ export default function Home() {
           </section>
         )}
 
-        {/* ── Distributor Map ── */}
-        <section>
-          <div className="section-header">
-            <span className="text-xl">📋</span>
-            <div>
-              <h2 className="section-title">Distributor Map</h2>
-              <p className="text-xs text-[#9a7c55]">
-                Which truck brings which allocated bottles — use as a reference when a delivery is detected
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {distOrder.map(dist => (
-              <DistributorMapColumn
-                key={dist}
-                distributor={dist}
-                bottles={distMap[dist]}
-              />
-            ))}
-          </div>
-        </section>
-
         {/* ── Truck History ── */}
         <section>
           <div className="section-header">
@@ -356,7 +351,7 @@ export default function Home() {
               <p className="text-xs text-[#9a7c55]">
                 {selectedStore
                   ? `Binny's ${selectedStore} · ${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}`
-                  : `All Chicagoland locations · ${truckEvents.length} event${truckEvents.length !== 1 ? 's' : ''} · cron runs 4× daily`}
+                  : `All Chicagoland locations · ${truckEvents.length} event${truckEvents.length !== 1 ? 's' : ''} · checked 6× daily`}
               </p>
             </div>
           </div>
@@ -419,11 +414,33 @@ export default function Home() {
           )}
         </section>
 
+        {/* ── Distributor Map ── */}
+        <section>
+          <div className="section-header">
+            <span className="text-xl">📋</span>
+            <div>
+              <h2 className="section-title">Distributor Map</h2>
+              <p className="text-xs text-[#9a7c55]">
+                Which truck brings which allocated bottles — use as a reference when a delivery is detected
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {distOrder.map(dist => (
+              <DistributorMapColumn
+                key={dist}
+                distributor={dist}
+                bottles={distMap[dist]}
+              />
+            ))}
+          </div>
+        </section>
+
       </main>
 
       {/* ── Footer ── */}
       <footer className="border-t border-[#2a1a08] mt-16 py-6 text-center text-xs text-[#6b5030]">
-        Whiskey Hunter · Chicagoland Binny's Beverage Depot · Cron runs 4× daily: 7 AM · 11 AM · 3 PM · 7 PM CDT
+        Whiskey Hunter · Chicagoland Binny's Beverage Depot · Checked 6× daily: 7 AM · 9 AM · 11 AM · 1 PM · 3 PM · 5 PM CDT
       </footer>
 
     </div>

@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { getHistory }   from '../../../lib/history.js'
+import { NextResponse }                    from 'next/server'
+import { getHistory, getLastCheckedAt }   from '../../../lib/history.js'
 
 /**
  * GET /api/history
@@ -22,8 +22,8 @@ import { getHistory }   from '../../../lib/history.js'
  */
 export async function GET() {
   try {
-    const events = await getHistory()  // already filtered to truck_detected, 10 per store
-    return NextResponse.json({ events })
+    const [events, lastCheckedAt] = await Promise.all([getHistory(), getLastCheckedAt()])
+    return NextResponse.json({ events, lastCheckedAt })
   } catch (err) {
     console.error('[history] GET error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
