@@ -65,7 +65,7 @@ export default function FindsPage() {
 
   // UI
   const [showScanner, setShowScanner] = useState(false)
-  const [lookingUpUpc,setLookingUpUpc]= useState(false)
+  const [lookingUpUpc,setLookingUpUpc]= useState(false) // eslint-disable-line no-unused-vars
   const [view,        setView]        = useState('map')   // 'map' | 'list'
   const [deletingId,  setDeletingId]  = useState(null)
 
@@ -304,7 +304,6 @@ export default function FindsPage() {
           {upc && (
             <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center' }}>
               <span style={{ fontSize: 12, color: '#888' }}>UPC: {upc}</span>
-              {lookingUpUpc && <span style={{ fontSize: 11, color: '#aaa' }}>⏳ Looking up…</span>}
               <button
                 type="button"
                 onClick={() => setUpc('')}

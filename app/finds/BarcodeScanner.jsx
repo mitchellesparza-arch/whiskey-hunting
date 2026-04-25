@@ -67,11 +67,13 @@ export default function BarcodeScanner({ onResult, onClose }) {
 
       if (!rearCam) throw new Error('No camera found')
 
+      let fired = false   // guard against multiple callbacks before reset settles
       await reader.decodeFromVideoDevice(
         rearCam.deviceId,
         videoRef.current,
         (result, err) => {
-          if (result) {
+          if (result && !fired) {
+            fired = true
             stopCamera()
             setScanning(false)
             onResult(result.getText())
