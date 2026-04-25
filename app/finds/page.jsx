@@ -144,20 +144,23 @@ export default function FindsPage() {
     let cancelled = false
 
     async function startScan() {
+      // Capture ref before any await — prevents stale-ref issues after async import
+      const videoEl = videoRef.current
+      if (!videoEl) return
       setCameraError(null)
       try {
         const { BrowserMultiFormatReader } = await import('@zxing/browser')
+        if (cancelled) return
         const reader = new BrowserMultiFormatReader()
         readerRef.current = reader
 
-        const devices = await BrowserMultiFormatReader.listVideoInputDevices()
-        const rearCam = devices.find(d => /back|rear|environment/i.test(d.label)) ?? devices[0]
-        if (!rearCam) throw new Error('No camera found on this device')
-
+        // decodeFromConstraints is more reliable than listVideoInputDevices:
+        // it directly calls getUserMedia({ video: { facingMode } }) and works
+        // even before the user has granted camera permissions.
         let fired = false
-        await reader.decodeFromVideoDevice(
-          rearCam.deviceId,
-          videoRef.current,
+        await reader.decodeFromConstraints(
+          { video: { facingMode: { ideal: 'environment' } } },
+          videoEl,
           (result) => {
             if (result && !fired && !cancelled) {
               fired = true
