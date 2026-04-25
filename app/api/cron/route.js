@@ -33,7 +33,7 @@ function hotlineCheckList(distributor) {
 /**
  * GET /api/cron
  *
- * Runs 4× per day via Vercel Cron (see vercel.json: 7 AM, 11 AM, 3 PM, 7 PM CDT).
+ * Runs 6× per day via Vercel Cron (see vercel.json: 7 AM, 9 AM, 11 AM, 1 PM, 3 PM, 5 PM CDT).
  * Protected by CRON_SECRET Bearer token.
  *
  * Manual trigger:
