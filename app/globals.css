@@ -18,6 +18,40 @@
   box-sizing: border-box;
 }
 
+/* Fix Google Maps Places autocomplete dropdown — Tailwind preflight sets
+   img { max-width: 100% } which collapses the small icons inside .pac-container */
+.pac-container {
+  z-index: 9999 !important;
+  background: #1a1208;
+  border: 1px solid #4a3728;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  font-family: system-ui, sans-serif;
+}
+.pac-item {
+  color: #e8d5b7;
+  border-top: 1px solid #2d2010;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.pac-item:hover,
+.pac-item-selected {
+  background: #2d1a08;
+}
+.pac-item-query {
+  color: #d4a054;
+  font-size: 13px;
+}
+.pac-matched {
+  font-weight: 700;
+}
+.pac-container img,
+.pac-icon {
+  max-width: none !important;
+  width: 15px;
+  height: 20px;
+}
+
 body {
   background-color: var(--bg-base);
   color: var(--text-primary);
