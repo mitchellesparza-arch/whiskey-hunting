@@ -3,8 +3,38 @@ HTML report generator and JSON export for Unicorn Auctions whiskey bargains.
 """
 
 import json
+import os
+import urllib.request
+import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
+
+REDIS_KEY = "wh:unicorn:deals"
+
+
+def _push_to_redis(export: dict) -> None:
+    """Push the deals export blob to Upstash Redis via REST API."""
+    url   = os.getenv("UPSTASH_REDIS_REST_URL", "").rstrip("/")
+    token = os.getenv("UPSTASH_REDIS_REST_TOKEN", "")
+    if not (url and token):
+        print("Redis not configured — skipping push (set UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN)")
+        return
+    try:
+        payload = json.dumps(["SET", REDIS_KEY, json.dumps(export)]).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            result = json.loads(resp.read())
+            print(f"Redis push OK: {result}")
+    except Exception as exc:
+        print(f"Warning: Redis push failed: {exc}")
 
 REPORT_PATH = Path(__file__).parent / "weekly_report.html"
 JSON_PATH   = Path(__file__).parent / "latest_deals.json"
@@ -320,4 +350,5 @@ def write_json_export(listings: list[dict], run_id: int, total_lots: int) -> Pat
     }
 
     JSON_PATH.write_text(json.dumps(export, indent=2), encoding="utf-8")
+    _push_to_redis(export)
     return JSON_PATH

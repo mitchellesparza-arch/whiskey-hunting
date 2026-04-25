@@ -1,8 +1,42 @@
 import { NextResponse } from 'next/server'
 import path from 'path'
-import fs from 'fs'
+import fs   from 'fs'
 
+const REDIS_KEY = 'wh:unicorn:deals'
 const JSON_PATH = path.join(process.cwd(), 'unicorn_scraper', 'latest_deals.json')
+
+async function loadFromRedis() {
+  const url   = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  if (!url || !token) return null
+  try {
+    const res = await fetch(`${url.replace(/\/$/, '')}/get/${REDIS_KEY}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache:   'no-store',
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    if (!json.result) return null
+    return typeof json.result === 'string' ? JSON.parse(json.result) : json.result
+  } catch (err) {
+    console.warn('[unicorn-deals] Redis fetch failed:', err.message)
+    return null
+  }
+}
+
+async function loadData() {
+  // 1. Try Redis (populated hourly by GitHub Actions)
+  const redisData = await loadFromRedis()
+  if (redisData) return redisData
+
+  // 2. Fall back to committed JSON snapshot
+  if (!fs.existsSync(JSON_PATH)) return null
+  try {
+    return JSON.parse(fs.readFileSync(JSON_PATH, 'utf-8'))
+  } catch {
+    return null
+  }
+}
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
@@ -11,23 +45,17 @@ export async function GET(request) {
   const minBid   = parseFloat(searchParams.get('minBid') ?? '0')
   const sort     = searchParams.get('sort') ?? 'discount'  // 'discount' | 'closing'
 
-  if (!fs.existsSync(JSON_PATH)) {
+  const data = await loadData()
+
+  if (!data) {
     return NextResponse.json(
       { error: 'No scrape data yet. Run the scraper first: python scraper.py --now' },
       { status: 404 }
     )
   }
 
-  let data
-  try {
-    data = JSON.parse(fs.readFileSync(JSON_PATH, 'utf-8'))
-  } catch {
-    return NextResponse.json({ error: 'Failed to parse deals data' }, { status: 500 })
-  }
-
   let deals = data.deals ?? []
 
-  // Apply filters
   if (category) {
     deals = deals.filter(d => d.category === category)
   }
@@ -35,7 +63,6 @@ export async function GET(request) {
     deals = deals.filter(d => (d.current_bid ?? 0) >= minBid)
   }
 
-  // Apply sort
   if (sort === 'closing') {
     deals = [...deals].sort((a, b) => {
       const aTime = a.end_datetime ? new Date(a.end_datetime).getTime() : Infinity
@@ -43,15 +70,14 @@ export async function GET(request) {
       return aTime - bTime
     })
   }
-  // default sort (discount) is already applied by the scraper
 
   return NextResponse.json({
-    scraped_at:            data.scraped_at,
-    run_id:                data.run_id,
-    total_lots:            data.total_lots,
-    total_with_discount:   data.total_with_discount,
-    category_counts:       data.category_counts,
-    deals:                 deals.slice(0, limit),
-    total_filtered:        deals.length,
+    scraped_at:           data.scraped_at,
+    run_id:               data.run_id,
+    total_lots:           data.total_lots,
+    total_with_discount:  data.total_with_discount,
+    category_counts:      data.category_counts,
+    deals:                deals.slice(0, limit),
+    total_filtered:       deals.length,
   })
 }

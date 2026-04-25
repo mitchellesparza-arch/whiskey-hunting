@@ -1,0 +1,48 @@
+name: Unicorn Auctions Scraper
+
+on:
+  # Sunday noon–11 PM CDT (CDT = UTC-5)
+  # 12 PM–6 PM CDT  → 17:00–23:00 UTC Sunday
+  #  7 PM–11 PM CDT →  0:00–04:00 UTC Monday
+  schedule:
+    - cron: '0 17-23 * * 0'   # noon–6 PM CDT (Sunday UTC)
+    - cron: '0 0-4   * * 1'   # 7 PM–11 PM CDT (Monday UTC)
+
+  # Also run on-demand from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    name: Scrape & push to Redis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      UPSTASH_REDIS_REST_URL:   ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: unicorn_scraper/requirements.txt
+
+      - name: Install Python dependencies
+        working-directory: unicorn_scraper
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        working-directory: unicorn_scraper
+        run: playwright install chromium --with-deps
+
+      - name: Run scraper
+        working-directory: unicorn_scraper
+        run: python scraper.py --now
+
+      - name: Confirm Redis push
+        run: echo "Scrape complete — deals pushed to Redis key wh:unicorn:deals"
