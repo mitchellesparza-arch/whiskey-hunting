@@ -25,6 +25,6 @@ export async function proxy(req) {
 }
 
 export const config = {
-  // Only run on page routes — exclude API, auth, static assets, login, pending
-  matcher: ['/((?!api|_next/static|_next/image|favicon\\.ico|login|pending).*)'],
+  // Only run on the main tracker — exclude API, static assets, and standalone pages
+  matcher: ['/((?!api|_next/static|_next/image|favicon\\.ico|login|pending|unicorn).*)'],
 }
