@@ -378,7 +378,7 @@ export default function FindsPage() {
             ) : (
               '📸 Tap to attach a photo'
             )}
-            <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} style={{ display: 'none' }} />
+            <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: 'none' }} />
           </label>
           {photoFile && (
             <button
