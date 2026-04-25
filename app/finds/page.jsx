@@ -471,7 +471,6 @@ export default function FindsPage() {
                     <div style={{ fontSize: 11, color: '#666' }}>
                       {fmtDate(find.timestamp)}
                       {find.timestamp && <span> · {fmtTimeAgo(find.timestamp)}</span>}
-                      {' · '}{find.submitterName ?? '—'}
                     </div>
                     {find.notes && (
                       <div style={{ fontSize: 12, color: '#aaa', fontStyle: 'italic', marginTop: 4 }}>

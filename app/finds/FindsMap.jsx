@@ -110,7 +110,7 @@ export default function FindsMap({ finds }) {
           </div>
           ${find.store?.address ? `<div style="font-size:11px;color:#777;margin-bottom:4px">${escHtml(find.store.address)}</div>` : ''}
           <div style="font-size:11px;color:#888;margin-bottom:4px">
-            Reported ${date} by ${escHtml(find.submitterName ?? '—')}
+            Reported ${date}
           </div>
           ${find.notes ? `<div style="font-size:12px;color:#333;font-style:italic">"${escHtml(find.notes)}"</div>` : ''}
           ${find.photoUrl ? `<img src="${escHtml(find.photoUrl)}" style="width:100%;border-radius:4px;margin-top:6px" />` : ''}
