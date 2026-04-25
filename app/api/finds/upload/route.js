@@ -35,7 +35,9 @@ export async function POST(request) {
     const ext      = file.name?.split('.').pop() || 'jpg'
     const filename = `finds/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
-    const blob = await put(filename, file.stream(), {
+    // Use arrayBuffer — more reliable than .stream() in serverless environments
+    const buffer = await file.arrayBuffer()
+    const blob   = await put(filename, buffer, {
       access:      'public',
       contentType: file.type || 'image/jpeg',
     })

@@ -59,6 +59,7 @@ export default function FindsPage() {
   const [notes,       setNotes]       = useState('')
   const [photoFile,   setPhotoFile]   = useState(null)
   const [photoPreview,setPhotoPreview]= useState(null)
+  const [photoError,  setPhotoError]  = useState(null)
   const [submitting,  setSubmitting]  = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [submitted,   setSubmitted]   = useState(false)
@@ -173,15 +174,17 @@ export default function FindsPage() {
     try {
       // Upload photo first if one was selected
       let photoUrl = null
+      setPhotoError(null)
       if (photoFile) {
         const fd = new FormData()
         fd.append('file', photoFile)
-        const upRes = await fetch('/api/finds/upload', { method: 'POST', body: fd })
+        const upRes  = await fetch('/api/finds/upload', { method: 'POST', body: fd })
+        const upData = await upRes.json()
         if (upRes.ok) {
-          const upData = await upRes.json()
           photoUrl = upData.url ?? null
+        } else {
+          setPhotoError(`Photo upload failed: ${upData.error ?? upRes.status}. Find will be saved without photo.`)
         }
-        // Non-fatal — proceed without photo if upload fails
       }
 
       const res = await fetch('/api/finds', {
@@ -387,6 +390,7 @@ export default function FindsPage() {
             </button>
           )}
 
+          {photoError  && <p style={{ color: '#fa8', fontSize: 12, margin: '6px 0 0' }}>⚠️ {photoError}</p>}
           {submitError && <p style={{ color: '#e87', fontSize: 13, margin: '10px 0 0' }}>{submitError}</p>}
           {submitted   && <p style={{ color: '#6a9', fontSize: 13, margin: '10px 0 0' }}>✓ Find submitted!</p>}
 
