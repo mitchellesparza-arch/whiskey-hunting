@@ -1,11 +1,10 @@
 'use client'
-// v2
+// v3
 import dynamic          from 'next/dynamic'
 import Link             from 'next/link'
 import { useSession }   from 'next-auth/react'
 import { useRouter }    from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import BarcodeScanner   from './BarcodeScanner.jsx'
 
 // Leaflet map — SSR disabled (window is required)
 const FindsMap = dynamic(() => import('./FindsMap.jsx'), { ssr: false, loading: () => (
@@ -65,14 +64,14 @@ export default function FindsPage() {
   const [submitted,   setSubmitted]   = useState(false)
 
   // UI
-  const [showScanner, setShowScanner] = useState(false)
-  const [lookingUpUpc,setLookingUpUpc]= useState(false) // eslint-disable-line no-unused-vars
+  const [scanError,   setScanError]   = useState(null)
   const [view,        setView]        = useState('map')   // 'map' | 'list'
   const [deletingId,  setDeletingId]  = useState(null)
 
-  // Refs for Google Places
+  // Refs
   const storeInputRef   = useRef(null)
   const autocompleteRef = useRef(null)
+  const scanInputRef    = useRef(null)
 
   // ── Load finds ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -132,25 +131,49 @@ export default function FindsPage() {
     }
   }, [storeInputRef.current])
 
-  // ── UPC lookup ─────────────────────────────────────────────────────────────
+  // ── UPC lookup — tries two databases ──────────────────────────────────────
   async function lookupUpc(code) {
     if (!code) return
-    setLookingUpUpc(true)
+
+    // 1. UPC Item DB — better spirits/whiskey coverage
     try {
-      const r = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`)
-      const d = await r.json()
-      const name = d?.product?.product_name || d?.product?.product_name_en
-      if (name && !bottleName.trim()) {
-        setBottleName(name)
+      const r = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${code}`)
+      if (r.ok) {
+        const d    = await r.json()
+        const name = d?.items?.[0]?.title
+        if (name && !bottleName.trim()) { setBottleName(name); return }
       }
     } catch {}
-    setLookingUpUpc(false)
+
+    // 2. Open Food Facts — broad fallback
+    try {
+      const r = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`)
+      if (r.ok) {
+        const d    = await r.json()
+        const name = d?.product?.product_name || d?.product?.product_name_en
+        if (name && !bottleName.trim()) setBottleName(name)
+      }
+    } catch {}
   }
 
-  function handleBarcodeResult(code) {
-    setUpc(code)
-    setShowScanner(false)
-    lookupUpc(code)
+  // ── Barcode scan from image file ───────────────────────────────────────────
+  async function handleScanFile(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''   // reset so same file can be re-selected
+    if (!file) return
+    setScanError(null)
+    try {
+      const { BrowserMultiFormatReader } = await import('@zxing/browser')
+      const reader = new BrowserMultiFormatReader()
+      const url    = URL.createObjectURL(file)
+      const result = await reader.decodeFromImageUrl(url)
+      URL.revokeObjectURL(url)
+      const code = result.getText()
+      setUpc(code)
+      lookupUpc(code)
+    } catch {
+      setScanError('No barcode found — try a clearer photo or type the name manually.')
+    }
   }
 
   // ── Photo selection ────────────────────────────────────────────────────────
@@ -284,13 +307,21 @@ export default function FindsPage() {
               onChange={e => setBottleName(e.target.value)}
               required
             />
+            {/* Hidden file input — triggered by the 📷 button */}
+            <input
+              ref={scanInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleScanFile}
+              style={{ display: 'none' }}
+            />
             <button
               type="button"
-              onClick={() => setShowScanner(s => !s)}
+              onClick={() => scanInputRef.current?.click()}
               title="Scan barcode"
               style={{
                 padding: '8px 12px',
-                background: showScanner ? '#8B4513' : '#2d2d2d',
+                background: '#2d2d2d',
                 border: '1px solid #4a3728',
                 borderRadius: 5,
                 color: '#d4a054',
@@ -299,11 +330,11 @@ export default function FindsPage() {
                 flexShrink: 0,
               }}
             >
-              {showScanner ? '✕' : '📷'}
+              📷
             </button>
           </div>
 
-          {/* UPC / barcode */}
+          {/* UPC / scan feedback */}
           {upc && (
             <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center' }}>
               <span style={{ fontSize: 12, color: '#888' }}>UPC: {upc}</span>
@@ -316,15 +347,8 @@ export default function FindsPage() {
               </button>
             </div>
           )}
-
-          {/* Barcode scanner panel */}
-          {showScanner && (
-            <div style={{ marginTop: 10 }}>
-              <BarcodeScanner
-                onResult={handleBarcodeResult}
-                onClose={() => setShowScanner(false)}
-              />
-            </div>
+          {scanError && (
+            <p style={{ fontSize: 12, color: '#e87', margin: '4px 0 0' }}>{scanError}</p>
           )}
 
           {/* Store search */}
