@@ -301,6 +301,12 @@ export default function Home() {
             >
               🦄 Auctions
             </Link>
+            <Link
+              href="/finds"
+              className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] transition-colors border border-[#3d2b10] rounded-lg px-2.5 py-1.5 hidden sm:block"
+            >
+              📍 Finds
+            </Link>
             <button
               onClick={refresh}
               disabled={refreshing}

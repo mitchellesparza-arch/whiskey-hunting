@@ -1,0 +1,76 @@
+import { NextResponse }          from 'next/server'
+import { getToken }              from 'next-auth/jwt'
+import { getFinds, addFind, removeFind } from '../../../lib/finds.js'
+
+/**
+ * GET /api/finds
+ * Returns all finds, newest first. Public read.
+ */
+export async function GET() {
+  try {
+    const finds = await getFinds()
+    return NextResponse.json({ finds })
+  } catch (err) {
+    console.error('[finds] GET error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+/**
+ * POST /api/finds
+ * Requires auth + approval.
+ * Body: { bottleName, upc?, store, photoUrl?, notes? }
+ */
+export async function POST(request) {
+  try {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+    if (!token)          return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
+    if (!token.approved) return NextResponse.json({ error: 'Not approved' },    { status: 403 })
+
+    const body = await request.json()
+    const { bottleName, upc, store, photoUrl, notes } = body
+
+    if (!bottleName?.trim()) {
+      return NextResponse.json({ error: 'bottleName is required' }, { status: 400 })
+    }
+    if (!store?.name || store?.lat == null || store?.lng == null) {
+      return NextResponse.json({ error: 'store with name, lat, lng is required' }, { status: 400 })
+    }
+
+    const entry = await addFind({
+      bottleName,
+      upc:           upc           || null,
+      store,
+      photoUrl:      photoUrl      || null,
+      notes:         notes         || null,
+      submittedBy:   token.email,
+      submitterName: token.name ?? token.email,
+    })
+    return NextResponse.json({ ok: true, find: entry })
+  } catch (err) {
+    console.error('[finds] POST error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+/**
+ * DELETE /api/finds?id=xxx
+ * Requires auth + approval.
+ */
+export async function DELETE(request) {
+  try {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+    if (!token)          return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
+    if (!token.approved) return NextResponse.json({ error: 'Not approved' },    { status: 403 })
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
+
+    const finds = await removeFind(id)
+    return NextResponse.json({ ok: true, finds })
+  } catch (err) {
+    console.error('[finds] DELETE error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}

@@ -297,11 +297,18 @@ export default function UnicornPage() {
 
       {/* ── Back nav ── */}
       <div>
-        <Link href="/"
-          style={{ color: '#9a7c55', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-        >
-          ← Whiskey Hunter
-        </Link>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <Link href="/"
+            style={{ color: '#9a7c55', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
+            ← Whiskey Hunter
+          </Link>
+          <Link href="/finds"
+            style={{ color: '#9a7c55', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
+            📍 Finds
+          </Link>
+        </div>
       </div>
 
       {/* ── Header ── */}
