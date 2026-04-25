@@ -278,7 +278,8 @@ export default function Home() {
       {/* ── Header ── */}
       <header className="border-b border-[#3d2b10] sticky top-0 z-10 backdrop-blur-sm"
               style={{ background: 'rgba(15,10,5,0.92)' }}>
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+        {/* Main header row */}
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🥃</span>
             <div>
@@ -295,6 +296,7 @@ export default function Home() {
                 <p className="text-xs text-[#6b5030]">Last truck {timeAgo(lastEvent.timestamp)}</p>
               )}
             </div>
+            {/* Desktop-only nav links */}
             <Link
               href="/unicorn"
               className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] transition-colors border border-[#3d2b10] rounded-lg px-2.5 py-1.5 hidden sm:block"
@@ -319,6 +321,38 @@ export default function Home() {
                 onClick={() => signOut({ callbackUrl: '/login' })}
                 title={session.user.email}
                 className="text-xs text-[#6b5030] hover:text-[#9a7c55] transition-colors border border-[#3d2b10] rounded-lg px-2.5 py-1.5 hidden sm:block"
+              >
+                Sign out
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile-only nav strip — visible only on portrait/small screens */}
+        <div className="sm:hidden border-t border-[#3d2b10] px-4 py-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Link
+              href="/unicorn"
+              className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] transition-colors border border-[#3d2b10] rounded-lg px-3 py-1.5"
+            >
+              🦄 Auctions
+            </Link>
+            <Link
+              href="/finds"
+              className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] transition-colors border border-[#3d2b10] rounded-lg px-3 py-1.5"
+            >
+              📍 Finds
+            </Link>
+          </div>
+          <div className="flex items-center gap-3">
+            {lastCheckedAt && (
+              <p className="text-xs text-[#9a7c55]">Checked {timeAgo(lastCheckedAt)}</p>
+            )}
+            {session?.user && (
+              <button
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                title={session.user.email}
+                className="text-xs text-[#6b5030] hover:text-[#9a7c55] transition-colors"
               >
                 Sign out
               </button>
