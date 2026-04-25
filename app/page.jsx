@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
+import Link from 'next/link'
 import { hotlineBottles } from '../lib/bottles.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -294,6 +295,12 @@ export default function Home() {
                 <p className="text-xs text-[#6b5030]">Last truck {timeAgo(lastEvent.timestamp)}</p>
               )}
             </div>
+            <Link
+              href="/unicorn"
+              className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] transition-colors border border-[#3d2b10] rounded-lg px-2.5 py-1.5 hidden sm:block"
+            >
+              🦄 Auctions
+            </Link>
             <button
               onClick={refresh}
               disabled={refreshing}
