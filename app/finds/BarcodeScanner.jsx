@@ -148,7 +148,6 @@ export default function BarcodeScanner({ onResult, onClose }) {
             <input
               type="file"
               accept="image/*"
-              capture="environment"
               onChange={handleImageFile}
               style={{ display: 'none' }}
               disabled={scanning}
