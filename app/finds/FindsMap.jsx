@@ -100,7 +100,7 @@ export default function FindsMap({ finds }) {
           })()
         : '—'
 
-      const popup = L.popup({ maxWidth: 260 }).setContent(`
+      const popup = L.popup({ maxWidth: find.photoUrl ? 300 : 260 }).setContent(`
         <div style="font-family:system-ui;color:#111;line-height:1.4">
           <div style="font-weight:700;font-size:14px;margin-bottom:4px">
             🥃 ${escHtml(find.bottleName)}
