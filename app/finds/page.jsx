@@ -18,7 +18,10 @@ const FindsMap = dynamic(() => import('./FindsMap.jsx'), { ssr: false, loading: 
 
 function fmtDate(ts) {
   if (!ts) return '—'
-  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const d = new Date(ts)
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${date} at ${time}`
 }
 
 function fmtTimeAgo(ts) {

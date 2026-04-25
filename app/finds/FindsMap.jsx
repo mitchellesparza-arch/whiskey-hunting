@@ -94,7 +94,10 @@ export default function FindsMap({ finds }) {
       })
 
       const date = find.timestamp
-        ? new Date(find.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        ? (() => {
+            const d = new Date(find.timestamp)
+            return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          })()
         : '—'
 
       const popup = L.popup({ maxWidth: 260 }).setContent(`
