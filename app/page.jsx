@@ -7,6 +7,12 @@ import { hotlineBottles } from '../lib/bottles.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function fmtDate(str) {
+  if (!str) return '—'
+  const [y, m, d] = str.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 function timeAgo(iso) {
   if (!iso) return null
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
@@ -231,6 +237,14 @@ export default function Home() {
   const [refreshing,     setRefreshing]     = useState(false)
   const [selectedStore,  setSelectedStore]  = useState(null)  // null = all stores
 
+  // My Collection state
+  const [collection,       setCollection]       = useState([])
+  const [collectionLoaded, setCollectionLoaded] = useState(false)
+  const [newBottleName,    setNewBottleName]    = useState('')
+  const [newBottleDate,    setNewBottleDate]    = useState('')
+  const [newBottleStore,   setNewBottleStore]   = useState("Binny's Orland Park")
+  const [addingBottle,     setAddingBottle]     = useState(false)
+
   const loadHistory = useCallback(async () => {
     try {
       const res  = await fetch('/api/history')
@@ -247,11 +261,51 @@ export default function Home() {
 
   useEffect(() => { loadHistory() }, [loadHistory])
 
+  // Load collection on mount
+  useEffect(() => {
+    fetch('/api/collection')
+      .then(r => r.json())
+      .then(d => setCollection(d.collection ?? []))
+      .catch(() => {})
+      .finally(() => setCollectionLoaded(true))
+  }, [])
+
   const refresh = useCallback(async () => {
     setRefreshing(true)
     await loadHistory()
     setRefreshing(false)
   }, [loadHistory])
+
+  // Collection handlers
+  async function addBottle(e) {
+    e.preventDefault()
+    if (!newBottleName.trim()) return
+    setAddingBottle(true)
+    try {
+      const res  = await fetch('/api/collection', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          name:        newBottleName.trim(),
+          purchasedAt: newBottleDate  || null,
+          store:       newBottleStore || null,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setCollection(prev => [data.entry, ...prev])
+        setNewBottleName('')
+        setNewBottleDate('')
+      }
+    } catch {}
+    setAddingBottle(false)
+  }
+
+  async function removeBottle(id) {
+    const res  = await fetch(`/api/collection?id=${id}`, { method: 'DELETE' })
+    const data = await res.json()
+    if (res.ok) setCollection(data.collection)
+  }
 
   // Distributor map (static, derived from hotlineBottles)
   const { map: distMap, order: distOrder } = buildDistributorMap()
@@ -448,6 +502,146 @@ export default function Home() {
               )}
             </div>
           )}
+        </section>
+
+        {/* ── My Collection ── */}
+        <section>
+          <div className="section-header">
+            <span className="text-xl">🥃</span>
+            <div>
+              <h2 className="section-title">
+                My Collection
+                {collectionLoaded && collection.length > 0 && (
+                  <span style={{ fontSize: 13, fontWeight: 500, color: '#9a7c55', marginLeft: 8 }}>
+                    {collection.length} bottle{collection.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </h2>
+              <p className="text-xs text-[#9a7c55]">Bottles you've personally acquired</p>
+            </div>
+          </div>
+
+          <div className="card p-5 mb-4">
+            <form onSubmit={addBottle}>
+              {/* Name row */}
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
+                  Bottle Name
+                </label>
+                <input
+                  value={newBottleName}
+                  onChange={e => setNewBottleName(e.target.value)}
+                  placeholder="e.g. Blanton's Original"
+                  style={{
+                    width: '100%', padding: '9px 12px', boxSizing: 'border-box',
+                    background: 'var(--bg-base)', border: '1px solid var(--border)',
+                    borderRadius: 8, color: 'var(--text-primary)', fontSize: 14,
+                    outline: 'none', fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              {/* Date + Store row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
+                    Purchase Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newBottleDate}
+                    onChange={e => setNewBottleDate(e.target.value)}
+                    style={{
+                      width: '100%', padding: '9px 12px', boxSizing: 'border-box',
+                      background: 'var(--bg-base)', border: '1px solid var(--border)',
+                      borderRadius: 8, color: newBottleDate ? 'var(--text-primary)' : 'var(--text-muted)',
+                      fontSize: 14, outline: 'none', fontFamily: 'inherit', colorScheme: 'dark',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
+                    Store
+                  </label>
+                  <input
+                    value={newBottleStore}
+                    onChange={e => setNewBottleStore(e.target.value)}
+                    placeholder="e.g. Binny's Orland Park"
+                    style={{
+                      width: '100%', padding: '9px 12px', boxSizing: 'border-box',
+                      background: 'var(--bg-base)', border: '1px solid var(--border)',
+                      borderRadius: 8, color: 'var(--text-primary)', fontSize: 14,
+                      outline: 'none', fontFamily: 'inherit',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={addingBottle || !newBottleName.trim()}
+                className="btn-primary"
+                style={{ width: '100%' }}
+              >
+                {addingBottle ? 'Adding…' : '+ Add to Collection'}
+              </button>
+            </form>
+          </div>
+
+          {/* Collection list */}
+          <div className="card">
+            {!collectionLoaded && (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                Loading…
+              </div>
+            )}
+            {collectionLoaded && collection.length === 0 && (
+              <div style={{ padding: '28px 20px', textAlign: 'center', color: '#6b5030', fontSize: 13, lineHeight: 1.6 }}>
+                No bottles yet — add your first one above
+              </div>
+            )}
+            {collectionLoaded && collection.length > 0 && (
+              <div>
+                {collection.map((entry, i) => (
+                  <div
+                    key={entry.id}
+                    style={{
+                      display:     'flex',
+                      alignItems:  'center',
+                      gap:         12,
+                      padding:     '11px 20px',
+                      borderBottom: i < collection.length - 1 ? '1px solid var(--border)' : 'none',
+                    }}
+                  >
+                    {/* Bottle name */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {entry.name}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                        {fmtDate(entry.purchasedAt)}
+                        {entry.store && (
+                          <span style={{ marginLeft: 6, opacity: 0.7 }}>· {entry.store}</span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Remove */}
+                    <button
+                      onClick={() => removeBottle(entry.id)}
+                      title="Remove"
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: '#6b5030', fontSize: 16, padding: '0 2px', lineHeight: 1,
+                        flexShrink: 0,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
 
         {/* ── Distributor Map ── */}
