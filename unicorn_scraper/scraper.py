@@ -2,12 +2,14 @@
 Unicorn Auctions whiskey bargain scraper.
 
 Architecture:
-  - Direct HTTP: GraphQL API at graphql.beta.unicornauctions.com for all data
-                 (active auction discovery + lot fetching, no browser needed)
+  - Playwright: navigates /auctions to bypass anti-bot protection and collect
+                active auction UUIDs (age gate + JS rendering)
+  - Direct HTTP: GraphQL API at graphql.beta.unicornauctions.com for all lot
+                 data (fast paginated queries, no per-page navigation)
 
 Usage:
     python scraper.py --now          # Run immediately
-    python scraper.py --debug        # Verbose logging
+    python scraper.py --debug        # Verbose logging + screenshots
     python scraper.py --report-only  # Re-generate report from last DB run
 """
 
@@ -26,6 +28,8 @@ from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+
+from playwright.async_api import async_playwright, Page, TimeoutError as PWTimeout
 
 try:
     from dotenv import load_dotenv
@@ -52,8 +56,17 @@ WHISKEY_CATEGORIES = {
     "Taiwanese", "Indian", "Australian", "Distilled Spirits",
 }
 
-GQL_BATCH_SIZE = 100   # lots per GraphQL page
-DELAY_SECONDS  = 0.5   # polite delay between GQL pages
+GQL_BATCH_SIZE   = 100   # lots per GraphQL page
+DELAY_SECONDS    = 0.5   # polite delay between GQL pages
+PW_DELAY_SECONDS = 2.0   # delay after page load before scraping links
+
+DEBUG = False
+SCREENSHOTS_DIR = Path(__file__).parent / "debug_screenshots"
+
+_UUID_RE = re.compile(
+    r'/auction/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}'
+    r'-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})',
+)
 
 # ── GraphQL query ─────────────────────────────────────────────────────────────
 SEARCH_LOTS_QUERY = """
@@ -153,31 +166,117 @@ def _section_from_tag(tag_status: str | None) -> str:
     return "General"
 
 
-# ── auction discovery via GraphQL ─────────────────────────────────────────────
+async def _screenshot(page: Page, name: str) -> None:
+    if not DEBUG:
+        return
+    SCREENSHOTS_DIR.mkdir(exist_ok=True)
+    path = SCREENSHOTS_DIR / f"{name}_{int(time.time())}.png"
+    await page.screenshot(path=str(path), full_page=False)
+    log.debug("Screenshot: %s", path)
 
-def _get_active_auction_uuids() -> list[dict]:
+
+async def _dismiss_age_gate(page: Page) -> None:
+    for sel in [
+        'button:text("YES")', 'button:text("Yes")',
+        'button:text("I am 21")', 'button:text("Enter")',
+        'a:text("YES")', 'a:text("Yes")',
+        '[class*="age"] button', '[class*="modal"] button:last-child',
+    ]:
+        try:
+            el = page.locator(sel).first
+            if await el.is_visible(timeout=1500):
+                await el.click()
+                log.info("Age gate dismissed")
+                await asyncio.sleep(1)
+                return
+        except Exception:
+            continue
+
+
+# ── auction UUID discovery via Playwright ─────────────────────────────────────
+
+async def _get_active_auction_uuids() -> list[dict]:
     """
-    Query the GQL API for active/live auctions.
-    Returns list of {"uuid": str, "name": str, "endDatetime": str | None}.
+    Use Playwright to load /auctions and extract active auction UUIDs.
+
+    The original link-scraping regex only matched lowercase hex, missing any
+    uppercase UUID characters the site may use, and used re.match() which
+    won't find UUIDs inside full https:// href values.  This version uses
+    page.evaluate() to get all hrefs, applies a case-insensitive UUID regex,
+    and falls back to scanning the full page source (e.g. __NEXT_DATA__ JSON).
     """
-    log.info("Discovering active auctions via GraphQL...")
-    try:
-        resp = _gql_request(GET_AUCTIONS_QUERY, {})
-        raw = (resp.get("data") or {}).get("auctions") or []
-        auctions = [
-            {
-                "uuid": a["uuid"],
-                "name": a.get("name") or f"Auction {a['uuid'][:8]}",
-                "endDatetime": a.get("endDatetime"),
-            }
-            for a in raw
-            if a.get("uuid")
-        ]
-        log.info("Found %d active auction(s): %s", len(auctions), [a["name"] for a in auctions])
-        return auctions
-    except Exception as exc:
-        log.error("Failed to discover auctions: %s", exc)
+    log.info("Discovering active auctions via browser...")
+    seen: dict[str, None] = {}  # uuid (lowercase) → None, preserves insertion order
+
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        ctx = await browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            ),
+            viewport={"width": 1280, "height": 900},
+        )
+        page = await ctx.new_page()
+
+        try:
+            await page.goto(f"{BASE_URL}/auctions", wait_until="networkidle", timeout=30000)
+            await _dismiss_age_gate(page)
+            await asyncio.sleep(PW_DELAY_SECONDS)
+            await _screenshot(page, "auctions_list")
+
+            # Pull all hrefs via JS so we get absolute URLs too
+            hrefs: list[str] = await page.evaluate(
+                "() => [...document.querySelectorAll('a[href]')].map(a => a.href)"
+            )
+            for href in hrefs:
+                m = _UUID_RE.search(href)
+                if m:
+                    seen[m.group(1).lower()] = None
+
+            # Fallback: scan the raw page source for any embedded UUIDs
+            if not seen:
+                source = await page.content()
+                for m in _UUID_RE.finditer(source):
+                    seen[m.group(1).lower()] = None
+
+        except Exception as exc:
+            log.error("Failed to load /auctions: %s", exc)
+        finally:
+            await browser.close()
+
+    uuids = list(seen)
+    if not uuids:
+        log.warning("No auction UUIDs found on /auctions page")
         return []
+
+    # Enrich with GQL details and keep only active/live auctions
+    confirmed: list[dict] = []
+    for uuid in uuids:
+        try:
+            resp = _gql_request(
+                "query GetAuctionDetails($uuid: String!) "
+                "{ auctionDetails(uuid: $uuid) { name state endDatetime } }",
+                {"uuid": uuid},
+                uuid,
+            )
+            details = (resp.get("data") or {}).get("auctionDetails") or {}
+            if not details.get("name"):
+                continue  # not a valid auction UUID
+            state = (details.get("state") or "").lower()
+            if state not in ("active", "live", "open", ""):
+                log.debug("Skipping auction %s (state=%s)", uuid[:8], state)
+                continue
+            confirmed.append({
+                "uuid": uuid,
+                "name": details["name"],
+                "endDatetime": details.get("endDatetime"),
+            })
+        except Exception as exc:
+            log.debug("Could not verify auction %s: %s", uuid[:8], exc)
+
+    log.info("Found %d active auction(s): %s", len(confirmed), [a["name"] for a in confirmed])
+    return confirmed
 
 
 # ── GraphQL lot scraper ───────────────────────────────────────────────────────
@@ -339,6 +438,9 @@ def _infer_distillery(title: str) -> str:
 # ── main orchestrator ─────────────────────────────────────────────────────────
 
 async def run_scraper(debug: bool = False) -> int:
+    global DEBUG
+    DEBUG = debug
+
     from db import init_db, start_run, finish_run, fail_run, save_listing, get_run_listings
     from report import generate_report, write_json_export
 
@@ -353,8 +455,8 @@ async def run_scraper(debug: bool = False) -> int:
     log.info("=" * 65)
 
     try:
-        # Step 1: discover auctions via GraphQL
-        auctions = _get_active_auction_uuids()
+        # Step 1: discover auctions (Playwright)
+        auctions = await _get_active_auction_uuids()
 
         if not auctions:
             log.warning("No active auctions found — nothing to scrape")
