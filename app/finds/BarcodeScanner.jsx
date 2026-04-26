@@ -13,16 +13,21 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-export default function BarcodeScanner({ onResult, onClose }) {
+export default function BarcodeScanner({ onResult, onClose, autoCamera = false }) {
   const videoRef   = useRef(null)
   const readerRef  = useRef(null)
-  const [mode,     setMode]     = useState('image')   // 'image' | 'camera'
+  const [mode,     setMode]     = useState(autoCamera ? 'camera' : 'image')
   const [scanning, setScanning] = useState(false)
   const [error,    setError]    = useState(null)
 
-  // Stop camera when mode changes or component unmounts
+  // Stop camera on unmount
   useEffect(() => {
     return () => stopCamera()
+  }, [])
+
+  // Auto-start camera if opened via the scan button
+  useEffect(() => {
+    if (autoCamera) startCamera()
   }, [])
 
   async function stopCamera() {

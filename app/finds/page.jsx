@@ -334,6 +334,7 @@ export default function FindsPage() {
               <BarcodeScanner
                 onResult={handleBarcodeResult}
                 onClose={() => setShowScanner(false)}
+                autoCamera
               />
             </div>
           )}
