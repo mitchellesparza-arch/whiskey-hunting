@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
+import AppHeader from '../components/AppHeader.jsx'
 
 // ── Category metadata ─────────────────────────────────────────────────────────
 const CATEGORY_META = {
@@ -292,62 +292,36 @@ export default function UnicornPage() {
 
   const MIN_BID_OPTIONS = [0, 50, 100, 250, 500, 1000]
 
+  const headerAction = (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <a
+        href="https://www.unicornauctions.com/auctions"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          color: '#9a7c55', fontSize: '0.78rem', textDecoration: 'none',
+          whiteSpace: 'nowrap', display: 'none',
+        }}
+        className="sm:inline"
+      >
+        unicornauctions.com ↗
+      </a>
+      <button
+        onClick={fetchDeals}
+        disabled={loading}
+        className="btn-primary"
+        style={{ fontSize: '0.78rem', padding: '6px 14px' }}
+      >
+        {loading ? 'Loading…' : '↺ Refresh'}
+      </button>
+    </div>
+  )
+
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+    <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
+      <AppHeader sub="Unicorn Auctions · Live Deals" action={headerAction} />
 
-      {/* ── Back nav ── */}
-      <div>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <Link href="/"
-            style={{ color: '#9a7c55', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-          >
-            ← Whiskey Hunter
-          </Link>
-          <Link href="/finds"
-            style={{ color: '#9a7c55', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-          >
-            📍 Finds
-          </Link>
-        </div>
-      </div>
-
-      {/* ── Header ── */}
-      <div style={{ borderBottom: '2px solid #3d2b10', paddingBottom: 20 }}>
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div>
-            <h1 style={{ color: '#f5e6cc', fontSize: '1.8rem', fontWeight: 800, lineHeight: 1.1 }}>
-              🦄 Unicorn Auctions
-            </h1>
-            <p style={{ color: '#9a7c55', fontSize: '0.85rem', marginTop: 4 }}>
-              Whiskey bargains — bids below UA estimated value
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchDeals}
-              disabled={loading}
-              className="btn-primary"
-              style={{ fontSize: '0.82rem', padding: '8px 16px' }}
-            >
-              {loading ? 'Loading…' : '↺ Refresh'}
-            </button>
-            <a
-              href="https://www.unicornauctions.com/auctions"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                border: '1px solid #3d2b10', borderRadius: 8, padding: '8px 16px',
-                color: '#9a7c55', fontSize: '0.82rem', textDecoration: 'none',
-                whiteSpace: 'nowrap', transition: 'color 0.15s, border-color 0.15s',
-              }}
-              onMouseOver={e => { e.currentTarget.style.color = '#f5e6cc'; e.currentTarget.style.borderColor = '#e8943a' }}
-              onMouseOut={e => { e.currentTarget.style.color = '#9a7c55'; e.currentTarget.style.borderColor = '#3d2b10' }}
-            >
-              View All Auctions ↗
-            </a>
-          </div>
-        </div>
-      </div>
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
 
       {/* ── Weekend urgency banner ── */}
       {weekend && !loading && !error && (
@@ -513,6 +487,7 @@ export default function UnicornPage() {
         &nbsp;·&nbsp; Discounts vs UA estimated value &nbsp;·&nbsp; Always verify before bidding
       </div>
 
-    </main>
+      </div>
+    </div>
   )
 }
