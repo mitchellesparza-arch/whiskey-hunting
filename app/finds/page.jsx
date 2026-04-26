@@ -1,10 +1,11 @@
 'use client'
-// v4
+// v5
 import dynamic          from 'next/dynamic'
 import Link             from 'next/link'
 import { useSession }   from 'next-auth/react'
 import { useRouter }    from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import BarcodeScanner   from './BarcodeScanner.jsx'
 
 // Leaflet map — SSR disabled (window is required)
 const FindsMap = dynamic(() => import('./FindsMap.jsx'), { ssr: false, loading: () => (
@@ -50,7 +51,7 @@ export default function FindsPage() {
   const [finds,        setFinds]        = useState([])
   const [loading,      setLoading]      = useState(true)
 
-  // Form
+  // Form state
   const [bottleName,   setBottleName]   = useState('')
   const [upc,          setUpc]          = useState('')
   const [store,        setStore]        = useState(null)       // { name, address, lat, lng, placeId }
@@ -63,24 +64,18 @@ export default function FindsPage() {
   const [submitError,  setSubmitError]  = useState(null)
   const [submitted,    setSubmitted]    = useState(false)
 
-  // Camera / barcode scanner
-  const [showCamera,   setShowCamera]   = useState(false)
-  const [cameraError,  setCameraError]  = useState(null)
-  const [scanError,    setScanError]    = useState(null)
-
   // UPC lookup status
   const [upcLooking,   setUpcLooking]   = useState(false)
   const [upcStatus,    setUpcStatus]    = useState(null)   // 'found' | 'not-found' | null
 
   // UI
-  const [view,         setView]         = useState('map')  // 'map' | 'list'
+  const [showScanner,  setShowScanner]  = useState(false)
+  const [view,         setView]         = useState('map')   // 'map' | 'list'
   const [deletingId,   setDeletingId]   = useState(null)
 
-  // Refs
+  // Refs for Google Places
   const storeInputRef   = useRef(null)
   const autocompleteRef = useRef(null)
-  const videoRef        = useRef(null)
-  const readerRef       = useRef(null)
 
   // ── Load finds ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -138,64 +133,6 @@ export default function FindsPage() {
     }
   }, [storeInputRef.current])
 
-  // ── Live camera scanning ───────────────────────────────────────────────────
-  useEffect(() => {
-    if (!showCamera) return
-    let cancelled = false
-
-    async function startScan() {
-      // Capture ref before any await — prevents stale-ref issues after async import
-      const videoEl = videoRef.current
-      if (!videoEl) return
-      setCameraError(null)
-      try {
-        const { BrowserMultiFormatReader } = await import('@zxing/browser')
-        if (cancelled) return
-        const reader = new BrowserMultiFormatReader()
-        readerRef.current = reader
-
-        // decodeFromConstraints is more reliable than listVideoInputDevices:
-        // it directly calls getUserMedia({ video: { facingMode } }) and works
-        // even before the user has granted camera permissions.
-        let fired = false
-        await reader.decodeFromConstraints(
-          { video: { facingMode: { ideal: 'environment' } } },
-          videoEl,
-          (result) => {
-            if (result && !fired && !cancelled) {
-              fired = true
-              const code = result.getText()
-              stopCamera()
-              setShowCamera(false)
-              setUpc(code)
-              setScanError(null)
-              lookupUpc(code)
-            }
-          }
-        )
-      } catch (err) {
-        if (!cancelled) setCameraError(err.message || 'Camera unavailable — use a photo instead')
-      }
-    }
-
-    startScan()
-    return () => {
-      cancelled = true
-      stopCamera()
-    }
-  }, [showCamera])
-
-  // ── Camera helpers ─────────────────────────────────────────────────────────
-  function stopCamera() {
-    try { readerRef.current?.reset(); readerRef.current = null } catch {}
-  }
-
-  function closeCamera() {
-    stopCamera()
-    setShowCamera(false)
-    setCameraError(null)
-  }
-
   // ── UPC lookup via server-side proxy ───────────────────────────────────────
   async function lookupUpc(code) {
     if (!code) return
@@ -217,26 +154,10 @@ export default function FindsPage() {
     }
   }
 
-  // ── Barcode scan from an image file (fallback) ────────────────────────────
-  async function handleScanFile(e) {
-    const file = e.target.files?.[0]
-    e.target.value = ''   // allow re-selecting same file
-    if (!file) return
-    setScanError(null)
-    // Close overlay if open (file-picker triggered from inside overlay)
-    if (showCamera) { stopCamera(); setShowCamera(false) }
-    try {
-      const { BrowserMultiFormatReader } = await import('@zxing/browser')
-      const reader = new BrowserMultiFormatReader()
-      const url    = URL.createObjectURL(file)
-      const result = await reader.decodeFromImageUrl(url)
-      URL.revokeObjectURL(url)
-      const code = result.getText()
-      setUpc(code)
-      lookupUpc(code)
-    } catch {
-      setScanError('No barcode found — try a clearer photo or type the name manually.')
-    }
+  function handleBarcodeResult(code) {
+    setUpc(code)
+    setShowScanner(false)
+    lookupUpc(code)
   }
 
   // ── Photo selection ────────────────────────────────────────────────────────
@@ -337,68 +258,6 @@ export default function FindsPage() {
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 12px', fontFamily: 'system-ui, sans-serif', color: '#e8d5b7', background: '#0d0d1a', minHeight: '100vh' }}>
 
-      {/* ── Fullscreen camera overlay ─────────────────────────────────────── */}
-      {showCamera && (
-        <div style={{
-          position: 'fixed', inset: 0,
-          background: '#000',
-          zIndex: 9999,
-          overflow: 'hidden',
-        }}>
-          {/* Live viewfinder — fills entire screen */}
-          <video
-            ref={videoRef}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-            playsInline
-            muted
-          />
-
-          {/* Top bar */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0,
-            padding: '14px 16px',
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            zIndex: 1,
-          }}>
-            <span style={{ color: '#d4a054', fontWeight: 700, fontSize: 16 }}>📷 Scan Barcode</span>
-            <button
-              onClick={closeCamera}
-              style={{ background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer', lineHeight: 1, padding: '4px 8px' }}
-            >✕</button>
-          </div>
-
-          {/* Targeting frame — amber rectangle in center */}
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            transform: 'translate(-50%, -60%)',
-            width: 260, height: 130,
-            border: '2.5px solid rgba(212,160,84,0.9)',
-            borderRadius: 10,
-            boxShadow: '0 0 0 9999px rgba(0,0,0,0.4)',
-            zIndex: 1,
-          }} />
-
-          {/* Bottom bar */}
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            padding: '20px 20px 40px',
-            background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)',
-            textAlign: 'center', zIndex: 1,
-          }}>
-            {cameraError
-              ? <p style={{ color: '#e87', fontSize: 14, margin: '0 0 16px' }}>{cameraError}</p>
-              : <p style={{ color: '#ccc', fontSize: 14, margin: '0 0 16px' }}>Hold barcode inside the frame</p>
-            }
-            {/* Fallback to image file */}
-            <label style={{ color: '#d4a054', fontSize: 14, cursor: 'pointer', textDecoration: 'underline' }}>
-              Use a saved photo instead
-              <input type="file" accept="image/*" onChange={handleScanFile} style={{ display: 'none' }} />
-            </label>
-          </div>
-        </div>
-      )}
-
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
@@ -419,7 +278,7 @@ export default function FindsPage() {
 
         <form onSubmit={handleSubmit}>
 
-          {/* Bottle name + barcode button */}
+          {/* Bottle name + scanner toggle */}
           <label style={labelStyle}>Bottle Name *</label>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
@@ -431,11 +290,11 @@ export default function FindsPage() {
             />
             <button
               type="button"
-              onClick={() => { setScanError(null); setShowCamera(true) }}
+              onClick={() => setShowScanner(s => !s)}
               title="Scan barcode"
               style={{
                 padding:      '8px 12px',
-                background:   '#2d2d2d',
+                background:   showScanner ? '#8B4513' : '#2d2d2d',
                 border:       '1px solid #4a3728',
                 borderRadius: 5,
                 color:        '#d4a054',
@@ -443,10 +302,12 @@ export default function FindsPage() {
                 fontSize:     18,
                 flexShrink:   0,
               }}
-            >📷</button>
+            >
+              {showScanner ? '✕' : '📷'}
+            </button>
           </div>
 
-          {/* UPC & lookup status */}
+          {/* UPC + lookup status */}
           {upc && (
             <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, color: '#888' }}>UPC: {upc}</span>
@@ -466,7 +327,16 @@ export default function FindsPage() {
               >✕ clear</button>
             </div>
           )}
-          {scanError && <p style={{ fontSize: 12, color: '#e87', margin: '4px 0 0' }}>{scanError}</p>}
+
+          {/* Barcode scanner panel */}
+          {showScanner && (
+            <div style={{ marginTop: 10 }}>
+              <BarcodeScanner
+                onResult={handleBarcodeResult}
+                onClose={() => setShowScanner(false)}
+              />
+            </div>
+          )}
 
           {/* Store search */}
           <label style={labelStyle}>Store Location * (search for the store)</label>
@@ -475,7 +345,10 @@ export default function FindsPage() {
             style={inputStyle}
             placeholder="e.g. Binny's Orland Park…"
             value={storeInput}
-            onChange={e => { setStoreInput(e.target.value); if (!e.target.value) setStore(null) }}
+            onChange={e => {
+              setStoreInput(e.target.value)
+              if (!e.target.value) setStore(null)
+            }}
             autoComplete="off"
           />
           {store && (
