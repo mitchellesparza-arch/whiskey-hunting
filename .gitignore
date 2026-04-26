@@ -24,4 +24,4 @@ unicorn_scraper/__pycache__/
 unicorn_scraper/debug_screenshots/
 unicorn_scraper/*.db
 unicorn_scraper/*.html
-unicorn_scraper/latest_deals.json
+# unicorn_scraper/latest_deals.json  ← tracked so Vercel has a fallback
