@@ -18,8 +18,9 @@ jobs:
     timeout-minutes: 15
 
     env:
-      UPSTASH_REDIS_REST_URL:   ${{ secrets.UPSTASH_REDIS_REST_URL }}
-      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+      UPSTASH_REDIS_REST_URL:              ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      UPSTASH_REDIS_REST_TOKEN:            ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24:  true
 
     steps:
       - name: Checkout repo
