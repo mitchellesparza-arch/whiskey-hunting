@@ -36,10 +36,6 @@ jobs:
         working-directory: unicorn_scraper
         run: pip install -r requirements.txt
 
-      - name: Install Playwright browsers
-        working-directory: unicorn_scraper
-        run: playwright install chromium --with-deps
-
       - name: Run scraper
         working-directory: unicorn_scraper
         run: python scraper.py --now

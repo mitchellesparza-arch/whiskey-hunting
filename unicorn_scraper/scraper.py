@@ -2,14 +2,12 @@
 Unicorn Auctions whiskey bargain scraper.
 
 Architecture:
-  - Playwright: used only to navigate /auctions and collect active auction UUIDs
-                (handles age gate, JS rendering)
-  - Direct HTTP: GraphQL API at graphql.beta.unicornauctions.com for all lot data
-                 (fast, no per-page navigation, returns structured JSON)
+  - Direct HTTP: GraphQL API at graphql.beta.unicornauctions.com for all data
+                 (active auction discovery + lot fetching, no browser needed)
 
 Usage:
     python scraper.py --now          # Run immediately
-    python scraper.py --debug        # Verbose logging + screenshots
+    python scraper.py --debug        # Verbose logging
     python scraper.py --report-only  # Re-generate report from last DB run
 """
 
@@ -28,8 +26,6 @@ from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
-
-from playwright.async_api import async_playwright, Page, TimeoutError as PWTimeout
 
 try:
     from dotenv import load_dotenv
@@ -56,12 +52,8 @@ WHISKEY_CATEGORIES = {
     "Taiwanese", "Indian", "Australian", "Distilled Spirits",
 }
 
-GQL_BATCH_SIZE   = 100   # lots per GraphQL page
-DELAY_SECONDS    = 0.5   # polite delay between GQL pages
-PW_DELAY_SECONDS = 2.0   # delay between Playwright navigations
-
-DEBUG = False
-SCREENSHOTS_DIR = Path(__file__).parent / "debug_screenshots"
+GQL_BATCH_SIZE = 100   # lots per GraphQL page
+DELAY_SECONDS  = 0.5   # polite delay between GQL pages
 
 # ── GraphQL query ─────────────────────────────────────────────────────────────
 SEARCH_LOTS_QUERY = """
@@ -161,123 +153,31 @@ def _section_from_tag(tag_status: str | None) -> str:
     return "General"
 
 
-async def _screenshot(page: Page, name: str) -> None:
-    if not DEBUG:
-        return
-    SCREENSHOTS_DIR.mkdir(exist_ok=True)
-    path = SCREENSHOTS_DIR / f"{name}_{int(time.time())}.png"
-    await page.screenshot(path=str(path), full_page=False)
-    log.debug("Screenshot: %s", path)
+# ── auction discovery via GraphQL ─────────────────────────────────────────────
 
-
-async def _dismiss_age_gate(page: Page) -> None:
-    for sel in [
-        'button:text("YES")', 'button:text("Yes")',
-        'button:text("I am 21")', 'button:text("Enter")',
-        'a:text("YES")', 'a:text("Yes")',
-        '[class*="age"] button', '[class*="modal"] button:last-child',
-    ]:
-        try:
-            el = page.locator(sel).first
-            if await el.is_visible(timeout=1500):
-                await el.click()
-                log.info("Age gate dismissed")
-                await asyncio.sleep(1)
-                return
-        except Exception:
-            continue
-
-
-# ── auction UUID discovery via Playwright ─────────────────────────────────────
-
-async def _get_active_auction_uuids() -> list[dict]:
+def _get_active_auction_uuids() -> list[dict]:
     """
-    Use Playwright to visit /auctions and collect active auction UUIDs + names.
-    Returns list of {"uuid": str, "name": str}.
+    Query the GQL API for active/live auctions.
+    Returns list of {"uuid": str, "name": str, "endDatetime": str | None}.
     """
-    log.info("Discovering active auctions via browser...")
-    auctions = []
-
-    async with async_playwright() as pw:
-        browser = await pw.chromium.launch(headless=True)
-        ctx = await browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36"
-            ),
-            viewport={"width": 1280, "height": 900},
-        )
-        page = await ctx.new_page()
-
-        # Intercept the GetAuctionDetails calls to harvest UUIDs
-        intercepted_uuids: list[str] = []
-
-        async def on_response(response):
-            if GQL_URL in response.url:
-                try:
-                    body = await response.json()
-                    req_body = json.loads(response.request.post_data or "{}")
-                    op = req_body.get("operationName", "")
-                    if op == "SearchLots":
-                        uuid = req_body.get("variables", {}).get("input", {}).get("auctionUuid")
-                        if uuid and uuid not in intercepted_uuids:
-                            intercepted_uuids.append(uuid)
-                except Exception:
-                    pass
-
-        page.on("response", on_response)
-
-        try:
-            await page.goto(f"{BASE_URL}/auctions", wait_until="domcontentloaded", timeout=20000)
-            await _dismiss_age_gate(page)
-            await asyncio.sleep(PW_DELAY_SECONDS)
-            await _screenshot(page, "auctions_list")
-
-            # Collect /auction/{uuid} links from the page
-            links = await page.locator("a[href]").all()
-            for el in links:
-                href = await el.get_attribute("href") or ""
-                m = re.match(r"^/auction/([0-9a-f-]{36})$", href)
-                if m:
-                    uuid = m.group(1)
-                    if not any(a["uuid"] == uuid for a in auctions):
-                        auctions.append({"uuid": uuid, "name": f"Auction {uuid[:8]}"})
-
-            # Also click each auction card to trigger a SearchLots intercepted call
-            if not auctions:
-                # Fall back: look for card/thumbnail links
-                card_links = await page.locator('[href*="/auction/"]').all()
-                for el in card_links:
-                    href = await el.get_attribute("href") or ""
-                    m = re.search(r"/auction/([0-9a-f-]{36})", href)
-                    if m:
-                        uuid = m.group(1)
-                        if not any(a["uuid"] == uuid for a in auctions):
-                            auctions.append({"uuid": uuid, "name": f"Auction {uuid[:8]}"})
-
-        except Exception as exc:
-            log.error("Failed to discover auctions: %s", exc)
-        finally:
-            await browser.close()
-
-    # Enrich names by calling GetAuctionDetails for each UUID
-    for auction in auctions:
-        try:
-            resp = _gql_request(
-                "query GetAuctionDetails($uuid: String!) { auctionDetails(uuid: $uuid) { name endDatetime } }",
-                {"uuid": auction["uuid"]},
-                auction["uuid"],
-            )
-            details = (resp.get("data") or {}).get("auctionDetails") or {}
-            if details.get("name"):
-                auction["name"] = details["name"]
-            if details.get("endDatetime"):
-                auction["endDatetime"] = details["endDatetime"]
-        except Exception as exc:
-            log.debug("Could not fetch auction details for %s: %s", auction["uuid"], exc)
-
-    log.info("Found %d active auction(s): %s", len(auctions), [a["name"] for a in auctions])
-    return auctions
+    log.info("Discovering active auctions via GraphQL...")
+    try:
+        resp = _gql_request(GET_AUCTIONS_QUERY, {})
+        raw = (resp.get("data") or {}).get("auctions") or []
+        auctions = [
+            {
+                "uuid": a["uuid"],
+                "name": a.get("name") or f"Auction {a['uuid'][:8]}",
+                "endDatetime": a.get("endDatetime"),
+            }
+            for a in raw
+            if a.get("uuid")
+        ]
+        log.info("Found %d active auction(s): %s", len(auctions), [a["name"] for a in auctions])
+        return auctions
+    except Exception as exc:
+        log.error("Failed to discover auctions: %s", exc)
+        return []
 
 
 # ── GraphQL lot scraper ───────────────────────────────────────────────────────
@@ -439,9 +339,6 @@ def _infer_distillery(title: str) -> str:
 # ── main orchestrator ─────────────────────────────────────────────────────────
 
 async def run_scraper(debug: bool = False) -> int:
-    global DEBUG
-    DEBUG = debug
-
     from db import init_db, start_run, finish_run, fail_run, save_listing, get_run_listings
     from report import generate_report, write_json_export
 
@@ -456,8 +353,8 @@ async def run_scraper(debug: bool = False) -> int:
     log.info("=" * 65)
 
     try:
-        # Step 1: discover auctions (Playwright)
-        auctions = await _get_active_auction_uuids()
+        # Step 1: discover auctions via GraphQL
+        auctions = _get_active_auction_uuids()
 
         if not auctions:
             log.warning("No active auctions found — nothing to scrape")
