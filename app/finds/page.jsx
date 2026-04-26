@@ -1,11 +1,11 @@
 'use client'
-// v5
-import dynamic          from 'next/dynamic'
-import Link             from 'next/link'
-import { useSession }   from 'next-auth/react'
-import { useRouter }    from 'next/navigation'
+// v6
+import dynamic        from 'next/dynamic'
+import { useSession } from 'next-auth/react'
+import { useRouter }  from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import BarcodeScanner   from './BarcodeScanner.jsx'
+import BarcodeScanner from './BarcodeScanner.jsx'
+import AppHeader      from '../components/AppHeader.jsx'
 
 // Leaflet map — SSR disabled (window is required)
 const FindsMap = dynamic(() => import('./FindsMap.jsx'), { ssr: false, loading: () => (
@@ -35,13 +35,34 @@ function fmtTimeAgo(ts) {
   return `${Math.floor(h / 24)}d ago`
 }
 
+function FreshnessBadge({ timestamp }) {
+  if (!timestamp) return null
+  const hoursOld = (Date.now() - timestamp) / 3600000
+  if (hoursOld < 6) return (
+    <span style={{
+      display: 'inline-block', fontSize: 11, fontWeight: 700,
+      padding: '2px 8px', borderRadius: 999,
+      color: '#4ade80', background: 'rgba(74,222,128,0.1)',
+      border: '1px solid rgba(74,222,128,0.3)',
+    }}>🔥 Fresh</span>
+  )
+  if (hoursOld > 20) return (
+    <span style={{
+      display: 'inline-block', fontSize: 11, fontWeight: 700,
+      padding: '2px 8px', borderRadius: 999,
+      color: '#6b5030', background: 'transparent',
+      border: '1px solid #3d2b10',
+    }}>⏰ Aging</span>
+  )
+  return null
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function FindsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
 
-  // Redirect unauthenticated / unapproved users
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login')
     if (status === 'authenticated' && session?.user?.approved === false) router.replace('/pending')
@@ -49,12 +70,15 @@ export default function FindsPage() {
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [finds,        setFinds]        = useState([])
+  const [archived,     setArchived]     = useState([])
+  const [leaderboard,  setLeaderboard]  = useState([])
   const [loading,      setLoading]      = useState(true)
+  const [showArchived, setShowArchived] = useState(false)
 
-  // Form state
+  // Form
   const [bottleName,   setBottleName]   = useState('')
   const [upc,          setUpc]          = useState('')
-  const [store,        setStore]        = useState(null)       // { name, address, lat, lng, placeId }
+  const [store,        setStore]        = useState(null)
   const [storeInput,   setStoreInput]   = useState('')
   const [notes,        setNotes]        = useState('')
   const [photoFile,    setPhotoFile]    = useState(null)
@@ -70,21 +94,26 @@ export default function FindsPage() {
 
   // UI
   const [showScanner,  setShowScanner]  = useState(false)
-  const [view,         setView]         = useState('map')   // 'map' | 'list'
+  const [view,         setView]         = useState('map')
   const [deletingId,   setDeletingId]   = useState(null)
 
-  // Refs for Google Places
   const storeInputRef   = useRef(null)
   const autocompleteRef = useRef(null)
 
   // ── Load finds ─────────────────────────────────────────────────────────────
-  useEffect(() => {
+  function loadFinds() {
     fetch('/api/finds')
       .then(r => r.json())
-      .then(d => setFinds(d.finds ?? []))
+      .then(d => {
+        setFinds(d.finds ?? [])
+        setArchived(d.archived ?? [])
+        setLeaderboard(d.leaderboard ?? [])
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadFinds() }, [])
 
   // ── Google Places autocomplete ─────────────────────────────────────────────
   useEffect(() => {
@@ -92,7 +121,7 @@ export default function FindsPage() {
 
     function loadAutocomplete() {
       if (!window.google?.maps?.places) return
-      if (autocompleteRef.current) return   // already initialized
+      if (autocompleteRef.current) return
 
       const ac = new window.google.maps.places.Autocomplete(storeInputRef.current, {
         componentRestrictions: { country: 'us' },
@@ -124,10 +153,7 @@ export default function FindsPage() {
       document.head.appendChild(script)
     } else {
       const check = setInterval(() => {
-        if (window.google?.maps?.places) {
-          clearInterval(check)
-          loadAutocomplete()
-        }
+        if (window.google?.maps?.places) { clearInterval(check); loadAutocomplete() }
       }, 200)
       return () => clearInterval(check)
     }
@@ -160,7 +186,7 @@ export default function FindsPage() {
     lookupUpc(code)
   }
 
-  // ── Photo selection ────────────────────────────────────────────────────────
+  // ── Photo ──────────────────────────────────────────────────────────────────
   function handlePhotoChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -168,7 +194,7 @@ export default function FindsPage() {
     setPhotoPreview(URL.createObjectURL(file))
   }
 
-  // ── Submit find ────────────────────────────────────────────────────────────
+  // ── Submit ─────────────────────────────────────────────────────────────────
   async function handleSubmit(e) {
     e.preventDefault()
     if (!bottleName.trim()) return setSubmitError('Bottle name is required')
@@ -192,7 +218,7 @@ export default function FindsPage() {
         }
       }
 
-      const res = await fetch('/api/finds', {
+      const res  = await fetch('/api/finds', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ bottleName, upc: upc || null, store, photoUrl, notes }),
@@ -201,7 +227,6 @@ export default function FindsPage() {
       if (!res.ok) throw new Error(data.error || 'Submit failed')
 
       setFinds(prev => [data.find, ...prev])
-      // Reset form
       setBottleName('')
       setUpc('')
       setUpcStatus(null)
@@ -219,14 +244,17 @@ export default function FindsPage() {
     }
   }
 
-  // ── Delete find ────────────────────────────────────────────────────────────
+  // ── Delete ─────────────────────────────────────────────────────────────────
   async function handleDelete(id) {
     if (!confirm('Remove this find?')) return
     setDeletingId(id)
     try {
       const res  = await fetch(`/api/finds?id=${id}`, { method: 'DELETE' })
       const data = await res.json()
-      if (res.ok) setFinds(data.finds ?? [])
+      if (res.ok) {
+        setFinds(data.finds ?? [])
+        setArchived(data.archived ?? [])
+      }
     } catch {}
     setDeletingId(null)
   }
@@ -234,294 +262,361 @@ export default function FindsPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   if (status === 'loading') return null
 
-  const cardStyle = {
-    background:   '#1a1a2e',
-    border:       '1px solid #4a3728',
-    borderRadius: 10,
-    padding:      20,
-    marginBottom: 20,
-  }
-
   const inputStyle = {
     width:        '100%',
-    padding:      '8px 10px',
-    background:   '#0d0d1a',
-    border:       '1px solid #4a3728',
-    borderRadius: 5,
-    color:        '#e8d5b7',
+    padding:      '9px 12px',
+    background:   'var(--bg-base)',
+    border:       '1px solid var(--border)',
+    borderRadius: 8,
+    color:        'var(--text-primary)',
     fontSize:     14,
     boxSizing:    'border-box',
+    fontFamily:   'inherit',
+    outline:      'none',
   }
 
-  const labelStyle = { display: 'block', color: '#aaa', fontSize: 12, marginBottom: 4, marginTop: 12 }
+  const labelStyle = {
+    display:       'block',
+    fontSize:      11,
+    fontWeight:    700,
+    color:         'var(--text-muted)',
+    marginBottom:  5,
+    marginTop:     14,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+  }
+
+  const MEDAL_COLOR = ['#fbbf24', '#94a3b8', '#b45309']
+
+  // ── Find card (shared for active + archived) ────────────────────────────────
+  function FindCard({ find, isArchived = false }) {
+    return (
+      <div
+        className="card"
+        style={{ padding: 0, opacity: isArchived ? 0.6 : 1 }}
+      >
+        {/* Header */}
+        <div style={{ padding: '12px 14px', borderBottom: '1px solid #2a1c08' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+            <div style={{
+              fontWeight:   700,
+              fontSize:     15,
+              color:        'var(--text-primary)',
+              lineHeight:   1.3,
+              fontStyle:    isArchived ? 'italic' : 'normal',
+            }}>
+              🥃 {find.bottleName}
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+              {!isArchived && <FreshnessBadge timestamp={find.timestamp} />}
+              <button
+                onClick={() => handleDelete(find.id)}
+                disabled={deletingId === find.id}
+                style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 16, padding: 0 }}
+              >
+                {deletingId === find.id ? '⏳' : '✕'}
+              </button>
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>
+            📍 {find.store?.name ?? '—'}
+            {find.store?.address && <span style={{ color: '#6b5030' }}> · {find.store.address}</span>}
+          </div>
+          <div style={{ fontSize: 11, color: '#6b5030' }}>
+            {fmtDate(find.timestamp)}
+            {find.timestamp && <span> · {fmtTimeAgo(find.timestamp)}</span>}
+            {isArchived && <span style={{ marginLeft: 6, color: '#6b5030', fontStyle: 'italic' }}>— archived after 24h</span>}
+          </div>
+        </div>
+
+        {/* Photo */}
+        {find.photoUrl && (
+          <img
+            src={find.photoUrl}
+            alt="bottle"
+            style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block', borderBottom: '1px solid #2a1c08' }}
+          />
+        )}
+
+        {/* Notes */}
+        {find.notes && (
+          <div style={{ padding: '10px 14px', fontSize: 12, color: '#c9a87a', fontStyle: 'italic', borderBottom: '1px solid #2a1c08' }}>
+            "{find.notes}"
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 12px', fontFamily: 'system-ui, sans-serif', color: '#e8d5b7', background: '#0d0d1a', minHeight: '100vh' }}>
+    <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22, color: '#d4a054' }}>📍 Whiskey Finds</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#888' }}>
-            Spotted a great bottle? Share it with the club.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Link href="/" style={{ color: '#d4a054', textDecoration: 'none', fontSize: 13 }}>🏠 Tracker</Link>
-          <Link href="/unicorn" style={{ color: '#d4a054', textDecoration: 'none', fontSize: 13 }}>🦄 Auctions</Link>
-        </div>
-      </div>
+      <AppHeader
+        sub="Community Finds · Chicagoland"
+        action={
+          <button
+            onClick={loadFinds}
+            className="btn-primary"
+            style={{ fontSize: 13 }}
+          >
+            ↺ Refresh
+          </button>
+        }
+      />
 
-      {/* ── Submit Form ─────────────────────────────────────────────────────── */}
-      <div style={cardStyle}>
-        <h2 style={{ margin: '0 0 14px', fontSize: 16, color: '#d4a054' }}>Report a Find</h2>
+      <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 12px' }}>
 
-        <form onSubmit={handleSubmit}>
-
-          {/* Bottle name + scanner toggle */}
-          <label style={labelStyle}>Bottle Name *</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              style={{ ...inputStyle, flex: 1 }}
-              placeholder="e.g. Blanton's Original"
-              value={bottleName}
-              onChange={e => setBottleName(e.target.value)}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowScanner(s => !s)}
-              title="Scan barcode"
-              style={{
-                padding:      '8px 12px',
-                background:   showScanner ? '#8B4513' : '#2d2d2d',
-                border:       '1px solid #4a3728',
-                borderRadius: 5,
-                color:        '#d4a054',
-                cursor:       'pointer',
-                fontSize:     18,
-                flexShrink:   0,
-              }}
-            >
-              {showScanner ? '✕' : '📷'}
-            </button>
+        {/* ── Submit Form ──────────────────────────────────────────────────── */}
+        <div className="card p-5 mb-5">
+          <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)', marginBottom: 14 }}>
+            📍 Report a Find
           </div>
 
-          {/* UPC + lookup status */}
-          {upc && (
-            <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: '#888' }}>UPC: {upc}</span>
-              {upcLooking && (
-                <span style={{ fontSize: 12, color: '#aaa' }}>🔍 Looking up…</span>
-              )}
-              {!upcLooking && upcStatus === 'found' && (
-                <span style={{ fontSize: 12, color: '#6a9' }}>✓ Name filled from barcode</span>
-              )}
-              {!upcLooking && upcStatus === 'not-found' && (
-                <span style={{ fontSize: 12, color: '#fa8' }}>Not in database — enter name above</span>
-              )}
+          <form onSubmit={handleSubmit}>
+
+            {/* Bottle name + scanner toggle */}
+            <label style={labelStyle}>Bottle Name *</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                style={{ ...inputStyle, flex: 1 }}
+                placeholder="e.g. Blanton's Original"
+                value={bottleName}
+                onChange={e => setBottleName(e.target.value)}
+                required
+              />
               <button
                 type="button"
-                onClick={() => { setUpc(''); setUpcStatus(null) }}
-                style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 12 }}
-              >✕ clear</button>
-            </div>
-          )}
-
-          {/* Barcode scanner panel */}
-          {showScanner && (
-            <div style={{ marginTop: 10 }}>
-              <BarcodeScanner
-                onResult={handleBarcodeResult}
-                onClose={() => setShowScanner(false)}
-                autoCamera
-              />
-            </div>
-          )}
-
-          {/* Store search */}
-          <label style={labelStyle}>Store Location * (search for the store)</label>
-          <input
-            ref={storeInputRef}
-            style={inputStyle}
-            placeholder="e.g. Binny's Orland Park…"
-            value={storeInput}
-            onChange={e => {
-              setStoreInput(e.target.value)
-              if (!e.target.value) setStore(null)
-            }}
-            autoComplete="off"
-          />
-          {store && (
-            <p style={{ fontSize: 11, color: '#6a9', margin: '4px 0 0' }}>
-              ✓ {store.name} — {store.address}
-            </p>
-          )}
-          {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
-            <p style={{ fontSize: 11, color: '#e87', margin: '4px 0 0' }}>
-              Google Maps API key not configured — store search unavailable.
-            </p>
-          )}
-
-          {/* Notes */}
-          <label style={labelStyle}>Notes (optional)</label>
-          <textarea
-            style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
-            placeholder="How many bottles? Price? Limit per customer?"
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-          />
-
-          {/* Photo */}
-          <label style={labelStyle}>Photo (optional)</label>
-          <label style={{
-            display:      'block',
-            background:   '#0d0d1a',
-            border:       '1px dashed #4a3728',
-            borderRadius: 5,
-            padding:      '10px',
-            cursor:       'pointer',
-            textAlign:    'center',
-            color:        '#888',
-            fontSize:     13,
-          }}>
-            {photoPreview
-              ? <img src={photoPreview} alt="preview" style={{ maxHeight: 120, borderRadius: 4, maxWidth: '100%' }} />
-              : '📸 Tap to attach a photo'
-            }
-            <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: 'none' }} />
-          </label>
-          {photoFile && (
-            <button
-              type="button"
-              onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
-              style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 12, marginTop: 4 }}
-            >✕ Remove photo</button>
-          )}
-
-          {photoError  && <p style={{ color: '#fa8', fontSize: 12, margin: '6px 0 0' }}>⚠️ {photoError}</p>}
-          {submitError && <p style={{ color: '#e87', fontSize: 13, margin: '10px 0 0' }}>{submitError}</p>}
-          {submitted   && <p style={{ color: '#6a9', fontSize: 13, margin: '10px 0 0' }}>✓ Find submitted!</p>}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              marginTop:    16,
-              width:        '100%',
-              padding:      '10px 0',
-              background:   submitting ? '#555' : '#8B4513',
-              color:        '#fff',
-              border:       'none',
-              borderRadius: 6,
-              cursor:       submitting ? 'not-allowed' : 'pointer',
-              fontSize:     15,
-              fontWeight:   600,
-            }}
-          >
-            {submitting ? '⏳ Submitting…' : '📍 Submit Find'}
-          </button>
-        </form>
-      </div>
-
-      {/* ── Finds Display ───────────────────────────────────────────────────── */}
-      <div style={cardStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <h2 style={{ margin: 0, fontSize: 16, color: '#d4a054' }}>
-            Club Finds {finds.length > 0 && <span style={{ fontSize: 13, color: '#aaa' }}>({finds.length})</span>}
-          </h2>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {['map', 'list'].map(v => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
+                onClick={() => setShowScanner(s => !s)}
+                title="Scan barcode"
                 style={{
-                  padding:    '4px 12px',
-                  borderRadius: 4,
-                  border:     'none',
-                  cursor:     'pointer',
-                  background: view === v ? '#8B4513' : '#2d2d2d',
-                  color:      view === v ? '#fff' : '#aaa',
-                  fontSize:   12,
+                  padding:      '8px 13px',
+                  background:   showScanner ? 'var(--accent)' : 'var(--bg-card)',
+                  border:       '1px solid var(--border)',
+                  borderRadius: 8,
+                  color:        showScanner ? '#fff' : 'var(--accent)',
+                  cursor:       'pointer',
+                  fontSize:     18,
+                  flexShrink:   0,
                 }}
               >
-                {v === 'map' ? '🗺 Map' : '📋 List'}
+                {showScanner ? '✕' : '📷'}
               </button>
-            ))}
-          </div>
+            </div>
+
+            {/* UPC + lookup status */}
+            {upc && (
+              <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, color: '#6b5030', fontFamily: "'DM Mono', monospace" }}>UPC: {upc}</span>
+                {upcLooking && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>🔍 Looking up…</span>}
+                {!upcLooking && upcStatus === 'found'     && <span style={{ fontSize: 12, color: 'var(--green)' }}>✓ Name filled from barcode</span>}
+                {!upcLooking && upcStatus === 'not-found' && <span style={{ fontSize: 12, color: '#fb923c' }}>Not in database — enter name above</span>}
+                <button
+                  type="button"
+                  onClick={() => { setUpc(''); setUpcStatus(null) }}
+                  style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 12 }}
+                >✕ clear</button>
+              </div>
+            )}
+
+            {/* Scanner panel */}
+            {showScanner && (
+              <div style={{ marginTop: 10 }}>
+                <BarcodeScanner
+                  onResult={handleBarcodeResult}
+                  onClose={() => setShowScanner(false)}
+                  autoCamera
+                />
+              </div>
+            )}
+
+            {/* Store */}
+            <label style={labelStyle}>Store Location *</label>
+            <input
+              ref={storeInputRef}
+              style={inputStyle}
+              placeholder="Search for a store (e.g. Binny's Wilmette…)"
+              value={storeInput}
+              onChange={e => { setStoreInput(e.target.value); if (!e.target.value) setStore(null) }}
+              autoComplete="off"
+            />
+            {store && (
+              <p style={{ fontSize: 11, color: 'var(--green)', margin: '4px 0 0' }}>
+                ✓ {store.name} — {store.address}
+              </p>
+            )}
+            {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
+              <p style={{ fontSize: 11, color: 'var(--red)', margin: '4px 0 0' }}>
+                Google Maps API key not configured — store search unavailable.
+              </p>
+            )}
+
+            {/* Notes */}
+            <label style={labelStyle}>Notes (optional)</label>
+            <textarea
+              style={{ ...inputStyle, minHeight: 64, resize: 'vertical' }}
+              placeholder="How many bottles? Price? Purchase limit?"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+
+            {/* Photo */}
+            <label style={labelStyle}>Photo (optional)</label>
+            <label style={{
+              display:      'block',
+              background:   'var(--bg-base)',
+              border:       '1px dashed var(--border)',
+              borderRadius: 8,
+              padding:      12,
+              cursor:       'pointer',
+              textAlign:    'center',
+              color:        '#6b5030',
+              fontSize:     13,
+            }}>
+              {photoPreview
+                ? <img src={photoPreview} alt="preview" style={{ maxHeight: 120, borderRadius: 6, maxWidth: '100%' }} />
+                : '📸 Tap to attach a photo'
+              }
+              <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: 'none' }} />
+            </label>
+            {photoFile && (
+              <button
+                type="button"
+                onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
+                style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 12, marginTop: 4 }}
+              >✕ Remove photo</button>
+            )}
+
+            {photoError  && <p style={{ color: '#fb923c', fontSize: 12, margin: '6px 0 0' }}>⚠️ {photoError}</p>}
+            {submitError && <p style={{ color: 'var(--red)', fontSize: 13, margin: '10px 0 0' }}>{submitError}</p>}
+            {submitted   && <p style={{ color: 'var(--green)', fontSize: 13, margin: '10px 0 0' }}>✓ Find submitted! Thanks for looking out for the club.</p>}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn-primary"
+              style={{ marginTop: 16, width: '100%', padding: '11px', fontSize: 15, opacity: submitting ? 0.6 : 1 }}
+            >
+              {submitting ? '⏳ Submitting…' : '📍 Submit Find'}
+            </button>
+          </form>
         </div>
 
-        {loading && <p style={{ color: '#888', fontSize: 13 }}>Loading finds…</p>}
-
-        {!loading && finds.length === 0 && (
-          <p style={{ color: '#666', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>
-            No finds yet — be the first to report one!
-          </p>
-        )}
-
-        {!loading && finds.length > 0 && view === 'map' && <FindsMap finds={finds} />}
-
-        {!loading && finds.length > 0 && view === 'list' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {finds.map(find => (
-              <div key={find.id} style={{
-                background:   '#0d0d1a',
-                border:       '1px solid #2d2d2d',
-                borderRadius: 8,
-                padding:      12,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: '#d4a054', marginBottom: 4 }}>
-                      🥃 {find.bottleName}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#aaa', marginBottom: 2 }}>
-                      📍 {find.store?.name ?? '—'}
-                      {find.store?.address && <span style={{ color: '#777' }}> · {find.store.address}</span>}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#666' }}>
-                      {fmtDate(find.timestamp)}
-                      {find.timestamp && <span> · {fmtTimeAgo(find.timestamp)}</span>}
-                    </div>
-                    {find.notes && (
-                      <div style={{ fontSize: 12, color: '#aaa', fontStyle: 'italic', marginTop: 4 }}>
-                        "{find.notes}"
-                      </div>
-                    )}
-                    {find.photoUrl && (
-                      <img
-                        src={find.photoUrl}
-                        alt="bottle"
-                        style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 6, marginTop: 8, display: 'block' }}
-                      />
-                    )}
+        {/* ── Leaderboard ──────────────────────────────────────────────────── */}
+        {leaderboard.length > 0 && (
+          <div className="card p-4 mb-5">
+            <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', marginBottom: 12 }}>
+              🏆 This Month
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {leaderboard.map(([name, count], i) => (
+                <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 16 }}>{['🥇','🥈','🥉'][i] ?? '🎯'}</span>
+                    <span style={{
+                      fontSize:   13,
+                      fontWeight: 600,
+                      color:      [MEDAL_COLOR[0], MEDAL_COLOR[1], MEDAL_COLOR[2]][i] ?? 'var(--text-muted)',
+                    }}>
+                      {name}
+                    </span>
                   </div>
-                  <button
-                    onClick={() => handleDelete(find.id)}
-                    disabled={deletingId === find.id}
-                    title="Remove find"
-                    style={{
-                      background: 'none',
-                      border:     'none',
-                      color:      '#666',
-                      cursor:     'pointer',
-                      fontSize:   16,
-                      padding:    '0 0 0 10px',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {deletingId === find.id ? '⏳' : '✕'}
-                  </button>
+                  <span className={i === 0 ? 'badge-in-stock' : ''} style={i !== 0 ? { fontSize: 12, color: 'var(--text-muted)' } : {}}>
+                    {count} find{count !== 1 ? 's' : ''}
+                  </span>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
-      </div>
 
-      <p style={{ textAlign: 'center', color: '#555', fontSize: 11, marginTop: 16 }}>
-        Whiskey Hunting · Chicagoland Bourbon Club
-      </p>
+        {/* ── Finds Display ────────────────────────────────────────────────── */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)' }}>
+              Club Finds{' '}
+              <span style={{ fontSize: 13, color: '#6b5030', fontWeight: 400 }}>
+                ({finds.length} active{archived.length > 0 ? ` · ${archived.length} archived` : ''})
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {['map', 'list'].map(v => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  style={{
+                    padding:      '5px 13px',
+                    borderRadius: 6,
+                    border:       'none',
+                    cursor:       'pointer',
+                    background:   view === v ? 'var(--accent)' : 'var(--bg-card)',
+                    color:        view === v ? '#fff' : 'var(--text-muted)',
+                    fontSize:     12,
+                    fontWeight:   600,
+                  }}
+                >
+                  {v === 'map' ? '🗺 Map' : '📋 List'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loading && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading finds…</p>}
+
+          {!loading && finds.length === 0 && archived.length === 0 && (
+            <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>
+              No finds yet — be the first to report one!
+            </p>
+          )}
+
+          {!loading && finds.length > 0 && view === 'map' && <FindsMap finds={finds} />}
+
+          {!loading && view === 'list' && (
+            <>
+              {/* Active finds */}
+              {finds.length === 0 && (
+                <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
+                  No active finds — check archived below or be the first to report!
+                </p>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {finds.map(find => <FindCard key={find.id} find={find} />)}
+              </div>
+
+              {/* Archived section */}
+              {archived.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                  <button
+                    onClick={() => setShowArchived(s => !s)}
+                    style={{
+                      display:        'flex',
+                      alignItems:     'center',
+                      gap:            8,
+                      background:     'none',
+                      border:         'none',
+                      color:          '#6b5030',
+                      cursor:         'pointer',
+                      fontSize:       13,
+                      fontWeight:     600,
+                      padding:        '8px 0',
+                      width:          '100%',
+                      textAlign:      'left',
+                    }}
+                  >
+                    <span>{showArchived ? '▾' : '▸'}</span>
+                    Archived ({archived.length}) — older than 24h
+                  </button>
+                  {showArchived && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+                      {archived.map(find => <FindCard key={find.id} find={find} isArchived />)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+      </div>
     </div>
   )
 }

@@ -55,6 +55,8 @@
 body {
   background-color: var(--bg-base);
   color: var(--text-primary);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 @layer components {

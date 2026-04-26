@@ -4,12 +4,37 @@ import { getFinds, addFind, removeFind } from '../../../lib/finds.js'
 
 /**
  * GET /api/finds
- * Returns all finds, newest first. Public read.
+ * Returns:
+ *   finds    — active finds (< 24 h), newest first
+ *   archived — archived finds (24–72 h), newest first
+ *   leaderboard — top 5 submitters this calendar month
  */
 export async function GET() {
   try {
-    const finds = await getFinds()
-    return NextResponse.json({ finds })
+    const all = await getFinds()
+
+    const finds    = all.filter(f => f.status === 'active')
+    const archived = all.filter(f => f.status === 'archived')
+
+    // Leaderboard: count submissions per submitter since start of this month
+    const startOfMonth = new Date()
+    startOfMonth.setDate(1)
+    startOfMonth.setHours(0, 0, 0, 0)
+    const soMs = startOfMonth.getTime()
+
+    const leaderboard = Object.entries(
+      all
+        .filter(f => f.timestamp >= soMs)
+        .reduce((acc, f) => {
+          const key = f.submitterName ?? f.submittedBy ?? 'Anonymous'
+          acc[key] = (acc[key] ?? 0) + 1
+          return acc
+        }, {})
+    )
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+
+    return NextResponse.json({ finds, archived, leaderboard })
   } catch (err) {
     console.error('[finds] GET error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

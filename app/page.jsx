@@ -288,7 +288,7 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block leading-snug">
+            <div className="text-right leading-snug">
               {lastCheckedAt && (
                 <p className="text-xs text-[#9a7c55]">Checked {timeAgo(lastCheckedAt)}</p>
               )}
@@ -296,19 +296,6 @@ export default function Home() {
                 <p className="text-xs text-[#6b5030]">Last truck {timeAgo(lastEvent.timestamp)}</p>
               )}
             </div>
-            {/* Desktop-only nav links */}
-            <Link
-              href="/unicorn"
-              className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] transition-colors border border-[#3d2b10] rounded-lg px-2.5 py-1.5 hidden sm:block"
-            >
-              🦄 Auctions
-            </Link>
-            <Link
-              href="/finds"
-              className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] transition-colors border border-[#3d2b10] rounded-lg px-2.5 py-1.5 hidden sm:block"
-            >
-              📍 Finds
-            </Link>
             <button
               onClick={refresh}
               disabled={refreshing}
@@ -320,45 +307,12 @@ export default function Home() {
               <button
                 onClick={() => signOut({ callbackUrl: '/login' })}
                 title={session.user.email}
-                className="text-xs text-[#6b5030] hover:text-[#9a7c55] transition-colors border border-[#3d2b10] rounded-lg px-2.5 py-1.5 hidden sm:block"
+                className="text-xs text-[#6b5030] hover:text-[#9a7c55] transition-colors border border-[#3d2b10] rounded-lg px-2.5 py-1.5"
               >
                 Sign out
               </button>
             )}
           </div>
-        </div>
-
-        {/* Mobile-only nav strip — visible only on portrait/small screens */}
-        <div className="sm:hidden border-t border-[#3d2b10] px-4 py-2 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Link
-              href="/unicorn"
-              className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] transition-colors border border-[#3d2b10] rounded-lg px-3 py-1.5"
-            >
-              🦄 Auctions
-            </Link>
-            <Link
-              href="/finds"
-              className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] transition-colors border border-[#3d2b10] rounded-lg px-3 py-1.5"
-            >
-              📍 Finds
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            {lastCheckedAt && (
-              <p className="text-xs text-[#9a7c55]">Checked {timeAgo(lastCheckedAt)}</p>
-            )}
-            {session?.user && (
-              <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
-                title={session.user.email}
-                className="text-xs text-[#6b5030] hover:text-[#9a7c55] transition-colors"
-              >
-                Sign out
-              </button>
-            )}
-          </div>
-        </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-10">
@@ -434,14 +388,49 @@ export default function Home() {
               Loading…
             </div>
           ) : truckEvents.length === 0 ? (
-            <div className="card px-4 py-6 text-center text-sm text-[#6b5030]">
-              <p className="mb-2">No truck deliveries detected yet.</p>
-              <p className="text-xs">
-                History builds automatically as the cron detects canary bottle restocks.
-              </p>
-              <code className="block mt-3 text-xs text-[#9a7c55] bg-[#0f0a05] rounded p-3 break-all text-left">
-                curl -H &quot;Authorization: Bearer YOUR_CRON_SECRET&quot; https://whiskey-hunter.vercel.app/api/cron
-              </code>
+            /* ── Empty state hero + how-it-works ── */
+            <div>
+              <div style={{
+                background:   'linear-gradient(160deg, #1e1004 0%, #0f0a05 60%)',
+                padding:      '32px 16px 28px',
+                borderBottom: '1px solid #2a1c08',
+                textAlign:    'center',
+                borderRadius: 12,
+                marginBottom: 16,
+              }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🚛</div>
+                <div style={{ fontWeight: 800, fontSize: 22, color: '#f5e6cc', letterSpacing: '-0.02em', marginBottom: 8 }}>
+                  No truck deliveries detected yet
+                </div>
+                <div style={{ fontSize: 14, color: '#9a7c55', lineHeight: 1.6, marginBottom: 20, maxWidth: 520, margin: '0 auto 20px' }}>
+                  The tracker checks Binny's inventory 6× daily — at 7, 9, 11 AM and 1, 3, 5 PM CDT.
+                  When a delivery truck is detected at any Chicagoland location, it shows up here.
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                  {['Next check: coming soon', 'All 20+ Binny\'s stores monitored', '6× daily cadence'].map(label => (
+                    <span key={label} style={{
+                      fontSize: 12, color: '#9a7c55',
+                      background: '#1a1008', border: '1px solid #3d2b10',
+                      borderRadius: 999, padding: '4px 12px',
+                    }}>{label}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* How it works — 3 cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                {[
+                  { step: '1', label: 'Canary scan',   desc: 'Every 6h, the tracker checks if high-volume bottles (Old Forester, Benchmark, etc.) have restocked at each store.' },
+                  { step: '2', label: 'Truck detected', desc: 'A sudden restock of canary bottles means a delivery truck likely just visited. We flag it and log which distributor.' },
+                  { step: '3', label: 'Check the map', desc: 'Use the Distributor Map below to know which allocated bottles may be on that truck — then head to the store.' },
+                ].map(s => (
+                  <div key={s.step} className="card" style={{ padding: 14 }}>
+                    <div style={{ fontWeight: 800, fontSize: 28, color: '#e8943a', opacity: 0.3, marginBottom: 4 }}>{s.step}</div>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', marginBottom: 4 }}>{s.label}</div>
+                    <div style={{ fontSize: 12, color: '#9a7c55', lineHeight: 1.6 }}>{s.desc}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : filteredEvents.length === 0 ? (
             <div className="card px-4 py-6 text-center text-sm text-[#6b5030]">

@@ -4,6 +4,7 @@ import { checkAllCanaries }          from '../../../lib/checker.js'
 import { hotlineBottles }            from '../../../lib/bottles.js'
 import { getLastState, saveState, logEvent } from '../../../lib/history.js'
 import { sendTruckEmail }            from '../../../lib/email.js'
+import { postTruckAlert }            from '../../../lib/discord.js'
 
 const RESTOCK_THRESHOLD = 5   // quantity jump of ≥5 = truck signal
 
@@ -146,6 +147,14 @@ export async function GET(request) {
     if (truckEvents.length) {
       console.log('[cron] Truck events:', truckEvents.map(e => `${e.storeName}/${e.distributor}`).join(', '))
       await sendTruckEmail(truckEvents, checkedAt)
+      // Post one Discord alert per event (distributor × store)
+      await Promise.allSettled(
+        truckEvents.map(e => postTruckAlert({
+          distributor: e.distributor,
+          storeName:   e.storeName,
+          checkFor:    e.checkFor,
+        }))
+      )
     } else {
       console.log('[cron] No truck activity detected')
     }
