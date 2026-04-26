@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { isApproved, addPendingUser, approveUser } from '../../../../lib/auth-users.js'
+import { sendApprovalRequestEmail }                from '../../../../lib/email.js'
 
 const authOptions = {
   providers: [
@@ -28,9 +29,16 @@ const authOptions = {
         return true
       }
 
-      // Register others as pending (idempotent)
-      const approved = await isApproved(email)
-      if (!approved) await addPendingUser(email, user.name)
+      // Register others as pending; notify owner on first registration
+      const approved  = await isApproved(email)
+      if (!approved) {
+        const isNew = await addPendingUser(email, user.name)
+        if (isNew) {
+          sendApprovalRequestEmail(user.name ?? email, email).catch(err =>
+            console.error('[auth] Failed to send approval email:', err)
+          )
+        }
+      }
       return true
     },
 
