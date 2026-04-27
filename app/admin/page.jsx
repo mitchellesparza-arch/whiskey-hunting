@@ -42,6 +42,7 @@ export default function AdminPage() {
   const [pending,   setPending]   = useState([])
   const [approved,  setApproved]  = useState([])
   const [loading,   setLoading]   = useState(true)
+  const [denied,    setDenied]    = useState(false)
   const [approving, setApproving] = useState(null) // email being approved
   const [tab,       setTab]       = useState('pending')
 
@@ -55,7 +56,7 @@ export default function AdminPage() {
     setLoading(true)
     try {
       const res = await fetch('/api/admin/users')
-      if (res.status === 401) { router.replace('/profile'); return }
+      if (res.status === 401) { setDenied(true); setLoading(false); return }
       const data = await res.json()
       setPending((data.pending ?? []).sort((a, b) =>
         new Date(b.requestedAt ?? 0) - new Date(a.requestedAt ?? 0)
@@ -85,6 +86,28 @@ export default function AdminPage() {
   }
 
   if (status === 'loading' || loading) return null
+
+  if (denied) {
+    return (
+      <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
+        <AppHeader sub="Access Control" />
+        <div style={{ maxWidth: 600, margin: '0 auto', padding: '40px 16px', textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
+          <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc', marginBottom: 8 }}>Access denied</div>
+          <div style={{ fontSize: 13, color: '#9a7c55', lineHeight: 1.6, marginBottom: 24 }}>
+            You're signed in as <strong style={{ color: '#f5e6cc' }}>{session?.user?.email}</strong>.<br />
+            The <code style={{ color: '#e8943a' }}>ALERT_EMAIL</code> env var on Vercel needs to match this address.
+          </div>
+          <div style={{ background: '#1a1008', border: '1px solid #3d2b10', borderRadius: 10,
+                        padding: '16px 20px', fontSize: 12, color: '#9a7c55', textAlign: 'left' }}>
+            <strong style={{ color: '#f5e6cc' }}>To fix:</strong> Go to your Vercel project →
+            Settings → Environment Variables → update <code style={{ color: '#e8943a' }}>ALERT_EMAIL</code> to{' '}
+            <code style={{ color: '#e8943a' }}>{session?.user?.email}</code>, then redeploy.
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const tabStyle = active => ({
     padding:       '8px 18px',
