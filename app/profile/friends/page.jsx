@@ -175,6 +175,23 @@ function FriendProfilePanel({ friend, onClose }) {
             </div>
           )}
 
+          {/* Mule requests — shown immediately, before collection loads */}
+          {(friend.muleRequests ?? []).length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: '#9a7c55', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                🫏 Hunting For
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {(friend.muleRequests ?? []).map((req, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: '#1f1308', border: '1px solid #2a1c08', borderRadius: 8 }}>
+                    <span style={{ fontSize: 14 }}>🥃</span>
+                    <span style={{ fontSize: 13, color: '#f5e6cc' }}>{req}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Loading / empty / forbidden states */}
           {!loaded && (
             <div style={{ textAlign: 'center', padding: '32px 0', color: '#9a7c55', fontSize: 13 }}>Loading…</div>
@@ -276,6 +293,12 @@ export default function FriendsPage() {
   const [actionEmail, setActionEmail] = useState(null) // loading state per-email
   const [viewing,     setViewing]     = useState(null) // friend profile panel
 
+  // Mule requests — bottles I'm hunting that friends can help find
+  const [myRequests,   setMyRequests]   = useState([])
+  const [editRequests, setEditRequests] = useState([])
+  const [editingMule,  setEditingMule]  = useState(false)
+  const [savingMule,   setSavingMule]   = useState(false)
+
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login')
   }, [status])
@@ -289,6 +312,42 @@ export default function FriendsPage() {
   }, [])
 
   useEffect(() => { loadData() }, [loadData])
+
+  // Load my mule requests on mount
+  useEffect(() => {
+    fetch('/api/profile')
+      .then(r => r.json())
+      .then(d => setMyRequests(d.profile?.muleRequests ?? []))
+      .catch(() => {})
+  }, [])
+
+  // ── Mule request handlers ─────────────────────────────────────────────────
+  function startEditMule() {
+    setEditRequests([...myRequests])
+    setEditingMule(true)
+  }
+  function cancelEditMule() {
+    setEditingMule(false)
+    setEditRequests([])
+  }
+  async function saveMuleRequests() {
+    setSavingMule(true)
+    try {
+      const cleaned = editRequests.map(r => r.trim()).filter(Boolean)
+      const res  = await fetch('/api/profile', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ muleRequests: cleaned }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setMyRequests(data.profile?.muleRequests ?? cleaned)
+        setEditingMule(false)
+      }
+    } finally {
+      setSavingMule(false)
+    }
+  }
 
   async function sendRequest(email) {
     setActionEmail(email)
@@ -492,6 +551,70 @@ export default function FriendsPage() {
             {/* ── Tab 0: Friends ── */}
             {tab === 0 && (
               <>
+                {/* My Mule Requests card */}
+                <div style={{ marginTop: 16, marginBottom: 8, background: '#1a1008', border: '1px solid #3d2b10', borderRadius: 12, padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: (editingMule || myRequests.length > 0) ? 10 : 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc' }}>🫏 My Mule Requests</div>
+                    {!editingMule && (
+                      <button
+                        onClick={startEditMule}
+                        style={{ background: 'none', border: '1px solid #3d2b10', borderRadius: 6, color: '#9a7c55', fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: '3px 10px' }}
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+
+                  {editingMule ? (
+                    <div>
+                      {editRequests.map((req, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                          <input
+                            value={req}
+                            onChange={e => setEditRequests(prev => prev.map((r, j) => j === i ? e.target.value : r))}
+                            placeholder="e.g. Blanton's Original"
+                            style={{ flex: 1, padding: '7px 10px', background: '#2a1c08', border: '1px solid #3d2b10', borderRadius: 7, color: '#f5e6cc', fontSize: 12, fontFamily: 'inherit', outline: 'none' }}
+                          />
+                          <button
+                            onClick={() => setEditRequests(prev => prev.filter((_, j) => j !== i))}
+                            style={{ background: 'none', border: '1px solid #3d2b10', borderRadius: 7, color: '#f87171', cursor: 'pointer', padding: '0 10px', fontSize: 14 }}
+                          >✕</button>
+                        </div>
+                      ))}
+                      {editRequests.length < 5 && (
+                        <button
+                          onClick={() => setEditRequests(prev => [...prev, ''])}
+                          style={{ width: '100%', padding: '7px 0', background: 'none', border: '1px dashed #3d2b10', borderRadius: 7, color: '#9a7c55', fontSize: 12, cursor: 'pointer', marginBottom: 10 }}
+                        >+ Add bottle</button>
+                      )}
+                      <div style={{ display: 'flex', gap: 8, marginTop: editRequests.length < 5 ? 0 : 10 }}>
+                        <button
+                          onClick={saveMuleRequests}
+                          disabled={savingMule}
+                          style={{ flex: 1, padding: '7px 0', background: '#e8943a', border: 'none', borderRadius: 7, color: '#fff', fontWeight: 700, fontSize: 12, cursor: savingMule ? 'not-allowed' : 'pointer', opacity: savingMule ? 0.6 : 1 }}
+                        >{savingMule ? 'Saving…' : 'Save'}</button>
+                        <button
+                          onClick={cancelEditMule}
+                          style={{ flex: 1, padding: '7px 0', background: 'none', border: '1px solid #3d2b10', borderRadius: 7, color: '#9a7c55', fontSize: 12, cursor: 'pointer' }}
+                        >Cancel</button>
+                      </div>
+                    </div>
+                  ) : myRequests.length === 0 ? (
+                    <div style={{ fontSize: 12, color: '#6b5030', fontStyle: 'italic' }}>
+                      No bottles on your list yet — tap Edit to add bottles your friends can hunt for you
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {myRequests.map((req, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < myRequests.length - 1 ? '1px solid #2a1c08' : 'none' }}>
+                          <span style={{ fontSize: 13 }}>🥃</span>
+                          <span style={{ fontSize: 13, color: '#f5e6cc', fontWeight: 500 }}>{req}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {filteredFriends.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '48px 0' }}>
                     <div style={{ fontSize: 36, marginBottom: 10 }}>👥</div>

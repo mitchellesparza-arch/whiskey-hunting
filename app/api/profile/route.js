@@ -12,10 +12,10 @@ export async function GET(req) {
   const me = await getMe(req)
   if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const profile = await getUserProfile(me)
-  return NextResponse.json({ profile: profile ?? { email: me, name: null, discordHandle: null } })
+  return NextResponse.json({ profile: profile ?? { email: me, name: null, discordHandle: null, muleRequests: [] } })
 }
 
-/** PATCH /api/profile — saves display name + discord handle */
+/** PATCH /api/profile — saves display name, discord handle, and/or mule requests */
 export async function PATCH(req) {
   const me = await getMe(req)
   if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -23,7 +23,19 @@ export async function PATCH(req) {
   try { body = await req.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
-  const { name, discordHandle } = body
-  const updated = await updateUserProfile(me, { name: name?.trim() || undefined, discordHandle: discordHandle?.trim() || undefined })
+  const { name, discordHandle, muleRequests } = body
+
+  let muleReqs
+  if (muleRequests !== undefined) {
+    if (!Array.isArray(muleRequests))
+      return NextResponse.json({ error: 'muleRequests must be an array' }, { status: 400 })
+    muleReqs = muleRequests.map(r => String(r).trim()).filter(Boolean).slice(0, 5)
+  }
+
+  const updated = await updateUserProfile(me, {
+    name:          name?.trim() || undefined,
+    discordHandle: discordHandle?.trim() || undefined,
+    muleRequests:  muleReqs,
+  })
   return NextResponse.json({ ok: true, profile: updated })
 }

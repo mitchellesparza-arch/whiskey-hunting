@@ -44,10 +44,13 @@ export async function GET(request) {
   const friendSet   = new Set(friends.map(e => e.toLowerCase()))
   const userMap     = Object.fromEntries(allUsers.map(u => [u.email.toLowerCase(), u]))
 
-  // Enrich an email array with profile data
+  // Enrich an email array with profile data (includes muleRequests)
   const enrich = emails =>
     emails
-      .map(e => userMap[e.toLowerCase()] ?? { email: e, name: e.split('@')[0], joinedAt: null })
+      .map(e => {
+        const u = userMap[e.toLowerCase()] ?? { email: e, name: e.split('@')[0], joinedAt: null }
+        return { muleRequests: [], ...u }
+      })
       .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
 
   const receivedSet = new Set(receivedEmails.map(e => e.toLowerCase()))
@@ -59,7 +62,10 @@ export async function GET(request) {
   const discover = approvedEmails
     .map(e => e.toLowerCase())
     .filter(e => e !== me && !friendSet.has(e) && !receivedSet.has(e))
-    .map(e => userMap[e] ?? { email: e, name: e.split('@')[0], joinedAt: null })
+    .map(e => {
+      const u = userMap[e] ?? { email: e, name: e.split('@')[0], joinedAt: null }
+      return { muleRequests: [], ...u }
+    })
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
 
   return NextResponse.json({
