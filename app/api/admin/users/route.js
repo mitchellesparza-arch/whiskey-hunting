@@ -1,23 +1,26 @@
 import { NextResponse }                    from 'next/server'
+import { getToken }                        from 'next-auth/jwt'
 import { getPendingUsers, getApprovedUsers } from '../../../../lib/auth-users.js'
 
-function authorized(req) {
+function hasBearerToken(req) {
   const auth = req.headers.get('authorization') ?? ''
   return auth === `Bearer ${process.env.CRON_SECRET}`
 }
 
+async function isOwner(req) {
+  const token      = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+  const ownerEmail = process.env.ALERT_EMAIL?.toLowerCase()
+  return ownerEmail && token?.email?.toLowerCase() === ownerEmail
+}
+
 /**
  * GET /api/admin/users
- * Protected by CRON_SECRET Bearer token.
+ * Accepts a Bearer token (curl) or an owner session (admin page).
  * Returns pending and approved user lists.
- *
- * curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
- *      https://whiskey-hunter-esparza1.vercel.app/api/admin/users
  */
 export async function GET(req) {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authorized = hasBearerToken(req) || await isOwner(req)
+  if (!authorized) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const [pending, approved] = await Promise.all([getPendingUsers(), getApprovedUsers()])
   return NextResponse.json({ pending, approved })
