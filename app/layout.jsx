@@ -33,8 +33,8 @@ export default function RootLayout({ children }) {
       </head>
       <body className="min-h-screen antialiased" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
         <Providers>
-          {/* pb-20 = 80px bottom padding so content doesn't hide behind the nav */}
-          <div className="pb-20">
+          {/* safe-area-aware bottom padding so content clears the nav on all devices */}
+          <div style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
             {children}
           </div>
         </Providers>
