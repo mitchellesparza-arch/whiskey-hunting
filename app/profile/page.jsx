@@ -37,6 +37,12 @@ const TILES = [
     href:     '/profile/collection',
   },
   {
+    icon:     '👥',
+    title:    'Friends',
+    subtitle: 'See the club, view collections, compare scores',
+    href:     '/profile/friends',
+  },
+  {
     icon:     '🎲',
     title:    'Pick My Pour',
     subtitle: "Can't decide? Let the app choose",
@@ -48,21 +54,16 @@ const TILES = [
     subtitle: 'Run a blind tasting and rank by ELO',
     href:     '/profile/blind',
   },
-  {
-    icon:     '📊',
-    title:    'Taste Scores',
-    subtitle: 'Coming soon',
-    href:     null,
-  },
 ]
 
 export default function ProfilePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
 
-  const [collection,    setCollection]    = useState([])
+  const [collection,       setCollection]       = useState([])
   const [collectionLoaded, setCollectionLoaded] = useState(false)
-  const [joinDate,      setJoinDate]      = useState(null)
+  const [friendCount,      setFriendCount]      = useState(null)
+  const [pendingRequests,  setPendingRequests]  = useState(0)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login')
@@ -75,6 +76,14 @@ export default function ProfilePage() {
       .then(d => setCollection(d.bottles ?? []))
       .catch(() => {})
       .finally(() => setCollectionLoaded(true))
+
+    fetch('/api/friends')
+      .then(r => r.json())
+      .then(d => {
+        setFriendCount((d.friends ?? []).length)
+        setPendingRequests((d.requests ?? []).length)
+      })
+      .catch(() => {})
   }, [])
 
   // Compute stats
@@ -125,8 +134,8 @@ export default function ProfilePage() {
         {/* Stats Row */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
           <StatBox label="Bottles"   value={collectionLoaded ? totalBottles  : '—'} />
+          <StatBox label="Friends"   value={friendCount !== null ? friendCount : '—'} />
           <StatBox label="Tastings"  value={collectionLoaded ? totalTastings : '—'} />
-          <StatBox label="Est. Value" value={collectionLoaded ? (estValue > 0 ? `$${Math.round(estValue).toLocaleString()}` : '$0') : '—'} />
           <StatBox label="Top Score" value={collectionLoaded && topScore > 0 ? topScore.toFixed(0) : '—'} />
         </div>
 
@@ -158,6 +167,9 @@ export default function ProfilePage() {
         {/* Feature Tile Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {TILES.map(tile => {
+            const isFriends = tile.title === 'Friends'
+            const badge     = isFriends && pendingRequests > 0 ? pendingRequests : 0
+
             const content = (
               <div style={{
                 background:   '#1a1008',
@@ -171,10 +183,28 @@ export default function ProfilePage() {
                 cursor:       tile.href ? 'pointer' : 'default',
                 opacity:      tile.href ? 1 : 0.5,
                 transition:   'border-color 0.15s',
+                position:     'relative',
               }}
               onMouseEnter={e => { if (tile.href) e.currentTarget.style.borderColor = '#e8943a' }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = '#3d2b10' }}
               >
+                {/* Pending request badge on Friends tile */}
+                {badge > 0 && (
+                  <div style={{
+                    position:     'absolute',
+                    top:          10,
+                    right:        10,
+                    background:   '#f87171',
+                    color:        '#fff',
+                    fontSize:     10,
+                    fontWeight:   700,
+                    borderRadius: 999,
+                    padding:      '2px 7px',
+                    lineHeight:   1.3,
+                  }}>
+                    {badge} new
+                  </div>
+                )}
                 <div style={{ fontSize: 30 }}>{tile.icon}</div>
                 <div style={{ fontWeight: 700, fontSize: 14, color: '#f5e6cc' }}>{tile.title}</div>
                 <div style={{ fontSize: 12, color: '#9a7c55', lineHeight: 1.4 }}>{tile.subtitle}</div>
