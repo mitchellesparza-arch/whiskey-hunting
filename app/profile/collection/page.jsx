@@ -1,7 +1,7 @@
 'use client'
 import { useSession } from 'next-auth/react'
 import { useRouter }  from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link           from 'next/link'
 import BarcodeScanner from '../../finds/BarcodeScanner.jsx'
 
@@ -120,33 +120,104 @@ function BottleCard({ bottle, onRemove }) {
 // ── Add Bottle Sheet ──────────────────────────────────────────────────────────
 
 function AddBottleSheet({ onClose, onAdd }) {
-  const [name,       setName]       = useState('')
-  const [distillery, setDistillery] = useState('')
-  const [category,   setCategory]   = useState('Bourbon')
-  const [proof,      setProof]      = useState('')
-  const [msrp,       setMsrp]       = useState('')
-  const [secondary,  setSecondary]  = useState('')
-  const [qty,        setQty]        = useState('1')
-  const [flavors,    setFlavors]    = useState('')
-  const [upc,        setUpc]        = useState('')
-  const [showScanner,setShowScanner]= useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error,      setError]      = useState(null)
+  const [name,        setName]        = useState('')
+  const [distillery,  setDistillery]  = useState('')
+  const [category,    setCategory]    = useState('Bourbon')
+  const [proof,       setProof]       = useState('')
+  const [msrp,        setMsrp]        = useState('')
+  const [secondary,   setSecondary]   = useState('')
+  const [qty,         setQty]         = useState('1')
+  const [flavors,     setFlavors]     = useState('')
+  const [upc,         setUpc]         = useState('')
+  const [showScanner, setShowScanner] = useState(false)
+  const [submitting,  setSubmitting]  = useState(false)
+  const [lookingUp,   setLookingUp]   = useState(false) // UPC or photo in progress
+  const [lookupMsg,   setLookupMsg]   = useState(null)  // success/info message
+  const [suggestions, setSuggestions] = useState([])
+  const [error,       setError]       = useState(null)
+  const photoInputRef = useRef(null)
+  const nameDebounce  = useRef(null)
 
-  async function lookupUpc(code) {
-    try {
-      const r = await fetch(`/api/upc?code=${encodeURIComponent(code)}`)
-      const d = await r.json()
-      if (d.name) setName(prev => prev.trim() ? prev : d.name)
-    } catch {}
+  // ── Auto-fill helper ────────────────────────────────────────────────────────
+  function applyBottle(b, msg) {
+    if (b.name)       setName(b.name)
+    if (b.distillery) setDistillery(b.distillery)
+    if (b.category)   setCategory(b.category)
+    if (b.proof)      setProof(String(b.proof))
+    if (b.msrp)       setMsrp(String(b.msrp))
+    if (msg)          setLookupMsg(msg)
+    setSuggestions([])
   }
 
-  function handleBarcode(code) {
+  // ── Barcode scan ────────────────────────────────────────────────────────────
+  async function handleBarcode(code) {
     setUpc(code)
     setShowScanner(false)
-    lookupUpc(code)
+    setLookingUp(true)
+    setLookupMsg(null)
+    try {
+      const r = await fetch(`/api/lookup?upc=${encodeURIComponent(code)}`)
+      const d = await r.json()
+      if (d.found) {
+        applyBottle(d.bottle, `✓ Found via barcode (${d.bottle.source})`)
+      } else {
+        setLookupMsg('Barcode not in database — fill in manually')
+      }
+    } catch {
+      setLookupMsg('Lookup failed — fill in manually')
+    } finally {
+      setLookingUp(false)
+    }
   }
 
+  // ── Photo label scan ────────────────────────────────────────────────────────
+  async function handlePhoto(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLookingUp(true)
+    setLookupMsg('Reading label…')
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload  = () => resolve(reader.result.split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const mediaType = file.type || 'image/jpeg'
+      const r = await fetch('/api/lookup/photo', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ image: base64, mediaType }),
+      })
+      const d = await r.json()
+      if (d.found) {
+        applyBottle(d.bottle, '✓ Label read by AI — verify details below')
+      } else {
+        setLookupMsg(d.error ?? 'Could not read label — fill in manually')
+      }
+    } catch {
+      setLookupMsg('Photo lookup failed — fill in manually')
+    } finally {
+      setLookingUp(false)
+      e.target.value = ''
+    }
+  }
+
+  // ── Name autocomplete ───────────────────────────────────────────────────────
+  function handleNameChange(val) {
+    setName(val)
+    clearTimeout(nameDebounce.current)
+    if (val.trim().length < 2) { setSuggestions([]); return }
+    nameDebounce.current = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/lookup?search=${encodeURIComponent(val)}`)
+        const d = await r.json()
+        setSuggestions(d.results ?? [])
+      } catch {}
+    }, 280)
+  }
+
+  // ── Submit ──────────────────────────────────────────────────────────────────
   async function handleSubmit(e) {
     e.preventDefault()
     if (!name.trim()) return setError('Bottle name is required')
@@ -195,10 +266,7 @@ function AddBottleSheet({ onClose, onAdd }) {
   return (
     <>
       {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 149 }}
-      />
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 149 }} />
 
       {/* Sheet */}
       <div style={{
@@ -221,53 +289,140 @@ function AddBottleSheet({ onClose, onAdd }) {
         </div>
 
         <div style={{ padding: '0 16px 32px' }}>
-          <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc', marginBottom: 16 }}>
+          <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc', marginBottom: 4 }}>
             + Add to Collection
           </div>
 
+          {/* Quick-scan buttons */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <button
+              type="button"
+              onClick={() => { setShowScanner(s => !s); setLookupMsg(null) }}
+              disabled={lookingUp}
+              style={{
+                flex:         1,
+                padding:      '9px 0',
+                background:   showScanner ? '#e8943a' : '#1f1308',
+                border:       '1px solid #3d2b10',
+                borderRadius: 8,
+                color:        showScanner ? '#fff' : '#e8943a',
+                cursor:       'pointer',
+                fontSize:     13,
+                fontWeight:   700,
+              }}
+            >
+              {showScanner ? '✕ Close Scanner' : '📷 Scan Barcode'}
+            </button>
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={lookingUp}
+              style={{
+                flex:         1,
+                padding:      '9px 0',
+                background:   '#1f1308',
+                border:       '1px solid #3d2b10',
+                borderRadius: 8,
+                color:        '#c084fc',
+                cursor:       lookingUp ? 'not-allowed' : 'pointer',
+                fontSize:     13,
+                fontWeight:   700,
+                opacity:      lookingUp ? 0.5 : 1,
+              }}
+            >
+              {lookingUp ? '⏳ Reading…' : '🏷️ Scan Label'}
+            </button>
+          </div>
+
+          {/* Hidden photo input */}
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handlePhoto}
+            style={{ display: 'none' }}
+          />
+
+          {/* Lookup status message */}
+          {lookupMsg && (
+            <div style={{
+              fontSize:     12,
+              color:        lookupMsg.startsWith('✓') ? '#4ade80' : '#e8943a',
+              marginBottom: 10,
+              padding:      '7px 10px',
+              background:   '#0f0a05',
+              borderRadius: 6,
+              border:       '1px solid #2a1c08',
+            }}>
+              {lookupMsg}
+            </div>
+          )}
+
+          {showScanner && (
+            <div style={{ marginBottom: 12 }}>
+              <BarcodeScanner onResult={handleBarcode} onClose={() => setShowScanner(false)} autoCamera />
+            </div>
+          )}
+
           <form onSubmit={handleSubmit}>
+            {/* Name with autocomplete */}
             <label style={labelStyle}>Bottle Name *</label>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ position: 'relative' }}>
               <input
-                style={{ ...inputStyle, flex: 1 }}
+                style={inputStyle}
                 placeholder="e.g. Blanton's Original Single Barrel"
                 value={name}
-                onChange={e => setName(e.target.value)}
+                onChange={e => handleNameChange(e.target.value)}
+                onBlur={() => setTimeout(() => setSuggestions([]), 200)}
                 required
               />
-              <button
-                type="button"
-                onClick={() => setShowScanner(s => !s)}
-                style={{
-                  padding:      '8px 13px',
-                  background:   showScanner ? '#e8943a' : '#1f1308',
-                  border:       '1px solid #3d2b10',
-                  borderRadius: 8,
-                  color:        showScanner ? '#fff' : '#e8943a',
-                  cursor:       'pointer',
-                  fontSize:     18,
-                  flexShrink:   0,
-                }}
-              >
-                {showScanner ? '✕' : '📷'}
-              </button>
+              {suggestions.length > 0 && (
+                <div style={{
+                  position:   'absolute',
+                  top:        '100%',
+                  left:       0,
+                  right:      0,
+                  background: '#1a1008',
+                  border:     '1px solid #3d2b10',
+                  borderTop:  'none',
+                  borderRadius: '0 0 8px 8px',
+                  zIndex:     200,
+                  overflow:   'hidden',
+                }}>
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onMouseDown={() => applyBottle(s, `✓ Matched "${s.name}" from database`)}
+                      style={{
+                        display:    'block',
+                        width:      '100%',
+                        padding:    '9px 12px',
+                        background: 'none',
+                        border:     'none',
+                        borderTop:  i > 0 ? '1px solid #2a1c08' : 'none',
+                        color:      '#f5e6cc',
+                        fontSize:   13,
+                        textAlign:  'left',
+                        cursor:     'pointer',
+                      }}
+                    >
+                      <span style={{ fontWeight: 600 }}>{s.name}</span>
+                      <span style={{ color: '#6b5030', fontSize: 11, marginLeft: 8 }}>
+                        {s.proof ? `${s.proof}°` : ''} {s.msrp ? `· $${s.msrp}` : ''}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-
-            {showScanner && (
-              <div style={{ marginTop: 10 }}>
-                <BarcodeScanner onResult={handleBarcode} onClose={() => setShowScanner(false)} autoCamera />
-              </div>
-            )}
 
             <label style={labelStyle}>Distillery</label>
             <input style={inputStyle} placeholder="e.g. Buffalo Trace" value={distillery} onChange={e => setDistillery(e.target.value)} />
 
             <label style={labelStyle}>Category</label>
-            <select
-              value={category}
-              onChange={e => setCategory(e.target.value)}
-              style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}
-            >
+            <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}>
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
 
