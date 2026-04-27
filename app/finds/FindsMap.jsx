@@ -129,11 +129,24 @@ export default function FindsMap({ finds }) {
     `
   }
 
-  // Multi-find popup with nav arrows; nav driven by window.__mapNav
-  function buildMultiPopup(navKey, groupFinds, idx) {
+  // Multi-find popup with nav arrows.
+  // Buttons use data-nav attributes instead of onclick — Leaflet event listeners
+  // are attached via L.DomEvent after the popup opens so touch events work on mobile.
+  function buildMultiPopup(groupFinds, idx) {
     const find  = groupFinds[idx]
     const total = groupFinds.length
-    const navBtnStyle = 'padding:4px 12px;border-radius:4px;border:none;cursor:pointer;background:#8B4513;color:#fff;font-size:13px;font-weight:700;'
+    const navBtnStyle = [
+      'padding:6px 16px',
+      'border-radius:4px',
+      'border:none',
+      'cursor:pointer',
+      'background:#8B4513',
+      'color:#fff',
+      'font-size:16px',
+      'font-weight:700',
+      'touch-action:manipulation',   // prevents 300ms tap delay on iOS
+      '-webkit-tap-highlight-color:transparent',
+    ].join(';')
     return `
       <div style="font-family:system-ui;line-height:1.4;min-width:220px">
         <div style="font-weight:700;font-size:13px;color:#555;margin-bottom:6px">
@@ -142,19 +155,18 @@ export default function FindsMap({ finds }) {
         </div>
         ${findHtml(find)}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid #eee">
-          <button style="${navBtnStyle}" onclick="window.__mapNav['${navKey}'](-1)">‹</button>
+          <button data-nav="-1" style="${navBtnStyle}">‹</button>
           <span style="font-size:12px;color:#888">${idx + 1} of ${total}</span>
-          <button style="${navBtnStyle}" onclick="window.__mapNav['${navKey}'](1)">›</button>
+          <button data-nav="1" style="${navBtnStyle}">›</button>
         </div>
       </div>
     `
   }
 
   function addMarkers(L, map) {
-    // Clean up old markers and nav state
+    // Clean up old markers
     markersRef.current.forEach(m => m.remove())
     markersRef.current = []
-    window.__mapNav = {}
 
     const validFinds = finds.filter(f => f.store?.lat != null && f.store?.lng != null)
 
@@ -195,35 +207,56 @@ export default function FindsMap({ finds }) {
         iconAnchor: [size / 2, size / 2],
       })
 
-      let popup
       if (count === 1) {
-        popup = L.popup({ maxWidth: 280 }).setContent(buildSinglePopup(groupFinds[0]))
-      } else {
-        // Set up global nav function for this marker group
-        const navKey = `mn${navCounter++}`
-        const state  = { idx: 0, marker: null }
+        // ── Single-find marker ──────────────────────────────────────────────
+        const popup  = L.popup({ maxWidth: 280 }).setContent(buildSinglePopup(groupFinds[0]))
+        const marker = L.marker([store.lat, store.lng], { icon }).addTo(map).bindPopup(popup)
 
-        window.__mapNav[navKey] = function(dir) {
-          state.idx = (state.idx + dir + groupFinds.length) % groupFinds.length
-          state.marker.setPopupContent(buildMultiPopup(navKey, groupFinds, state.idx))
+        // Prevent tap events inside popup from bubbling to map (closes popup on mobile)
+        marker.on('popupopen', () => {
+          const el = marker.getPopup()?.getElement()
+          if (el) {
+            L.DomEvent.disableClickPropagation(el)
+            L.DomEvent.disableScrollPropagation(el)
+          }
+        })
+
+        markersRef.current.push(marker)
+      } else {
+        // ── Multi-find marker — prev/next navigation ─────────────────────────
+        navCounter++  // keep incrementing so IDs stay unique (not actually used in HTML now)
+        let idx = 0
+
+        const popup  = L.popup({ maxWidth: 290 }).setContent(buildMultiPopup(groupFinds, 0))
+        const marker = L.marker([store.lat, store.lng], { icon }).addTo(map).bindPopup(popup)
+
+        function attachNavHandlers() {
+          const popupEl = marker.getPopup()?.getElement()
+          if (!popupEl) return
+
+          // Stop ALL touch/click events inside the popup from reaching the map
+          L.DomEvent.disableClickPropagation(popupEl)
+          L.DomEvent.disableScrollPropagation(popupEl)
+
+          // Bind prev/next buttons using Leaflet's event system (works on mobile)
+          popupEl.querySelectorAll('[data-nav]').forEach(btn => {
+            // Remove any previously-bound listeners to avoid duplicates after setPopupContent
+            L.DomEvent.off(btn)
+            L.DomEvent.on(btn, 'click', function(e) {
+              L.DomEvent.stopPropagation(e)
+              const dir = Number(btn.getAttribute('data-nav'))
+              idx = (idx + dir + groupFinds.length) % groupFinds.length
+              marker.setPopupContent(buildMultiPopup(groupFinds, idx))
+              // Re-bind after DOM replacement (setPopupContent swaps innerHTML)
+              setTimeout(attachNavHandlers, 0)
+            })
+          })
         }
 
-        popup = L.popup({ maxWidth: 290 }).setContent(buildMultiPopup(navKey, groupFinds, 0))
+        marker.on('popupopen', attachNavHandlers)
 
-        const marker = L.marker([store.lat, store.lng], { icon })
-          .addTo(map)
-          .bindPopup(popup)
-
-        state.marker = marker
         markersRef.current.push(marker)
-        return  // skip the generic marker push below
       }
-
-      const marker = L.marker([store.lat, store.lng], { icon })
-        .addTo(map)
-        .bindPopup(popup)
-
-      markersRef.current.push(marker)
     })
 
     // Fit bounds if we have markers
