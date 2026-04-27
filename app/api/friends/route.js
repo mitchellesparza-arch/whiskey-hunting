@@ -52,14 +52,14 @@ export async function GET(request) {
 
   const receivedSet = new Set(receivedEmails.map(e => e.toLowerCase()))
 
-  const discover = allUsers
-    .filter(u => {
-      const e = u.email.toLowerCase()
-      return e !== me &&
-        approvedSet.has(e) &&
-        !friendSet.has(e) &&
-        !receivedSet.has(e)  // hide if I already got a request from them (shown in requests)
-    })
+  // Build discover from approvedEmails (source of truth) — not from wh:users,
+  // which only contains users who have signed in since registerUser() was added.
+  // Users approved before that code was deployed (e.g. manually approved) show up
+  // here with their email prefix as a name until they sign in and populate wh:users.
+  const discover = approvedEmails
+    .map(e => e.toLowerCase())
+    .filter(e => e !== me && !friendSet.has(e) && !receivedSet.has(e))
+    .map(e => userMap[e] ?? { email: e, name: e.split('@')[0], joinedAt: null })
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
 
   return NextResponse.json({
