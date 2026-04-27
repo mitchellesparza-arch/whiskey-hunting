@@ -67,8 +67,8 @@ const grayBtn = {
 function StepIntro({ onStart }) {
   const steps = [
     { n: '1', t: 'Mark your glens', d: 'Write 1–5 on the bottoms of your glasses with a dry-erase marker.' },
-    { n: '2', t: 'Pour blind',      d: 'The app tells you which bottle goes in which glen. Pour each, then step away.' },
-    { n: '3', t: 'Shuffle',         d: 'Slide the glasses around until nobody can remember which is which.' },
+    { n: '2', t: 'Pour blind',      d: 'The app tells you which bottle goes in which glen. Pour each.' },
+    { n: '3', t: 'Shuffle',         d: 'Slide the glasses around until you can\'t remember which is which.' },
     { n: '4', t: 'Taste & compare', d: 'The app presents position matchups. Pick your favorite, blind.' },
     { n: '5', t: 'Reveal',          d: 'Flip each glass, enter the glen number you see. The app decodes the results.' },
   ]
@@ -242,7 +242,7 @@ function StepGlenAssign({ bottles, glenAssignment, onReady }) {
         background: '#1a0e04', border: '1px solid #4a3010', borderRadius: 10,
         padding: '12px 14px', marginBottom: 20, fontSize: 13, color: '#c9a87a', lineHeight: 1.5,
       }}>
-        💡 Tip: Pour all {n} glasses, then shuffle before anyone sees the order.
+        💡 Tip: Pour all {n} glasses, then slide them around until you can&apos;t remember which is which.
       </div>
 
       <button onClick={onReady} style={accentBtn}>
