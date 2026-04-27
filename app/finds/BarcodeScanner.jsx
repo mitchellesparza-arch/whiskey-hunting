@@ -32,6 +32,11 @@ export default function BarcodeScanner({ onResult, onClose, autoCamera = false }
 
   async function stopCamera() {
     try {
+      // Stop all video stream tracks so the camera indicator light turns off
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach(t => t.stop())
+        videoRef.current.srcObject = null
+      }
       readerRef.current?.reset()
       readerRef.current = null
     } catch {}

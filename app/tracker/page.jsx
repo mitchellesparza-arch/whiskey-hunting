@@ -189,6 +189,15 @@ function StoreActivityCard({ storeName, events, isSelected, onSelect }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+const DISTRIBUTORS = ['Breakthru Beverage', "Southern Glazer's", 'RNDC', 'BC Merchants']
+
+const BINNYS_STORES = [
+  'Orland Park', 'Lincoln Park', 'Lakeview', 'Old Town', 'South Loop',
+  'Schaumburg', 'Algonquin', 'Wilmette', 'Skokie', 'Deerfield',
+  'Batavia', 'Plainfield', 'Naperville', 'Oak Park', 'River North',
+  'Bridgeport', 'Hyde Park', 'Elmwood Park', 'Lombard', 'Vernon Hills',
+]
+
 export default function TrackerPage() {
   const { data: session } = useSession()
 
@@ -197,6 +206,13 @@ export default function TrackerPage() {
   const [historyLoaded, setHistoryLoaded] = useState(false)
   const [refreshing,    setRefreshing]    = useState(false)
   const [selectedStore, setSelectedStore] = useState(null)
+
+  // Manual truck report
+  const [showReport,    setShowReport]    = useState(false)
+  const [reportStore,   setReportStore]   = useState('Orland Park')
+  const [reportDist,    setReportDist]    = useState(DISTRIBUTORS[0])
+  const [reporting,     setReporting]     = useState(false)
+  const [reportDone,    setReportDone]    = useState(false)
 
   const loadHistory = useCallback(async () => {
     try {
@@ -219,6 +235,23 @@ export default function TrackerPage() {
     await loadHistory()
     setRefreshing(false)
   }, [loadHistory])
+
+  async function submitTruckReport() {
+    setReporting(true)
+    try {
+      const res = await fetch('/api/history', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ storeName: reportStore, distributor: reportDist }),
+      })
+      if (res.ok) {
+        setReportDone(true)
+        await loadHistory()
+        setTimeout(() => { setReportDone(false); setShowReport(false) }, 2000)
+      }
+    } catch {}
+    setReporting(false)
+  }
 
   const { map: distMap, order: distOrder } = buildDistributorMap()
 
@@ -246,6 +279,18 @@ export default function TrackerPage() {
               <span style={{ fontSize: 11, color: '#9a7c55' }}>Checked {timeAgo(lastCheckedAt)}</span>
             )}
             <button
+              onClick={() => setShowReport(s => !s)}
+              style={{
+                fontSize: 13, padding: '6px 14px',
+                background: showReport ? 'var(--accent)' : '#1f1308',
+                border: '1px solid var(--border)',
+                borderRadius: 8, color: showReport ? '#fff' : 'var(--accent)',
+                cursor: 'pointer', fontWeight: 700,
+              }}
+            >
+              🚛 Report Truck
+            </button>
+            <button
               onClick={refresh}
               disabled={refreshing}
               className="btn-primary"
@@ -256,6 +301,61 @@ export default function TrackerPage() {
           </div>
         }
       />
+
+      {/* Manual truck report form */}
+      {showReport && (
+        <div style={{
+          maxWidth: 600, margin: '0 auto', padding: '0 16px 12px',
+        }}>
+          <div style={{
+            background: '#1a1008', border: '1px solid #4a3010', borderRadius: 12,
+            padding: '16px',
+          }}>
+            <div style={{ fontWeight: 800, fontSize: 14, color: '#f5e6cc', marginBottom: 12 }}>
+              🚛 Report a Truck Sighting
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#9a7c55', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Store
+                </label>
+                <select
+                  value={reportStore}
+                  onChange={e => setReportStore(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', background: '#0f0a05', border: '1px solid #3d2b10', borderRadius: 8, color: '#f5e6cc', fontSize: 13, outline: 'none' }}
+                >
+                  {BINNYS_STORES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#9a7c55', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Distributor
+                </label>
+                <select
+                  value={reportDist}
+                  onChange={e => setReportDist(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', background: '#0f0a05', border: '1px solid #3d2b10', borderRadius: 8, color: '#f5e6cc', fontSize: 13, outline: 'none' }}
+                >
+                  {DISTRIBUTORS.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            </div>
+            <button
+              onClick={submitTruckReport}
+              disabled={reporting || reportDone}
+              style={{
+                width: '100%', padding: '9px',
+                background: reportDone ? '#166534' : '#e8943a',
+                border: 'none', borderRadius: 8, color: '#fff',
+                fontWeight: 700, fontSize: 13, cursor: reporting ? 'not-allowed' : 'pointer',
+                opacity: reporting ? 0.7 : 1,
+              }}
+            >
+              {reporting ? '⏳ Logging…' : reportDone ? '✓ Truck logged!' : 'Log This Truck'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-10">
 

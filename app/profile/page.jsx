@@ -64,6 +64,7 @@ export default function ProfilePage() {
   const [collectionLoaded, setCollectionLoaded] = useState(false)
   const [friendCount,      setFriendCount]      = useState(null)
   const [pendingRequests,  setPendingRequests]  = useState(0)
+  const [muleBoard,        setMuleBoard]        = useState([])
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login')
@@ -83,6 +84,11 @@ export default function ProfilePage() {
         setFriendCount((d.friends ?? []).length)
         setPendingRequests((d.requests ?? []).length)
       })
+      .catch(() => {})
+
+    fetch('/api/mule')
+      .then(r => r.json())
+      .then(d => setMuleBoard(d.leaderboard ?? []))
       .catch(() => {})
   }, [])
 
@@ -229,6 +235,39 @@ export default function ProfilePage() {
             )
           })}
         </div>
+
+        {/* Mule Scoreboard */}
+        {muleBoard.length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontWeight: 800, fontSize: 14, color: '#f5e6cc', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              🫏 Mule Scoreboard
+              <span style={{ fontSize: 11, fontWeight: 400, color: '#9a7c55' }}>— who&apos;s delivered the most samples</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {muleBoard.slice(0, 5).map(({ name, count }, i) => (
+                <div key={name} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  background: '#1a1008', border: '1px solid #2a1c08', borderRadius: 10,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>{['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</span>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: '#f5e6cc' }}>{name}</span>
+                  </div>
+                  <span style={{
+                    fontSize: 12, fontWeight: 700,
+                    color: '#e8943a',
+                    background: 'rgba(232,148,58,0.1)',
+                    border: '1px solid rgba(232,148,58,0.2)',
+                    borderRadius: 999, padding: '2px 10px',
+                  }}>
+                    {count} mule{count !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

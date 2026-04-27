@@ -117,6 +117,170 @@ function BottleCard({ bottle, onRemove }) {
   )
 }
 
+// ── Sample Card ───────────────────────────────────────────────────────────────
+
+function SampleCard({ sample, onRemove }) {
+  const TYPE_ICON  = { Mule: '🫏', Handshake: '🤝', Other: '🥃' }
+  const TYPE_COLOR = { Mule: '#e8943a', Handshake: '#4ade80', Other: '#9a7c55' }
+  const icon  = TYPE_ICON[sample.type]  ?? '🥃'
+  const color = TYPE_COLOR[sample.type] ?? '#9a7c55'
+
+  return (
+    <div className="card" style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '12px 14px' }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: 8,
+        background: '#1f1308', border: '1px solid #3d2b10',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 22,
+      }}>{icon}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sample.name}</div>
+        <div style={{ fontSize: 11 }}>
+          <span style={{ color: '#9a7c55' }}>from </span>
+          <span style={{ color }}>{sample.from}</span>
+          <span style={{ color: '#3d2b10', margin: '0 5px' }}>·</span>
+          <span style={{ color, fontWeight: 600 }}>{sample.type}</span>
+        </div>
+        {sample.notes && <div style={{ fontSize: 11, color: '#6b5030', marginTop: 2, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sample.notes}</div>}
+      </div>
+      <button onClick={() => onRemove(sample.id)} style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 16, padding: 0, flexShrink: 0 }}>✕</button>
+    </div>
+  )
+}
+
+// ── Add Sample Sheet ──────────────────────────────────────────────────────────
+
+function AddSampleSheet({ onClose, onAdd }) {
+  const [name,       setName]       = useState('')
+  const [fromText,   setFromText]   = useState('')
+  const [fromEmail,  setFromEmail]  = useState(null)
+  const [type,       setType]       = useState('Mule')
+  const [notes,      setNotes]      = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error,      setError]      = useState(null)
+  const [friends,    setFriends]    = useState([])
+  const [showFriends,setShowFriends]= useState(false)
+
+  useEffect(() => {
+    fetch('/api/friends')
+      .then(r => r.json())
+      .then(d => setFriends(d.friends ?? []))
+      .catch(() => {})
+  }, [])
+
+  const labelStyle = { display: 'block', fontSize: 10, fontWeight: 700, color: '#9a7c55', marginBottom: 4, marginTop: 14, textTransform: 'uppercase', letterSpacing: '0.06em' }
+  const inputStyle = { width: '100%', padding: '9px 12px', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none' }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!name.trim())    return setError('Bottle name is required')
+    if (!fromText.trim()) return setError('From is required')
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res  = await fetch('/api/samples', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ name, from: fromText, fromEmail, type, notes }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to add sample')
+      onAdd(data.sample)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 99 }} />
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+        background: '#1a1008', borderRadius: '16px 16px 0 0',
+        borderTop: '1px solid #3d2b10',
+        maxHeight: '90vh', overflowY: 'auto',
+        padding: '20px 16px calc(20px + env(safe-area-inset-bottom))',
+        animation: 'slideUp 0.2s ease',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc' }}>🥃 Add a Sample</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9a7c55', fontSize: 20, cursor: 'pointer' }}>✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <label style={labelStyle}>Bottle Name *</label>
+          <input style={inputStyle} placeholder="e.g. Blanton's Single Barrel" value={name} onChange={e => setName(e.target.value)} required />
+
+          <label style={labelStyle}>From (who gave it) *</label>
+          <div style={{ position: 'relative' }}>
+            <input
+              style={inputStyle}
+              placeholder="Name or select a friend"
+              value={fromText}
+              onChange={e => { setFromText(e.target.value); setFromEmail(null); setShowFriends(false) }}
+              onFocus={() => setShowFriends(friends.length > 0)}
+            />
+            {showFriends && friends.length > 0 && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                background: '#1f1308', border: '1px solid #3d2b10', borderRadius: '0 0 8px 8px',
+                maxHeight: 160, overflowY: 'auto',
+              }}>
+                {friends.map(f => (
+                  <button
+                    key={f.email}
+                    type="button"
+                    onClick={() => { setFromText(f.name ?? f.email); setFromEmail(f.email); setShowFriends(false) }}
+                    style={{ width: '100%', padding: '9px 12px', background: 'none', border: 'none', borderTop: '1px solid #2a1c08', color: '#f5e6cc', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}
+                  >
+                    {f.name ?? f.email}
+                    <span style={{ color: '#6b5030', fontSize: 11, marginLeft: 6 }}>{f.email}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <label style={labelStyle}>Type</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {['Mule', 'Handshake', 'Other'].map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setType(t)}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                  background: type === t ? '#e8943a' : '#1f1308',
+                  color:      type === t ? '#fff'     : '#6b5030',
+                }}
+              >
+                {t === 'Mule' ? '🫏 Mule' : t === 'Handshake' ? '🤝 Handshake' : '🥃 Other'}
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 11, color: '#6b5030', marginTop: 6, lineHeight: 1.5 }}>
+            {type === 'Mule' ? 'Someone physically transported this sample for you.' : type === 'Handshake' ? 'Traded or received at a meet-up.' : 'Other way you got it.'}
+          </div>
+
+          <label style={labelStyle}>Notes (optional)</label>
+          <textarea style={{ ...inputStyle, minHeight: 56, resize: 'vertical' }} placeholder="What did you think? Anything to remember?" value={notes} onChange={e => setNotes(e.target.value)} />
+
+          {error && <p style={{ color: '#f87171', fontSize: 13, margin: '10px 0 0' }}>{error}</p>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{ marginTop: 16, width: '100%', padding: '12px', background: '#e8943a', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 800, fontSize: 15, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1 }}
+          >
+            {submitting ? '⏳ Saving…' : '+ Add Sample'}
+          </button>
+        </form>
+      </div>
+    </>
+  )
+}
+
 // ── Add Bottle Sheet ──────────────────────────────────────────────────────────
 
 function AddBottleSheet({ onClose, onAdd }) {
@@ -482,11 +646,18 @@ export default function CollectionPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
 
-  const [bottles,  setBottles]  = useState([])
-  const [loaded,   setLoaded]   = useState(false)
-  const [sort,     setSort]     = useState('score')
-  const [showAdd,  setShowAdd]  = useState(false)
-  const [removing, setRemoving] = useState(null)
+  const [bottles,       setBottles]       = useState([])
+  const [loaded,        setLoaded]        = useState(false)
+  const [sort,          setSort]          = useState('score')
+  const [showAdd,       setShowAdd]       = useState(false)
+  const [removing,      setRemoving]      = useState(null)
+
+  // Samples tab
+  const [tab,           setTab]           = useState('bottles')
+  const [samples,       setSamples]       = useState([])
+  const [samplesLoaded, setSamplesLoaded] = useState(false)
+  const [showAddSample, setShowAddSample] = useState(false)
+  const [removingSample,setRemovingSample]= useState(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login')
@@ -498,6 +669,12 @@ export default function CollectionPage() {
       .then(d => setBottles(d.bottles ?? []))
       .catch(() => {})
       .finally(() => setLoaded(true))
+
+    fetch('/api/samples')
+      .then(r => r.json())
+      .then(d => setSamples(d.samples ?? []))
+      .catch(() => {})
+      .finally(() => setSamplesLoaded(true))
   }, [])
 
   async function handleRemove(id) {
@@ -508,6 +685,16 @@ export default function CollectionPage() {
       if (data.bottles) setBottles(data.bottles)
     } catch {}
     setRemoving(null)
+  }
+
+  async function handleRemoveSample(id) {
+    setRemovingSample(id)
+    try {
+      const res  = await fetch(`/api/samples?id=${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.samples) setSamples(data.samples)
+    } catch {}
+    setRemovingSample(null)
   }
 
   // Sort
@@ -554,7 +741,7 @@ export default function CollectionPage() {
           </div>
         </div>
         <button
-          onClick={() => setShowAdd(true)}
+          onClick={() => tab === 'bottles' ? setShowAdd(true) : setShowAddSample(true)}
           style={{
             padding:      '7px 14px',
             background:   '#e8943a',
@@ -566,7 +753,7 @@ export default function CollectionPage() {
             cursor:       'pointer',
           }}
         >
-          + Add
+          {tab === 'bottles' ? '+ Bottle' : '+ Sample'}
         </button>
       </div>
 
@@ -593,65 +780,110 @@ export default function CollectionPage() {
           ))}
         </div>
 
-        {/* Sort bar */}
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14, paddingBottom: 2 }}>
-          {SORT_OPTIONS.map(o => (
+        {/* Tab switcher */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+          {[
+            { key: 'bottles', label: `📦 Bottles (${bottles.length})` },
+            { key: 'samples', label: `🥃 Samples (${samples.length})` },
+          ].map(t => (
             <button
-              key={o.key}
-              onClick={() => setSort(o.key)}
+              key={t.key}
+              onClick={() => setTab(t.key)}
               style={{
-                flexShrink:   0,
-                padding:      '6px 13px',
-                borderRadius: 999,
+                flex:         1,
+                padding:      '8px 0',
+                borderRadius: 8,
                 border:       'none',
                 cursor:       'pointer',
-                background:   sort === o.key ? '#e8943a' : '#1f1308',
-                color:        sort === o.key ? '#fff' : '#9a7c55',
-                fontSize:     12,
-                fontWeight:   600,
-                whiteSpace:   'nowrap',
+                background:   tab === t.key ? '#e8943a' : '#1f1308',
+                color:        tab === t.key ? '#fff' : '#6b5030',
+                fontWeight:   700,
+                fontSize:     13,
               }}
-            >
-              {o.label}
-            </button>
+            >{t.label}</button>
           ))}
         </div>
 
-        {/* Bottle list */}
-        {!loaded ? (
-          <p style={{ color: '#9a7c55', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>Loading…</p>
-        ) : sorted.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 16px' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
-            <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc', marginBottom: 8 }}>Your collection is empty</div>
-            <div style={{ fontSize: 14, color: '#9a7c55', marginBottom: 20 }}>Add your first bottle to get started</div>
-            <button
-              onClick={() => setShowAdd(true)}
-              style={{
-                padding:      '10px 24px',
-                background:   '#e8943a',
-                border:       'none',
-                borderRadius: 8,
-                color:        '#fff',
-                fontWeight:   700,
-                fontSize:     14,
-                cursor:       'pointer',
-              }}
-            >
-              + Add your first bottle
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {sorted.map(bottle => (
-              <BottleCard
-                key={bottle.id}
-                bottle={bottle}
-                onRemove={handleRemove}
-              />
-            ))}
+        {/* Sort bar — only shown on bottles tab */}
+        {tab === 'samples' && (
+          <div>
+            {/* Samples list */}
+            {!samplesLoaded ? (
+              <p style={{ color: '#9a7c55', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>Loading…</p>
+            ) : samples.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '48px 16px' }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🥃</div>
+                <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc', marginBottom: 8 }}>No samples yet</div>
+                <div style={{ fontSize: 14, color: '#9a7c55', marginBottom: 20 }}>Track bottles you received via mule or handshake</div>
+                <button
+                  onClick={() => setShowAddSample(true)}
+                  style={{ padding: '10px 24px', background: '#e8943a', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+                >
+                  + Add your first sample
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {samples.map(sample => (
+                  <SampleCard
+                    key={sample.id}
+                    sample={sample}
+                    onRemove={handleRemoveSample}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
+
+        {tab === 'bottles' && <>
+          {/* Sort bar */}
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14, paddingBottom: 2 }}>
+            {SORT_OPTIONS.map(o => (
+              <button
+                key={o.key}
+                onClick={() => setSort(o.key)}
+                style={{
+                  flexShrink:   0,
+                  padding:      '6px 13px',
+                  borderRadius: 999,
+                  border:       'none',
+                  cursor:       'pointer',
+                  background:   sort === o.key ? '#e8943a' : '#1f1308',
+                  color:        sort === o.key ? '#fff' : '#9a7c55',
+                  fontSize:     12,
+                  fontWeight:   600,
+                  whiteSpace:   'nowrap',
+                }}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Bottle list */}
+          {!loaded ? (
+            <p style={{ color: '#9a7c55', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>Loading…</p>
+          ) : sorted.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 16px' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+              <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc', marginBottom: 8 }}>Your collection is empty</div>
+              <div style={{ fontSize: 14, color: '#9a7c55', marginBottom: 20 }}>Add your first bottle to get started</div>
+              <button
+                onClick={() => setShowAdd(true)}
+                style={{ padding: '10px 24px', background: '#e8943a', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+              >
+                + Add your first bottle
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {sorted.map(bottle => (
+                <BottleCard key={bottle.id} bottle={bottle} onRemove={handleRemove} />
+              ))}
+            </div>
+          )}
+        </>}
 
       </div>
 
@@ -659,6 +891,13 @@ export default function CollectionPage() {
         <AddBottleSheet
           onClose={() => setShowAdd(false)}
           onAdd={(bottles) => { setBottles(bottles); setShowAdd(false) }}
+        />
+      )}
+
+      {showAddSample && (
+        <AddSampleSheet
+          onClose={() => setShowAddSample(false)}
+          onAdd={(sample) => { setSamples(prev => [sample, ...prev]); setShowAddSample(false) }}
         />
       )}
     </div>

@@ -246,6 +246,23 @@ export default function FindsPage() {
     }
   }
 
+  // ── Vote ───────────────────────────────────────────────────────────────────
+  async function handleVote(id, type) {
+    try {
+      const res  = await fetch('/api/finds', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ id, type }),
+      })
+      const data = await res.json()
+      if (!res.ok) return
+      // Optimistically update vote counts in both lists
+      const patch = prev => prev.map(f => f.id === id ? { ...f, votes: data.find.votes } : f)
+      setFinds(patch)
+      setArchived(patch)
+    } catch {}
+  }
+
   // ── Delete ─────────────────────────────────────────────────────────────────
   async function handleDelete(id) {
     if (!confirm('Remove this find?')) return
@@ -291,6 +308,14 @@ export default function FindsPage() {
   const MEDAL_COLOR = ['#fbbf24', '#94a3b8', '#b45309']
 
   function FindCard({ find, isArchived = false }) {
+    const userEmail = session?.user?.email ?? ''
+    const votes     = find.votes ?? { up: [], down: [] }
+    const upCount   = votes.up.length
+    const downCount = votes.down.length
+    const myVote    = votes.up.includes(userEmail) ? 'up'
+                    : votes.down.includes(userEmail) ? 'down'
+                    : null
+
     return (
       <div className="card" style={{ padding: 0, opacity: isArchived ? 0.6 : 1 }}>
         <div style={{ padding: '12px 14px', borderBottom: '1px solid #2a1c08' }}>
@@ -316,6 +341,7 @@ export default function FindsPage() {
           <div style={{ fontSize: 11, color: '#6b5030', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <span>{fmtDate(find.timestamp)}{find.timestamp && ` · ${fmtTimeAgo(find.timestamp)}`}</span>
             {find.price && <span style={{ color: '#e8943a', fontWeight: 700 }}>${Number(find.price).toFixed(2)}</span>}
+            <span style={{ color: '#6b5030' }}>by {find.submitterName}</span>
             {isArchived && <span style={{ fontStyle: 'italic' }}>— archived after 24h</span>}
           </div>
         </div>
@@ -331,6 +357,42 @@ export default function FindsPage() {
         {find.notes && (
           <div style={{ padding: '10px 14px', fontSize: 12, color: '#c9a87a', fontStyle: 'italic', borderBottom: '1px solid #2a1c08' }}>
             &ldquo;{find.notes}&rdquo;
+          </div>
+        )}
+
+        {/* Vote buttons — not shown on archived finds */}
+        {!isArchived && (
+          <div style={{ padding: '9px 14px', display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => handleVote(find.id, 'up')}
+              style={{
+                padding:      '5px 13px',
+                borderRadius: 6,
+                border:       myVote === 'up' ? '1px solid rgba(74,222,128,0.4)' : '1px solid #2a1c08',
+                cursor:       'pointer',
+                background:   myVote === 'up' ? 'rgba(74,222,128,0.1)' : '#1f1308',
+                color:        myVote === 'up' ? '#4ade80' : '#6b5030',
+                fontSize:     12,
+                fontWeight:   700,
+              }}
+            >
+              👍 Still There{upCount > 0 ? ` (${upCount})` : ''}
+            </button>
+            <button
+              onClick={() => handleVote(find.id, 'down')}
+              style={{
+                padding:      '5px 13px',
+                borderRadius: 6,
+                border:       myVote === 'down' ? '1px solid rgba(248,113,113,0.4)' : '1px solid #2a1c08',
+                cursor:       'pointer',
+                background:   myVote === 'down' ? 'rgba(248,113,113,0.1)' : '#1f1308',
+                color:        myVote === 'down' ? '#f87171' : '#6b5030',
+                fontSize:     12,
+                fontWeight:   700,
+              }}
+            >
+              👎 Gone{downCount > 0 ? ` (${downCount})` : ''}
+            </button>
           </div>
         )}
       </div>

@@ -5,6 +5,11 @@
  * Dynamically imported (ssr: false) from page.jsx.
  * Uses raw Leaflet (not react-leaflet) to avoid SSR issues.
  *
+ * Features:
+ *   - Groups multiple finds at the same store under one marker
+ *   - Marker shows a count badge when 2+ finds exist at a location
+ *   - Multi-find popup has ‹ Prev / Next › navigation
+ *
  * Props:
  *   finds: Find[]  — array of find objects with store.lat / store.lng
  */
@@ -36,8 +41,8 @@ export default function FindsMap({ finds }) {
 
       // Init map centered on Chicagoland
       const map = L.map(containerRef.current, {
-        center:    [41.85, -87.9],
-        zoom:      10,
+        center:      [41.85, -87.9],
+        zoom:        10,
         zoomControl: true,
       })
       mapRef.current = map
@@ -71,53 +76,150 @@ export default function FindsMap({ finds }) {
     })
   }, [finds])
 
+  function escHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+  }
+
+  function fmtTs(ts) {
+    if (!ts) return '—'
+    const d = new Date(ts)
+    return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+  }
+
+  function timeAgo(ts) {
+    if (!ts) return ''
+    const m = Math.floor((Date.now() - ts) / 60000)
+    if (m < 1)  return 'just now'
+    if (m < 60) return `${m}m ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h}h ago`
+    return `${Math.floor(h / 24)}d ago`
+  }
+
+  // Build HTML for one find's content (used in both single and multi popups)
+  function findHtml(find) {
+    return `
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#1a0e04">
+        🥃 ${escHtml(find.bottleName)}
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:${find.notes || find.photoUrl ? 4 : 0}px">
+        ${escHtml(fmtTs(find.timestamp))}${find.timestamp ? ` · ${escHtml(timeAgo(find.timestamp))}` : ''}
+        ${find.price ? ` · <span style="color:#c46c1a;font-weight:700">$${Number(find.price).toFixed(2)}</span>` : ''}
+        ${find.submitterName ? ` · <span style="color:#9a7c55">${escHtml(find.submitterName)}</span>` : ''}
+      </div>
+      ${find.notes ? `<div style="font-size:12px;color:#333;font-style:italic;margin-bottom:${find.photoUrl ? 4 : 0}px">"${escHtml(find.notes)}"</div>` : ''}
+      ${find.photoUrl ? `<img src="${escHtml(find.photoUrl)}" style="width:100%;max-height:130px;object-fit:cover;border-radius:4px;margin-top:4px" />` : ''}
+    `
+  }
+
+  // Single-find popup
+  function buildSinglePopup(find) {
+    return `
+      <div style="font-family:system-ui;line-height:1.4;min-width:200px">
+        <div style="font-weight:700;font-size:13px;color:#555;margin-bottom:6px">
+          📍 ${escHtml(find.store?.name ?? '—')}
+          ${find.store?.address ? `<div style="font-size:11px;color:#888;font-weight:400">${escHtml(find.store.address)}</div>` : ''}
+        </div>
+        ${findHtml(find)}
+      </div>
+    `
+  }
+
+  // Multi-find popup with nav arrows; nav driven by window.__mapNav
+  function buildMultiPopup(navKey, groupFinds, idx) {
+    const find  = groupFinds[idx]
+    const total = groupFinds.length
+    const navBtnStyle = 'padding:4px 12px;border-radius:4px;border:none;cursor:pointer;background:#8B4513;color:#fff;font-size:13px;font-weight:700;'
+    return `
+      <div style="font-family:system-ui;line-height:1.4;min-width:220px">
+        <div style="font-weight:700;font-size:13px;color:#555;margin-bottom:6px">
+          📍 ${escHtml(find.store?.name ?? '—')}
+          ${find.store?.address ? `<div style="font-size:11px;color:#888;font-weight:400">${escHtml(find.store.address)}</div>` : ''}
+        </div>
+        ${findHtml(find)}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid #eee">
+          <button style="${navBtnStyle}" onclick="window.__mapNav['${navKey}'](-1)">‹</button>
+          <span style="font-size:12px;color:#888">${idx + 1} of ${total}</span>
+          <button style="${navBtnStyle}" onclick="window.__mapNav['${navKey}'](1)">›</button>
+        </div>
+      </div>
+    `
+  }
+
   function addMarkers(L, map) {
-    // Remove old markers
+    // Clean up old markers and nav state
     markersRef.current.forEach(m => m.remove())
     markersRef.current = []
+    window.__mapNav = {}
 
     const validFinds = finds.filter(f => f.store?.lat != null && f.store?.lng != null)
 
-    validFinds.forEach(find => {
+    // Group finds by store (use placeId when available, else lat+lng key)
+    const groups = {}
+    for (const find of validFinds) {
+      const key = find.store.placeId
+        || `${find.store.lat.toFixed(5)},${find.store.lng.toFixed(5)}`
+      if (!groups[key]) groups[key] = { store: find.store, finds: [] }
+      groups[key].finds.push(find)
+    }
+
+    let navCounter = 0
+
+    Object.values(groups).forEach(({ store, finds: groupFinds }) => {
+      const count = groupFinds.length
+
+      // Marker icon — larger with count badge for multi-find stores
+      const size = count > 1 ? 22 : 14
       const icon = L.divIcon({
         className: '',
         html: `<div style="
           background:#8B4513;
           border:2px solid #d4a054;
           border-radius:50%;
-          width:14px;
-          height:14px;
+          width:${size}px;
+          height:${size}px;
           box-shadow:0 0 6px rgba(212,160,84,0.6);
-        "></div>`,
-        iconSize:   [14, 14],
-        iconAnchor: [7, 7],
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-size:10px;
+          font-weight:700;
+          color:#fff;
+          line-height:1;
+        ">${count > 1 ? count : ''}</div>`,
+        iconSize:   [size, size],
+        iconAnchor: [size / 2, size / 2],
       })
 
-      const date = find.timestamp
-        ? (() => {
-            const d = new Date(find.timestamp)
-            return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
-          })()
-        : '—'
+      let popup
+      if (count === 1) {
+        popup = L.popup({ maxWidth: 280 }).setContent(buildSinglePopup(groupFinds[0]))
+      } else {
+        // Set up global nav function for this marker group
+        const navKey = `mn${navCounter++}`
+        const state  = { idx: 0, marker: null }
 
-      const popup = L.popup({ maxWidth: find.photoUrl ? 300 : 260 }).setContent(`
-        <div style="font-family:system-ui;color:#111;line-height:1.4">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px">
-            🥃 ${escHtml(find.bottleName)}
-          </div>
-          <div style="font-size:12px;color:#555;margin-bottom:2px">
-            📍 ${escHtml(find.store?.name ?? '—')}
-          </div>
-          ${find.store?.address ? `<div style="font-size:11px;color:#777;margin-bottom:4px">${escHtml(find.store.address)}</div>` : ''}
-          <div style="font-size:11px;color:#888;margin-bottom:4px">
-            Reported ${date}${find.price ? ` · <span style="color:#c46c1a;font-weight:700">$${Number(find.price).toFixed(2)}</span>` : ''}
-          </div>
-          ${find.notes ? `<div style="font-size:12px;color:#333;font-style:italic">"${escHtml(find.notes)}"</div>` : ''}
-          ${find.photoUrl ? `<img src="${escHtml(find.photoUrl)}" style="width:100%;max-height:140px;object-fit:cover;border-radius:4px;margin-top:6px" />` : ''}
-        </div>
-      `)
+        window.__mapNav[navKey] = function(dir) {
+          state.idx = (state.idx + dir + groupFinds.length) % groupFinds.length
+          state.marker.setPopupContent(buildMultiPopup(navKey, groupFinds, state.idx))
+        }
 
-      const marker = L.marker([find.store.lat, find.store.lng], { icon })
+        popup = L.popup({ maxWidth: 290 }).setContent(buildMultiPopup(navKey, groupFinds, 0))
+
+        const marker = L.marker([store.lat, store.lng], { icon })
+          .addTo(map)
+          .bindPopup(popup)
+
+        state.marker = marker
+        markersRef.current.push(marker)
+        return  // skip the generic marker push below
+      }
+
+      const marker = L.marker([store.lat, store.lng], { icon })
         .addTo(map)
         .bindPopup(popup)
 
@@ -131,14 +233,6 @@ export default function FindsMap({ finds }) {
         map.fitBounds(group.getBounds().pad(0.2), { maxZoom: 13 })
       } catch {}
     }
-  }
-
-  function escHtml(str) {
-    return String(str ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
   }
 
   return (

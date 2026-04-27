@@ -1,6 +1,7 @@
 import { NextResponse }          from 'next/server'
 import { getToken }              from 'next-auth/jwt'
-import { getFinds, addFind, removeFind } from '../../../lib/finds.js'
+import { getFinds, addFind, removeFind, voteFind } from '../../../lib/finds.js'
+import { getUserProfile }        from '../../../lib/friends.js'
 
 /**
  * GET /api/finds
@@ -53,7 +54,7 @@ export async function POST(request) {
     if (!token.approved) return NextResponse.json({ error: 'Not approved' },    { status: 403 })
 
     const body = await request.json()
-    const { bottleName, upc, store, photoUrl, notes } = body
+    const { bottleName, upc, store, photoUrl, notes, price } = body
 
     if (!bottleName?.trim()) {
       return NextResponse.json({ error: 'bottleName is required' }, { status: 400 })
@@ -62,18 +63,49 @@ export async function POST(request) {
       return NextResponse.json({ error: 'store with name, lat, lng is required' }, { status: 400 })
     }
 
+    // Use stored display name so settings changes are reflected immediately
+    const profile       = await getUserProfile(token.email)
+    const submitterName = profile?.name ?? token.name ?? token.email
+
     const entry = await addFind({
       bottleName,
-      upc:           upc           || null,
+      upc:      upc      || null,
       store,
-      photoUrl:      photoUrl      || null,
-      notes:         notes         || null,
+      photoUrl: photoUrl || null,
+      notes:    notes    || null,
+      price:    price    || null,
       submittedBy:   token.email,
-      submitterName: token.name ?? token.email,
+      submitterName,
     })
     return NextResponse.json({ ok: true, find: entry })
   } catch (err) {
     console.error('[finds] POST error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+/**
+ * PATCH /api/finds
+ * Body: { id, type: 'up'|'down' }
+ * Toggles a vote ("Still There" / "Gone") on a find.
+ */
+export async function PATCH(request) {
+  try {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+    if (!token)          return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
+    if (!token.approved) return NextResponse.json({ error: 'Not approved' },    { status: 403 })
+
+    const { id, type } = await request.json()
+    if (!id || !['up', 'down'].includes(type)) {
+      return NextResponse.json({ error: 'id and type (up|down) required' }, { status: 400 })
+    }
+
+    const updated = await voteFind(id, type, token.email)
+    if (!updated) return NextResponse.json({ error: 'Find not found' }, { status: 404 })
+
+    return NextResponse.json({ ok: true, find: updated })
+  } catch (err) {
+    console.error('[finds] PATCH error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
