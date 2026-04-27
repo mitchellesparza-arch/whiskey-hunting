@@ -1,6 +1,6 @@
 'use client'
 /**
- * Pick My Blind — Physical Glen Tasting System
+ * Battle of the Blinds — Physical Glen Tasting System
  *
  * Flow:
  *  0. Intro
@@ -67,8 +67,8 @@ const grayBtn = {
 function StepIntro({ onStart }) {
   const steps = [
     { n: '1', t: 'Mark your glens', d: 'Write 1–5 on the bottoms of your glasses with a dry-erase marker.' },
-    { n: '2', t: 'Pour blind',      d: 'The app tells you which bottle goes in which glen. Pour, then close your eyes.' },
-    { n: '3', t: 'Shuffle',         d: 'Eyes closed, mix the glasses into new positions A–E on the table.' },
+    { n: '2', t: 'Pour blind',      d: 'The app tells you which bottle goes in which glen. Pour each, then step away.' },
+    { n: '3', t: 'Shuffle',         d: 'Slide the glasses around until nobody can remember which is which.' },
     { n: '4', t: 'Taste & compare', d: 'The app presents position matchups. Pick your favorite, blind.' },
     { n: '5', t: 'Reveal',          d: 'Flip each glass, enter the glen number you see. The app decodes the results.' },
   ]
@@ -78,7 +78,7 @@ function StepIntro({ onStart }) {
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
         <div style={{ fontSize: 52, marginBottom: 12 }}>🫣</div>
         <div style={{ fontWeight: 800, fontSize: 22, color: '#f5e6cc', marginBottom: 8 }}>
-          Pick My Blind
+          Battle of the Blinds
         </div>
         <div style={{ fontSize: 14, color: '#9a7c55', lineHeight: 1.6 }}>
           A physical blind tasting using the glen system — your glasses never know what&apos;s in them.
@@ -242,7 +242,7 @@ function StepGlenAssign({ bottles, glenAssignment, onReady }) {
         background: '#1a0e04', border: '1px solid #4a3010', borderRadius: 10,
         padding: '12px 14px', marginBottom: 20, fontSize: 13, color: '#c9a87a', lineHeight: 1.5,
       }}>
-        💡 Tip: Pour all {n} glasses, then close your eyes before you shuffle.
+        💡 Tip: Pour all {n} glasses, then shuffle before anyone sees the order.
       </div>
 
       <button onClick={onReady} style={accentBtn}>
@@ -265,8 +265,8 @@ function StepShuffle({ n, onDone }) {
           Shuffle Your Glens
         </div>
         <div style={{ fontSize: 13, color: '#9a7c55', lineHeight: 1.7 }}>
-          Close your eyes. Mix the {n} glasses into a random order left to right.
-          When you open your eyes, the glasses are now in positions:
+          Slide the {n} glasses around until you can&apos;t remember which is which.
+          Once they&apos;re shuffled, the glasses are now in positions:
         </div>
       </div>
 
@@ -659,7 +659,7 @@ export default function PickMyBlindPage() {
           disabled={step >= 4 && step < 6}
         >←</button>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc' }}>🫣 Pick My Blind</div>
+          <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc' }}>🫣 Battle of the Blinds</div>
           <div style={{ fontSize: 11, color: '#9a7c55' }}>{stepLabels[step]}</div>
         </div>
         {/* Step dots */}

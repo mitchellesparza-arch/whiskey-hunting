@@ -50,7 +50,7 @@ const TILES = [
   },
   {
     icon:     '🫣',
-    title:    'Pick My Blind',
+    title:    'Battle of the Blinds',
     subtitle: 'Run a blind tasting and rank by ELO',
     href:     '/profile/blind',
   },
