@@ -12,7 +12,7 @@ function hasBearerToken(req) {
 
 async function isOwner(req) {
   const token      = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
-  const ownerEmail = process.env.ALERT_EMAIL?.toLowerCase()
+  const ownerEmail = process.env.ALERT_EMAIL?.trim().toLowerCase()
   return ownerEmail && token?.email?.toLowerCase() === ownerEmail
 }
 
