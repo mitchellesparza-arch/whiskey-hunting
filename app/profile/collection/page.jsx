@@ -1,0 +1,510 @@
+'use client'
+import { useSession } from 'next-auth/react'
+import { useRouter }  from 'next/navigation'
+import { useEffect, useState } from 'react'
+import Link           from 'next/link'
+import BarcodeScanner from '../../finds/BarcodeScanner.jsx'
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const CATEGORIES  = ['Bourbon', 'Rye', 'Scotch', 'Japanese', 'American', 'Irish']
+const SORT_OPTIONS = [
+  { key: 'score',     label: '🏆 Score'     },
+  { key: 'secondary', label: '💰 Secondary' },
+  { key: 'msrp',      label: 'MSRP'         },
+  { key: 'name',      label: 'Name'          },
+]
+
+function scoreColor(score) {
+  if (score >= 85) return '#4ade80'
+  if (score >= 75) return '#e8943a'
+  return '#9a7c55'
+}
+
+function fmt$(n) {
+  if (!n) return '—'
+  return `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+}
+
+// ── Bottle Card ───────────────────────────────────────────────────────────────
+
+function BottleCard({ bottle, onRemove }) {
+  const score = bottle.blindScore ?? 75
+  return (
+    <div className="card" style={{ display: 'flex', gap: 0, padding: 0, overflow: 'hidden' }}>
+      {/* Score Column */}
+      <div style={{
+        width:          64,
+        flexShrink:     0,
+        display:        'flex',
+        flexDirection:  'column',
+        alignItems:     'center',
+        justifyContent: 'center',
+        padding:        '12px 0',
+        background:     '#1f1308',
+        borderRight:    '1px solid #2a1c08',
+        gap:            2,
+      }}>
+        <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</div>
+        <div style={{ fontWeight: 800, fontSize: 24, color: scoreColor(score), lineHeight: 1 }}>
+          {score.toFixed(0)}
+        </div>
+        <div style={{ fontSize: 9, color: '#6b5030' }}>{bottle.tastings ?? 0} tastings</div>
+      </div>
+
+      {/* Middle: info */}
+      <div style={{ flex: 1, padding: '12px 12px', minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', lineHeight: 1.3, marginBottom: 3 }}>
+          {bottle.name}
+        </div>
+        <div style={{ fontSize: 11, color: '#9a7c55', marginBottom: 6 }}>
+          {[bottle.distillery, bottle.proof ? `${bottle.proof}°` : null, bottle.qty > 1 ? `×${bottle.qty}` : null].filter(Boolean).join(' · ')}
+        </div>
+        {bottle.flavors?.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {bottle.flavors.map(f => (
+              <span key={f} style={{
+                fontSize:     10,
+                color:        '#9a7c55',
+                background:   '#1f1308',
+                border:       '1px solid #2a1c08',
+                borderRadius: 999,
+                padding:      '2px 7px',
+              }}>{f}</span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Right: prices + remove */}
+      <div style={{
+        flexShrink:     0,
+        display:        'flex',
+        flexDirection:  'column',
+        alignItems:     'flex-end',
+        justifyContent: 'space-between',
+        padding:        '10px 12px',
+        gap:            4,
+      }}>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase' }}>MSRP</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#c9a87a' }}>{fmt$(bottle.msrp)}</div>
+        </div>
+        {bottle.secondary > 0 && (
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase' }}>2ndary</div>
+            <div style={{
+              fontWeight: 700,
+              fontSize:   14,
+              color:      bottle.secondary > (bottle.msrp ?? 0) * 1.4 ? '#4ade80' : '#9a7c55',
+            }}>{fmt$(bottle.secondary)}</div>
+          </div>
+        )}
+        <button
+          onClick={() => onRemove(bottle.id)}
+          style={{
+            background: 'none',
+            border:     'none',
+            color:      '#6b5030',
+            cursor:     'pointer',
+            fontSize:   16,
+            padding:    0,
+            lineHeight: 1,
+          }}
+        >✕</button>
+      </div>
+    </div>
+  )
+}
+
+// ── Add Bottle Sheet ──────────────────────────────────────────────────────────
+
+function AddBottleSheet({ onClose, onAdd }) {
+  const [name,       setName]       = useState('')
+  const [distillery, setDistillery] = useState('')
+  const [category,   setCategory]   = useState('Bourbon')
+  const [proof,      setProof]      = useState('')
+  const [msrp,       setMsrp]       = useState('')
+  const [secondary,  setSecondary]  = useState('')
+  const [qty,        setQty]        = useState('1')
+  const [flavors,    setFlavors]    = useState('')
+  const [upc,        setUpc]        = useState('')
+  const [showScanner,setShowScanner]= useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error,      setError]      = useState(null)
+
+  async function lookupUpc(code) {
+    try {
+      const r = await fetch(`/api/upc?code=${encodeURIComponent(code)}`)
+      const d = await r.json()
+      if (d.name) setName(prev => prev.trim() ? prev : d.name)
+    } catch {}
+  }
+
+  function handleBarcode(code) {
+    setUpc(code)
+    setShowScanner(false)
+    lookupUpc(code)
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!name.trim()) return setError('Bottle name is required')
+    setSubmitting(true)
+    setError(null)
+    try {
+      const flavorArr = flavors.split(',').map(s => s.trim()).filter(Boolean)
+      const res  = await fetch('/api/collection', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ name, distillery, category, proof, msrp, secondary, qty, flavors: flavorArr, upc }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to add bottle')
+      onAdd(data.bottles)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const inputStyle = {
+    width:        '100%',
+    padding:      '9px 12px',
+    background:   '#0f0a05',
+    border:       '1px solid #3d2b10',
+    borderRadius: 8,
+    color:        '#f5e6cc',
+    fontSize:     13,
+    fontFamily:   'inherit',
+    outline:      'none',
+    boxSizing:    'border-box',
+  }
+  const labelStyle = {
+    display:       'block',
+    fontSize:      10,
+    fontWeight:    700,
+    color:         '#9a7c55',
+    marginBottom:  4,
+    marginTop:     12,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 149 }}
+      />
+
+      {/* Sheet */}
+      <div style={{
+        position:     'fixed',
+        bottom:       0,
+        left:         0,
+        right:        0,
+        zIndex:       150,
+        background:   '#1a1008',
+        borderRadius: '16px 16px 0 0',
+        border:       '1px solid #3d2b10',
+        borderBottom: 'none',
+        maxHeight:    '90vh',
+        overflowY:    'auto',
+        animation:    'fadeUp 0.25s ease',
+      }}>
+        {/* Handle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: '#3d2b10' }} />
+        </div>
+
+        <div style={{ padding: '0 16px 32px' }}>
+          <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc', marginBottom: 16 }}>
+            + Add to Collection
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <label style={labelStyle}>Bottle Name *</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                style={{ ...inputStyle, flex: 1 }}
+                placeholder="e.g. Blanton's Original Single Barrel"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowScanner(s => !s)}
+                style={{
+                  padding:      '8px 13px',
+                  background:   showScanner ? '#e8943a' : '#1f1308',
+                  border:       '1px solid #3d2b10',
+                  borderRadius: 8,
+                  color:        showScanner ? '#fff' : '#e8943a',
+                  cursor:       'pointer',
+                  fontSize:     18,
+                  flexShrink:   0,
+                }}
+              >
+                {showScanner ? '✕' : '📷'}
+              </button>
+            </div>
+
+            {showScanner && (
+              <div style={{ marginTop: 10 }}>
+                <BarcodeScanner onResult={handleBarcode} onClose={() => setShowScanner(false)} autoCamera />
+              </div>
+            )}
+
+            <label style={labelStyle}>Distillery</label>
+            <input style={inputStyle} placeholder="e.g. Buffalo Trace" value={distillery} onChange={e => setDistillery(e.target.value)} />
+
+            <label style={labelStyle}>Category</label>
+            <select
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}
+            >
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            {/* 3-col grid: Proof / MSRP / Qty */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={labelStyle}>Proof</label>
+                <input style={inputStyle} type="number" min="0" step="0.1" placeholder="93" value={proof} onChange={e => setProof(e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>MSRP $</label>
+                <input style={inputStyle} type="number" min="0" placeholder="60" value={msrp} onChange={e => setMsrp(e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>Qty</label>
+                <input style={inputStyle} type="number" min="1" placeholder="1" value={qty} onChange={e => setQty(e.target.value)} />
+              </div>
+            </div>
+
+            <label style={labelStyle}>Secondary Market $</label>
+            <input style={inputStyle} type="number" min="0" placeholder="e.g. 120" value={secondary} onChange={e => setSecondary(e.target.value)} />
+
+            <label style={labelStyle}>Flavor Notes (comma separated)</label>
+            <input style={inputStyle} placeholder="e.g. Caramel, Vanilla, Oak" value={flavors} onChange={e => setFlavors(e.target.value)} />
+
+            {error && <p style={{ color: '#f87171', fontSize: 13, margin: '10px 0 0' }}>{error}</p>}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              style={{
+                marginTop:    16,
+                width:        '100%',
+                padding:      '12px',
+                background:   '#e8943a',
+                border:       'none',
+                borderRadius: 8,
+                color:        '#fff',
+                fontWeight:   800,
+                fontSize:     15,
+                cursor:       submitting ? 'not-allowed' : 'pointer',
+                opacity:      submitting ? 0.6 : 1,
+              }}
+            >
+              {submitting ? '⏳ Adding…' : '+ Add to Collection'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
+export default function CollectionPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
+  const [bottles,  setBottles]  = useState([])
+  const [loaded,   setLoaded]   = useState(false)
+  const [sort,     setSort]     = useState('score')
+  const [showAdd,  setShowAdd]  = useState(false)
+  const [removing, setRemoving] = useState(null)
+
+  useEffect(() => {
+    if (status === 'unauthenticated') router.replace('/login')
+  }, [status])
+
+  useEffect(() => {
+    fetch('/api/collection')
+      .then(r => r.json())
+      .then(d => setBottles(d.bottles ?? []))
+      .catch(() => {})
+      .finally(() => setLoaded(true))
+  }, [])
+
+  async function handleRemove(id) {
+    setRemoving(id)
+    try {
+      const res  = await fetch(`/api/collection?id=${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.bottles) setBottles(data.bottles)
+    } catch {}
+    setRemoving(null)
+  }
+
+  // Sort
+  const sorted = [...bottles].sort((a, b) => {
+    if (sort === 'score')     return (b.blindScore ?? 75) - (a.blindScore ?? 75)
+    if (sort === 'secondary') return (b.secondary ?? 0) - (a.secondary ?? 0)
+    if (sort === 'msrp')      return (b.msrp ?? 0) - (a.msrp ?? 0)
+    if (sort === 'name')      return a.name.localeCompare(b.name)
+    return 0
+  })
+
+  // Stats
+  const totalBottles = bottles.reduce((s, b) => s + (b.qty ?? 1), 0)
+  const estValue     = bottles.reduce((s, b) => s + ((b.secondary ?? 0) * (b.qty ?? 1)), 0)
+  const avgScore     = bottles.length
+    ? (bottles.reduce((s, b) => s + (b.blindScore ?? 75), 0) / bottles.length).toFixed(1)
+    : '—'
+
+  if (status === 'loading') return null
+
+  return (
+    <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
+
+      {/* Header */}
+      <div style={{
+        position:             'sticky',
+        top:                  0,
+        zIndex:               50,
+        background:           'rgba(15,10,5,0.95)',
+        borderBottom:         '1px solid #3d2b10',
+        backdropFilter:       'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        padding:              '11px 16px',
+        display:              'flex',
+        alignItems:           'center',
+        justifyContent:       'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Link href="/profile" style={{ color: '#9a7c55', textDecoration: 'none', fontSize: 20, lineHeight: 1 }}>←</Link>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc' }}>📦 My Collection</div>
+            <div style={{ fontSize: 11, color: '#9a7c55' }}>Personal bottle inventory</div>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          style={{
+            padding:      '7px 14px',
+            background:   '#e8943a',
+            border:       'none',
+            borderRadius: 8,
+            color:        '#fff',
+            fontWeight:   700,
+            fontSize:     13,
+            cursor:       'pointer',
+          }}
+        >
+          + Add
+        </button>
+      </div>
+
+      <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 12px' }}>
+
+        {/* Summary Strip */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {[
+            { label: 'Bottles', value: totalBottles },
+            { label: 'Est. Value', value: estValue > 0 ? `$${Math.round(estValue).toLocaleString()}` : '—' },
+            { label: 'Avg Score', value: avgScore },
+          ].map(({ label, value }) => (
+            <div key={label} style={{
+              flex:         1,
+              textAlign:    'center',
+              padding:      '10px 6px',
+              background:   '#1f1308',
+              borderRadius: 8,
+              border:       '1px solid #2a1c08',
+            }}>
+              <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc', lineHeight: 1 }}>{value}</div>
+              <div style={{ fontSize: 10, color: '#9a7c55', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Sort bar */}
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14, paddingBottom: 2 }}>
+          {SORT_OPTIONS.map(o => (
+            <button
+              key={o.key}
+              onClick={() => setSort(o.key)}
+              style={{
+                flexShrink:   0,
+                padding:      '6px 13px',
+                borderRadius: 999,
+                border:       'none',
+                cursor:       'pointer',
+                background:   sort === o.key ? '#e8943a' : '#1f1308',
+                color:        sort === o.key ? '#fff' : '#9a7c55',
+                fontSize:     12,
+                fontWeight:   600,
+                whiteSpace:   'nowrap',
+              }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Bottle list */}
+        {!loaded ? (
+          <p style={{ color: '#9a7c55', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>Loading…</p>
+        ) : sorted.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 16px' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc', marginBottom: 8 }}>Your collection is empty</div>
+            <div style={{ fontSize: 14, color: '#9a7c55', marginBottom: 20 }}>Add your first bottle to get started</div>
+            <button
+              onClick={() => setShowAdd(true)}
+              style={{
+                padding:      '10px 24px',
+                background:   '#e8943a',
+                border:       'none',
+                borderRadius: 8,
+                color:        '#fff',
+                fontWeight:   700,
+                fontSize:     14,
+                cursor:       'pointer',
+              }}
+            >
+              + Add your first bottle
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {sorted.map(bottle => (
+              <BottleCard
+                key={bottle.id}
+                bottle={bottle}
+                onRemove={handleRemove}
+              />
+            ))}
+          </div>
+        )}
+
+      </div>
+
+      {showAdd && (
+        <AddBottleSheet
+          onClose={() => setShowAdd(false)}
+          onAdd={(bottles) => { setBottles(bottles); setShowAdd(false) }}
+        />
+      )}
+    </div>
+  )
+}

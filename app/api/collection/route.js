@@ -1,38 +1,63 @@
-import { NextResponse }                                      from 'next/server'
-import { getCollection, addToCollection, removeFromCollection } from '../../../lib/collection.js'
+import { NextResponse }    from 'next/server'
+import { getToken }         from 'next-auth/jwt'
+import { getCollection, addToCollection, removeFromCollection, updateInCollection } from '../../../lib/collection.js'
 
 /**
- * Collection API — personal bottle inventory stored in Redis.
+ * Collection API — per-user bottle inventory stored in Redis.
+ * All routes require an active session.
  *
- * GET    /api/collection              → { collection: Entry[] }
- * POST   /api/collection  { name, purchasedAt?, store? } → { ok, entry }
- * DELETE /api/collection?id=xxx       → { ok, collection }
+ * GET    /api/collection                   → { bottles: BottleEntry[] }
+ * POST   /api/collection  { ...fields }    → { bottles }
+ * DELETE /api/collection?id=xxx            → { bottles }
+ * PATCH  /api/collection  { id, ...updates } → { bottles }
  */
 
-export async function GET() {
-  const collection = await getCollection()
-  return NextResponse.json({ collection })
+async function getUserId(request) {
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+  return token?.email?.toLowerCase() ?? null
+}
+
+export async function GET(request) {
+  const userId = await getUserId(request)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const bottles = await getCollection(userId)
+  return NextResponse.json({ bottles })
 }
 
 export async function POST(request) {
+  const userId = await getUserId(request)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
-    const { name, purchasedAt, store } = await request.json()
-    if (!name?.trim()) {
+    const body = await request.json()
+    if (!body.name?.trim()) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 })
     }
-    const entry = await addToCollection({ name, purchasedAt, store })
-    return NextResponse.json({ ok: true, entry })
+    const { bottles } = await addToCollection(userId, body)
+    return NextResponse.json({ bottles })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
 
 export async function DELETE(request) {
+  const userId = await getUserId(request)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
-  if (!id) {
-    return NextResponse.json({ error: 'id param required' }, { status: 400 })
+  if (!id) return NextResponse.json({ error: 'id param required' }, { status: 400 })
+  const bottles = await removeFromCollection(userId, id)
+  return NextResponse.json({ bottles })
+}
+
+export async function PATCH(request) {
+  const userId = await getUserId(request)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    const { id, ...updates } = await request.json()
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
+    const bottles = await updateInCollection(userId, id, updates)
+    return NextResponse.json({ bottles })
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
-  const collection = await removeFromCollection(id)
-  return NextResponse.json({ ok: true, collection })
 }

@@ -1,13 +1,13 @@
 export default function manifest() {
   return {
-    name:             'Whiskey Hunter',
-    short_name:       'Whiskey Hunter',
-    description:      "Track allocated bourbon truck deliveries across Chicagoland Binny's",
+    name:             'Tater Tracker',
+    short_name:       'Tater Tracker',
+    description:      "Community bourbon finds and truck tracker for Chicagoland Binny's — Jon and the Juice",
     start_url:        '/',
     display:          'standalone',
     orientation:      'portrait',
-    background_color: '#0d0d1a',
-    theme_color:      '#8B4513',
+    background_color: '#0f0a05',
+    theme_color:      '#e8943a',
     icons: [
       { src: '/icon.png',  sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
       { src: '/icon.png',  sizes: '192x192', type: 'image/png' },

@@ -118,7 +118,7 @@ export default function InstallPrompt() {
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 14, color: '#f5e6cc' }}>
-          Add Whiskey Hunter to your home screen
+          Add Tater Tracker to your home screen
         </p>
 
         {platform === 'ios' && (

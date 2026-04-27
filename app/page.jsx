@@ -1,485 +1,588 @@
 'use client'
+// Finds — home tab (moved from /finds)
+import dynamic        from 'next/dynamic'
+import { useSession } from 'next-auth/react'
+import { useRouter }  from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
+import BarcodeScanner from './finds/BarcodeScanner.jsx'
+import AppHeader      from './components/AppHeader.jsx'
 
-import { useState, useCallback, useEffect } from 'react'
-import { useSession, signOut } from 'next-auth/react'
-import Link from 'next/link'
-import { hotlineBottles } from '../lib/bottles.js'
+// Leaflet map — SSR disabled (window is required)
+const FindsMap = dynamic(() => import('./finds/FindsMap.jsx'), { ssr: false, loading: () => (
+  <div style={{ height: 380, background: '#111', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+    Loading map…
+  </div>
+) })
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function timeAgo(iso) {
-  if (!iso) return null
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
-  if (mins < 1)   return 'just now'
-  if (mins < 60)  return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs  < 24)  return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
+function fmtDate(ts) {
+  if (!ts) return '—'
+  const d    = new Date(ts)
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${date} at ${time}`
 }
 
-function formatDate(iso) {
-  const d = new Date(iso)
-  return {
-    date: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-    time: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-  }
+function fmtTimeAgo(ts) {
+  if (!ts) return ''
+  const diff = Date.now() - ts
+  const m    = Math.floor(diff / 60000)
+  if (m < 1)  return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
 }
 
-// Distributor brand colors
-const DIST_COLOR = {
-  'Breakthru Beverage': { bg: '#1a0e05', border: '#7c3a0a', text: '#e8943a', badge: '#2a1500' },
-  "Southern Glazer's":  { bg: '#0d1a0d', border: '#2d5a2d', text: '#4ade80', badge: '#0f2010' },
-  'RNDC':               { bg: '#0d0d1a', border: '#2d2d7c', text: '#818cf8', badge: '#10102a' },
-  'BC Merchants':       { bg: '#1a0d1a', border: '#5a2d7c', text: '#c084fc', badge: '#1e0f26' },
-}
-const DEFAULT_COLOR = { bg: '#1a1208', border: '#3d2b10', text: '#9a7c55', badge: '#1f1508' }
-
-function distColor(distributor) {
-  return DIST_COLOR[distributor] ?? DEFAULT_COLOR
-}
-
-// ── Distributor Map builder ───────────────────────────────────────────────────
-// Groups hotlineBottles by distributor, preserving tier dividers.
-
-function buildDistributorMap() {
-  const map = {}   // distributor → [{tier, name}]
-  const order = [] // preserve first-seen distributor order
-  let currentTier = null
-
-  for (const b of hotlineBottles) {
-    if (b.divider) { currentTier = b.divider; continue }
-    if (!b.distributor) continue
-    if (!map[b.distributor]) { map[b.distributor] = []; order.push(b.distributor) }
-    map[b.distributor].push({ tier: currentTier, name: b.name })
-  }
-
-  return { map, order }
-}
-
-// ── Components ────────────────────────────────────────────────────────────────
-
-function DistributorBadge({ distributor }) {
-  const col = distColor(distributor)
-  return (
-    <span
-      className="inline-block text-xs font-bold px-2 py-0.5 rounded"
-      style={{ background: col.badge, color: col.text, border: `1px solid ${col.border}` }}
-    >
-      {distributor}
-    </span>
+function FreshnessBadge({ timestamp }) {
+  if (!timestamp) return null
+  const hoursOld = (Date.now() - timestamp) / 3600000
+  if (hoursOld < 6) return (
+    <span style={{
+      display: 'inline-block', fontSize: 11, fontWeight: 700,
+      padding: '2px 8px', borderRadius: 999,
+      color: '#4ade80', background: 'rgba(74,222,128,0.1)',
+      border: '1px solid rgba(74,222,128,0.3)',
+    }}>🔥 Fresh</span>
   )
+  if (hoursOld > 20) return (
+    <span style={{
+      display: 'inline-block', fontSize: 11, fontWeight: 700,
+      padding: '2px 8px', borderRadius: 999,
+      color: '#6b5030', background: 'transparent',
+      border: '1px solid #3d2b10',
+    }}>⏰ Aging</span>
+  )
+  return null
 }
 
-function DistributorMapColumn({ distributor, bottles }) {
-  const col = distColor(distributor)
+// ─── Component ───────────────────────────────────────────────────────────────
 
-  // Group bottles by tier for display
-  const tiers = []
-  let curTier = null
-  for (const b of bottles) {
-    if (b.tier !== curTier) {
-      tiers.push({ tier: b.tier, names: [] })
-      curTier = b.tier
+export default function FindsPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (status === 'unauthenticated') router.replace('/login')
+    if (status === 'authenticated' && session?.user?.approved === false) router.replace('/pending')
+  }, [status, session])
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [finds,        setFinds]        = useState([])
+  const [archived,     setArchived]     = useState([])
+  const [leaderboard,  setLeaderboard]  = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [showArchived, setShowArchived] = useState(false)
+
+  // Form
+  const [bottleName,   setBottleName]   = useState('')
+  const [upc,          setUpc]          = useState('')
+  const [store,        setStore]        = useState(null)
+  const [storeInput,   setStoreInput]   = useState('')
+  const [notes,        setNotes]        = useState('')
+  const [photoFile,    setPhotoFile]    = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [photoError,   setPhotoError]   = useState(null)
+  const [submitting,   setSubmitting]   = useState(false)
+  const [submitError,  setSubmitError]  = useState(null)
+  const [submitted,    setSubmitted]    = useState(false)
+
+  // UPC lookup status
+  const [upcLooking,   setUpcLooking]   = useState(false)
+  const [upcStatus,    setUpcStatus]    = useState(null)   // 'found' | 'not-found' | null
+
+  // UI
+  const [showScanner,  setShowScanner]  = useState(false)
+  const [view,         setView]         = useState('map')
+  const [deletingId,   setDeletingId]   = useState(null)
+
+  const storeInputRef   = useRef(null)
+  const autocompleteRef = useRef(null)
+
+  // ── Load finds ─────────────────────────────────────────────────────────────
+  function loadFinds() {
+    fetch('/api/finds')
+      .then(r => r.json())
+      .then(d => {
+        setFinds(d.finds ?? [])
+        setArchived(d.archived ?? [])
+        setLeaderboard(d.leaderboard ?? [])
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { loadFinds() }, [])
+
+  // ── Google Places autocomplete ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!storeInputRef.current) return
+
+    function loadAutocomplete() {
+      if (!window.google?.maps?.places) return
+      if (autocompleteRef.current) return
+
+      const ac = new window.google.maps.places.Autocomplete(storeInputRef.current, {
+        componentRestrictions: { country: 'us' },
+        fields: ['name', 'formatted_address', 'geometry', 'place_id'],
+      })
+      autocompleteRef.current = ac
+
+      ac.addListener('place_changed', () => {
+        const place = ac.getPlace()
+        if (!place.geometry) return
+        setStore({
+          name:    place.name ?? '',
+          address: place.formatted_address ?? '',
+          lat:     place.geometry.location.lat(),
+          lng:     place.geometry.location.lng(),
+          placeId: place.place_id ?? '',
+        })
+        setStoreInput(place.name ?? '')
+      })
     }
-    tiers[tiers.length - 1].names.push(b.name)
+
+    const scriptId = 'gm-places-script'
+    if (!document.getElementById(scriptId) && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+      const script = document.createElement('script')
+      script.id    = scriptId
+      script.src   = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
+      script.async = true
+      script.onload = loadAutocomplete
+      document.head.appendChild(script)
+    } else {
+      const check = setInterval(() => {
+        if (window.google?.maps?.places) { clearInterval(check); loadAutocomplete() }
+      }, 200)
+      return () => clearInterval(check)
+    }
+  }, [storeInputRef.current])
+
+  // ── UPC lookup via server-side proxy ───────────────────────────────────────
+  async function lookupUpc(code) {
+    if (!code) return
+    setUpcLooking(true)
+    setUpcStatus(null)
+    try {
+      const r = await fetch(`/api/upc?code=${encodeURIComponent(code)}`)
+      const d = await r.json()
+      if (d.name) {
+        setBottleName(prev => prev.trim() ? prev : d.name)
+        setUpcStatus('found')
+      } else {
+        setUpcStatus('not-found')
+      }
+    } catch {
+      setUpcStatus('not-found')
+    } finally {
+      setUpcLooking(false)
+    }
   }
 
-  return (
-    <div
-      className="rounded-xl overflow-hidden flex-1 min-w-[200px]"
-      style={{ background: col.bg, border: `1px solid ${col.border}` }}
-    >
-      {/* Column header */}
-      <div
-        className="px-4 py-3 font-bold text-sm"
-        style={{ background: col.badge, color: col.text, borderBottom: `1px solid ${col.border}` }}
-      >
-        🚛 {distributor}
-      </div>
+  function handleBarcodeResult(code) {
+    setUpc(code)
+    setShowScanner(false)
+    lookupUpc(code)
+  }
 
-      {/* Tier groups */}
-      <div className="px-4 py-3 space-y-4">
-        {tiers.map(({ tier, names }) => (
-          <div key={tier}>
-            <div className="text-xs font-semibold mb-1.5" style={{ color: col.text, opacity: 0.7 }}>
-              {tier}
+  // ── Photo ──────────────────────────────────────────────────────────────────
+  function handlePhotoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!bottleName.trim()) return setSubmitError('Bottle name is required')
+    if (!store)             return setSubmitError('Please select a store from the dropdown')
+
+    setSubmitting(true)
+    setSubmitError(null)
+
+    try {
+      let photoUrl = null
+      setPhotoError(null)
+      if (photoFile) {
+        const fd = new FormData()
+        fd.append('file', photoFile)
+        const upRes  = await fetch('/api/finds/upload', { method: 'POST', body: fd })
+        const upData = await upRes.json()
+        if (upRes.ok) {
+          photoUrl = upData.url ?? null
+        } else {
+          setPhotoError(`Photo upload failed: ${upData.error ?? upRes.status}. Find will be saved without photo.`)
+        }
+      }
+
+      const res  = await fetch('/api/finds', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ bottleName, upc: upc || null, store, photoUrl, notes }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Submit failed')
+
+      setFinds(prev => [data.find, ...prev])
+      setBottleName('')
+      setUpc('')
+      setUpcStatus(null)
+      setStore(null)
+      setStoreInput('')
+      setNotes('')
+      setPhotoFile(null)
+      setPhotoPreview(null)
+      setSubmitted(true)
+      setTimeout(() => setSubmitted(false), 3000)
+    } catch (err) {
+      setSubmitError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // ── Delete ─────────────────────────────────────────────────────────────────
+  async function handleDelete(id) {
+    if (!confirm('Remove this find?')) return
+    setDeletingId(id)
+    try {
+      const res  = await fetch(`/api/finds?id=${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (res.ok) {
+        setFinds(data.finds ?? [])
+        setArchived(data.archived ?? [])
+      }
+    } catch {}
+    setDeletingId(null)
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  if (status === 'loading') return null
+
+  const inputStyle = {
+    width:        '100%',
+    padding:      '9px 12px',
+    background:   'var(--bg-base)',
+    border:       '1px solid var(--border)',
+    borderRadius: 8,
+    color:        'var(--text-primary)',
+    fontSize:     14,
+    boxSizing:    'border-box',
+    fontFamily:   'inherit',
+    outline:      'none',
+  }
+
+  const labelStyle = {
+    display:       'block',
+    fontSize:      11,
+    fontWeight:    700,
+    color:         'var(--text-muted)',
+    marginBottom:  5,
+    marginTop:     14,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+  }
+
+  const MEDAL_COLOR = ['#fbbf24', '#94a3b8', '#b45309']
+
+  function FindCard({ find, isArchived = false }) {
+    return (
+      <div className="card" style={{ padding: 0, opacity: isArchived ? 0.6 : 1 }}>
+        <div style={{ padding: '12px 14px', borderBottom: '1px solid #2a1c08' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.3, fontStyle: isArchived ? 'italic' : 'normal' }}>
+              🥃 {find.bottleName}
             </div>
-            <ul className="space-y-1">
-              {names.map(name => (
-                <li key={name} className="text-xs text-[#9a7c55]">· {name}</li>
-              ))}
-            </ul>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+              {!isArchived && <FreshnessBadge timestamp={find.timestamp} />}
+              <button
+                onClick={() => handleDelete(find.id)}
+                disabled={deletingId === find.id}
+                style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 16, padding: 0 }}
+              >
+                {deletingId === find.id ? '⏳' : '✕'}
+              </button>
+            </div>
           </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function TruckCard({ event }) {
-  const col          = distColor(event.distributor)
-  const { date, time } = formatDate(event.timestamp)
-  // Legacy events (pre-multi-store) have no storeName/storeCode — default to Orland Park
-  const storeName    = event.storeName ?? event.storeCode ?? 'Orland Park'
-
-  // checkFor may be {tier,names}[] (new) or string[] (legacy Redis entries)
-  const flatCheckFor = (event.checkFor ?? []).flatMap(item =>
-    typeof item === 'string' ? [item] : item.names
-  )
-
-  return (
-    <div className="card overflow-hidden">
-      {/* Card header */}
-      <div
-        className="px-4 py-2.5 flex items-center justify-between gap-2"
-        style={{ background: col.badge, borderBottom: `1px solid ${col.border}` }}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm font-bold" style={{ color: col.text }}>
-            🚛 {event.distributor}
-          </span>
-          <span className="text-xs text-[#9a7c55] truncate">
-            — Binny's {storeName}
-          </span>
-        </div>
-        <div className="text-xs text-[#6b5030] text-right leading-snug shrink-0">
-          <div>{date}</div>
-          <div>{time}</div>
-        </div>
-      </div>
-
-      {/* Card body */}
-      <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Triggered by */}
-        <div>
-          <p className="text-xs text-[#6b5030] uppercase tracking-wide mb-1.5">Triggered by</p>
-          <ul className="space-y-0.5">
-            {(event.triggeredBy ?? []).map((name, j) => (
-              <li key={j} className="text-xs text-[#9a7c55]">· {name}</li>
-            ))}
-          </ul>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>
+            📍 {find.store?.name ?? '—'}
+            {find.store?.address && <span style={{ color: '#6b5030' }}> · {find.store.address}</span>}
+          </div>
+          <div style={{ fontSize: 11, color: '#6b5030' }}>
+            {fmtDate(find.timestamp)}
+            {find.timestamp && <span> · {fmtTimeAgo(find.timestamp)}</span>}
+            {isArchived && <span style={{ marginLeft: 6, color: '#6b5030', fontStyle: 'italic' }}>— archived after 24h</span>}
+          </div>
         </div>
 
-        {/* Check for */}
-        <div>
-          <p className="text-xs text-[#6b5030] uppercase tracking-wide mb-1.5">Allocated bottles from this distributor</p>
-          <ul className="space-y-0.5">
-            {flatCheckFor.slice(0, 8).map((name, j) => (
-              <li key={j} className="text-xs text-[#c9a87a]">· {name}</li>
-            ))}
-            {flatCheckFor.length > 8 && (
-              <li className="text-xs text-[#6b5030]">· +{flatCheckFor.length - 8} more</li>
-            )}
-          </ul>
-        </div>
-      </div>
-    </div>
-  )
-}
+        {find.photoUrl && (
+          <img
+            src={find.photoUrl}
+            alt="bottle"
+            style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block', borderBottom: '1px solid #2a1c08' }}
+          />
+        )}
 
-// ── Per-store summary ─────────────────────────────────────────────────────────
-// Shows the most recent truck event per distributor for each store.
-// Clicking a card filters the Truck History below to that store.
-
-function StoreActivityCard({ storeName, events, isSelected, onSelect }) {
-  // Latest event per distributor for this store
-  const byDist = {}
-  for (const e of events) {
-    if (!byDist[e.distributor]) byDist[e.distributor] = e
-  }
-
-  return (
-    <button
-      onClick={onSelect}
-      className="card p-4 text-left w-full transition-all"
-      style={isSelected ? { borderColor: '#e8943a', boxShadow: '0 0 0 1px #e8943a' } : {}}
-    >
-      <p className="text-sm font-bold text-[#f5e6cc] mb-3">
-        📍 Binny's {storeName}
-        {isSelected && <span className="ml-2 text-xs font-normal text-[#e8943a]">● filtered</span>}
-      </p>
-      <div className="space-y-2">
-        {Object.entries(byDist).map(([dist, event]) => {
-          const col = distColor(dist)
-          return (
-            <div key={dist} className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold" style={{ color: col.text }}>
-                {dist}
-              </span>
-              <span className="text-xs text-[#9a7c55]">
-                {timeAgo(event.timestamp)}
-              </span>
-            </div>
-          )
-        })}
-        {!Object.keys(byDist).length && (
-          <p className="text-xs text-[#6b5030]">No trucks detected yet</p>
+        {find.notes && (
+          <div style={{ padding: '10px 14px', fontSize: 12, color: '#c9a87a', fontStyle: 'italic', borderBottom: '1px solid #2a1c08' }}>
+            &ldquo;{find.notes}&rdquo;
+          </div>
         )}
       </div>
-    </button>
-  )
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
-
-export default function Home() {
-  const { data: session } = useSession()
-
-  const [truckEvents,    setTruckEvents]    = useState([])
-  const [lastCheckedAt,  setLastCheckedAt]  = useState(null)
-  const [historyLoaded,  setHistoryLoaded]  = useState(false)
-  const [refreshing,     setRefreshing]     = useState(false)
-  const [selectedStore,  setSelectedStore]  = useState(null)  // null = all stores
-
-  const loadHistory = useCallback(async () => {
-    try {
-      const res  = await fetch('/api/history')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      setTruckEvents(data.events ?? [])
-      setLastCheckedAt(data.lastCheckedAt ?? null)
-    } catch {
-      setTruckEvents([])
-    } finally {
-      setHistoryLoaded(true)
-    }
-  }, [])
-
-  useEffect(() => { loadHistory() }, [loadHistory])
-
-  const refresh = useCallback(async () => {
-    setRefreshing(true)
-    await loadHistory()
-    setRefreshing(false)
-  }, [loadHistory])
-
-  // Distributor map (static, derived from hotlineBottles)
-  const { map: distMap, order: distOrder } = buildDistributorMap()
-
-  // Group truck events by store for the activity summary.
-  // Legacy Redis events (pre-multi-store) have no storeName/storeCode — they
-  // were always from Orland Park, so default to that.
-  const storeMap = {}
-  for (const e of truckEvents) {
-    const key = e.storeName ?? e.storeCode ?? 'Orland Park'
-    if (!storeMap[key]) storeMap[key] = []
-    storeMap[key].push(e)
+    )
   }
-  const storeNames = Object.keys(storeMap).sort()
-
-  const lastEvent     = truckEvents[0]
-  const filteredEvents = selectedStore
-    ? truckEvents.filter(e => (e.storeName ?? e.storeCode ?? 'Orland Park') === selectedStore)
-    : truckEvents
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
 
-      {/* ── Header ── */}
-      <header className="border-b border-[#3d2b10] sticky top-0 z-10 backdrop-blur-sm"
-              style={{ background: 'rgba(15,10,5,0.92)' }}>
-        {/* Main header row */}
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🥃</span>
-            <div>
-              <h1 className="font-bold text-base leading-tight text-[#f5e6cc]">Whiskey Hunter</h1>
-              <p className="text-xs text-[#9a7c55]">Chicagoland Binny's · Truck Tracker</p>
-            </div>
+      <AppHeader
+        sub="Community Finds · Chicagoland"
+        action={
+          <button
+            onClick={loadFinds}
+            className="btn-primary"
+            style={{ fontSize: 13, padding: '6px 14px' }}
+          >
+            ↺ Refresh
+          </button>
+        }
+      />
+
+      <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 12px' }}>
+
+        {/* Submit Form */}
+        <div className="card p-5 mb-5">
+          <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)', marginBottom: 14 }}>
+            📍 Report a Find
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right leading-snug">
-              {lastCheckedAt && (
-                <p className="text-xs text-[#9a7c55]">Checked {timeAgo(lastCheckedAt)}</p>
-              )}
-              {lastEvent && (
-                <p className="text-xs text-[#6b5030]">Last truck {timeAgo(lastEvent.timestamp)}</p>
-              )}
-            </div>
-            <button
-              onClick={refresh}
-              disabled={refreshing}
-              className="btn-primary"
-            >
-              {refreshing ? 'Refreshing…' : 'Refresh'}
-            </button>
-            {session?.user && (
+
+          <form onSubmit={handleSubmit}>
+
+            <label style={labelStyle}>Bottle Name *</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                style={{ ...inputStyle, flex: 1 }}
+                placeholder="e.g. Blanton's Original"
+                value={bottleName}
+                onChange={e => setBottleName(e.target.value)}
+                required
+              />
               <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
-                title={session.user.email}
-                className="text-xs text-[#6b5030] hover:text-[#9a7c55] transition-colors border border-[#3d2b10] rounded-lg px-2.5 py-1.5"
+                type="button"
+                onClick={() => setShowScanner(s => !s)}
+                title="Scan barcode"
+                style={{
+                  padding:      '8px 13px',
+                  background:   showScanner ? 'var(--accent)' : 'var(--bg-card)',
+                  border:       '1px solid var(--border)',
+                  borderRadius: 8,
+                  color:        showScanner ? '#fff' : 'var(--accent)',
+                  cursor:       'pointer',
+                  fontSize:     18,
+                  flexShrink:   0,
+                }}
               >
-                Sign out
+                {showScanner ? '✕' : '📷'}
               </button>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-4 py-8 space-y-10">
-
-        {/* ── Store Activity Summary ── */}
-        {historyLoaded && storeNames.length > 0 && (
-          <section>
-            <div className="section-header">
-              <span className="text-xl">📍</span>
-              <div>
-                <h2 className="section-title">Store Activity</h2>
-                <p className="text-xs text-[#9a7c55]">
-                  Latest truck detection per distributor at each location
-                </p>
-              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {storeNames.map(name => (
-                <StoreActivityCard
-                  key={name}
-                  storeName={name}
-                  events={storeMap[name]}
-                  isSelected={selectedStore === name}
-                  onSelect={() => setSelectedStore(prev => prev === name ? null : name)}
+
+            {upc && (
+              <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, color: '#6b5030', fontFamily: "'DM Mono', monospace" }}>UPC: {upc}</span>
+                {upcLooking && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>🔍 Looking up…</span>}
+                {!upcLooking && upcStatus === 'found'     && <span style={{ fontSize: 12, color: 'var(--green)' }}>✓ Name filled from barcode</span>}
+                {!upcLooking && upcStatus === 'not-found' && <span style={{ fontSize: 12, color: '#fb923c' }}>Not in database — enter name above</span>}
+                <button
+                  type="button"
+                  onClick={() => { setUpc(''); setUpcStatus(null) }}
+                  style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 12 }}
+                >✕ clear</button>
+              </div>
+            )}
+
+            {showScanner && (
+              <div style={{ marginTop: 10 }}>
+                <BarcodeScanner
+                  onResult={handleBarcodeResult}
+                  onClose={() => setShowScanner(false)}
+                  autoCamera
                 />
+              </div>
+            )}
+
+            <label style={labelStyle}>Store Location *</label>
+            <input
+              ref={storeInputRef}
+              style={inputStyle}
+              placeholder="Search for a store (e.g. Binny's Wilmette…)"
+              value={storeInput}
+              onChange={e => { setStoreInput(e.target.value); if (!e.target.value) setStore(null) }}
+              autoComplete="off"
+            />
+            {store && (
+              <p style={{ fontSize: 11, color: 'var(--green)', margin: '4px 0 0' }}>
+                ✓ {store.name} — {store.address}
+              </p>
+            )}
+
+            <label style={labelStyle}>Notes (optional)</label>
+            <textarea
+              style={{ ...inputStyle, minHeight: 64, resize: 'vertical' }}
+              placeholder="How many bottles? Price? Purchase limit?"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+
+            <label style={labelStyle}>Photo (optional)</label>
+            <label style={{
+              display:      'block',
+              background:   'var(--bg-base)',
+              border:       '1px dashed var(--border)',
+              borderRadius: 8,
+              padding:      12,
+              cursor:       'pointer',
+              textAlign:    'center',
+              color:        '#6b5030',
+              fontSize:     13,
+            }}>
+              {photoPreview
+                ? <img src={photoPreview} alt="preview" style={{ maxHeight: 120, borderRadius: 6, maxWidth: '100%' }} />
+                : '📸 Tap to attach a photo'
+              }
+              <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: 'none' }} />
+            </label>
+            {photoFile && (
+              <button
+                type="button"
+                onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
+                style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 12, marginTop: 4 }}
+              >✕ Remove photo</button>
+            )}
+
+            {photoError  && <p style={{ color: '#fb923c', fontSize: 12, margin: '6px 0 0' }}>⚠️ {photoError}</p>}
+            {submitError && <p style={{ color: 'var(--red)', fontSize: 13, margin: '10px 0 0' }}>{submitError}</p>}
+            {submitted   && <p style={{ color: 'var(--green)', fontSize: 13, margin: '10px 0 0' }}>✓ Find submitted! Thanks for looking out for the club.</p>}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn-primary"
+              style={{ marginTop: 16, width: '100%', padding: '11px', fontSize: 15, opacity: submitting ? 0.6 : 1 }}
+            >
+              {submitting ? '⏳ Submitting…' : '📍 Submit Find'}
+            </button>
+          </form>
+        </div>
+
+        {/* Leaderboard */}
+        {leaderboard.length > 0 && (
+          <div className="card p-4 mb-5">
+            <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', marginBottom: 12 }}>
+              🏆 This Month
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {leaderboard.map(([name, count], i) => (
+                <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 16 }}>{['🥇','🥈','🥉'][i] ?? '🎯'}</span>
+                    <span style={{
+                      fontSize:   13,
+                      fontWeight: 600,
+                      color:      [MEDAL_COLOR[0], MEDAL_COLOR[1], MEDAL_COLOR[2]][i] ?? 'var(--text-muted)',
+                    }}>
+                      {name}
+                    </span>
+                  </div>
+                  <span className={i === 0 ? 'badge-in-stock' : ''} style={i !== 0 ? { fontSize: 12, color: 'var(--text-muted)' } : {}}>
+                    {count} find{count !== 1 ? 's' : ''}
+                  </span>
+                </div>
               ))}
             </div>
-          </section>
+          </div>
         )}
 
-        {/* ── Truck History ── */}
-        <section>
-          <div className="section-header">
-            <span className="text-xl">🚛</span>
-            <div>
-              <h2 className="section-title">Truck History</h2>
-              <p className="text-xs text-[#9a7c55]">
-                {selectedStore
-                  ? `Binny's ${selectedStore} · ${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}`
-                  : `All Chicagoland locations · ${truckEvents.length} event${truckEvents.length !== 1 ? 's' : ''} · checked 6× daily`}
-              </p>
+        {/* Finds Display */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)' }}>
+              Club Finds{' '}
+              <span style={{ fontSize: 13, color: '#6b5030', fontWeight: 400 }}>
+                ({finds.length} active{archived.length > 0 ? ` · ${archived.length} archived` : ''})
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {['map', 'list'].map(v => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  style={{
+                    padding:      '5px 13px',
+                    borderRadius: 6,
+                    border:       'none',
+                    cursor:       'pointer',
+                    background:   view === v ? 'var(--accent)' : 'var(--bg-card)',
+                    color:        view === v ? '#fff' : 'var(--text-muted)',
+                    fontSize:     12,
+                    fontWeight:   600,
+                  }}
+                >
+                  {v === 'map' ? '🗺 Map' : '📋 List'}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Store filter bar */}
-          {historyLoaded && storeNames.length > 0 && (
-            <div className="flex items-center gap-2 mb-4">
-              <select
-                value={selectedStore ?? ''}
-                onChange={e => setSelectedStore(e.target.value || null)}
-                className="flex-1 sm:flex-none sm:w-64 bg-[#0f0a05] border border-[#3d2b10] rounded-lg px-3 py-2 text-sm text-[#f5e6cc] focus:outline-none focus:border-[#e8943a] appearance-none cursor-pointer"
-              >
-                <option value="">All Stores</option>
-                {storeNames.map(name => (
-                  <option key={name} value={name}>
-                    {name} · {timeAgo(storeMap[name][0]?.timestamp)}
-                  </option>
-                ))}
-              </select>
-              {selectedStore && (
-                <button
-                  onClick={() => setSelectedStore(null)}
-                  className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] border border-[#3d2b10] rounded-lg px-3 py-2 transition-colors"
-                >
-                  ✕ Clear
-                </button>
-              )}
-            </div>
+          {loading && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading finds…</p>}
+
+          {!loading && finds.length === 0 && archived.length === 0 && (
+            <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>
+              No finds yet — be the first to report one!
+            </p>
           )}
 
-          {!historyLoaded ? (
-            <div className="card px-4 py-6 text-center text-sm text-[#6b5030]">
-              Loading…
-            </div>
-          ) : truckEvents.length === 0 ? (
-            /* ── Empty state hero + how-it-works ── */
-            <div>
-              <div style={{
-                background:   'linear-gradient(160deg, #1e1004 0%, #0f0a05 60%)',
-                padding:      '32px 16px 28px',
-                borderBottom: '1px solid #2a1c08',
-                textAlign:    'center',
-                borderRadius: 12,
-                marginBottom: 16,
-              }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>🚛</div>
-                <div style={{ fontWeight: 800, fontSize: 22, color: '#f5e6cc', letterSpacing: '-0.02em', marginBottom: 8 }}>
-                  No truck deliveries detected yet
-                </div>
-                <div style={{ fontSize: 14, color: '#9a7c55', lineHeight: 1.6, marginBottom: 20, maxWidth: 520, margin: '0 auto 20px' }}>
-                  The tracker checks Binny's inventory 6× daily — at 7, 9, 11 AM and 1, 3, 5 PM CDT.
-                  When a delivery truck is detected at any Chicagoland location, it shows up here.
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                  {['Next check: coming soon', 'All 20+ Binny\'s stores monitored', '6× daily cadence'].map(label => (
-                    <span key={label} style={{
-                      fontSize: 12, color: '#9a7c55',
-                      background: '#1a1008', border: '1px solid #3d2b10',
-                      borderRadius: 999, padding: '4px 12px',
-                    }}>{label}</span>
-                  ))}
-                </div>
-              </div>
+          {!loading && finds.length > 0 && view === 'map' && <FindsMap finds={finds} />}
 
-              {/* How it works — 3 cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
-                {[
-                  { step: '1', label: 'Canary scan',   desc: 'Every 6h, the tracker checks if high-volume bottles (Old Forester, Benchmark, etc.) have restocked at each store.' },
-                  { step: '2', label: 'Truck detected', desc: 'A sudden restock of canary bottles means a delivery truck likely just visited. We flag it and log which distributor.' },
-                  { step: '3', label: 'Check the map', desc: 'Use the Distributor Map below to know which allocated bottles may be on that truck — then head to the store.' },
-                ].map(s => (
-                  <div key={s.step} className="card" style={{ padding: 14 }}>
-                    <div style={{ fontWeight: 800, fontSize: 28, color: '#e8943a', opacity: 0.3, marginBottom: 4 }}>{s.step}</div>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', marginBottom: 4 }}>{s.label}</div>
-                    <div style={{ fontSize: 12, color: '#9a7c55', lineHeight: 1.6 }}>{s.desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : filteredEvents.length === 0 ? (
-            <div className="card px-4 py-6 text-center text-sm text-[#6b5030]">
-              No truck events recorded for Binny&apos;s {selectedStore} yet.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredEvents.slice(0, 50).map((event, i) => (
-                <TruckCard key={i} event={event} />
-              ))}
-              {filteredEvents.length > 50 && (
-                <p className="text-center text-xs text-[#6b5030] py-2">
-                  Showing 50 of {filteredEvents.length} events
+          {!loading && view === 'list' && (
+            <>
+              {finds.length === 0 && (
+                <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
+                  No active finds — check archived below or be the first to report!
                 </p>
               )}
-            </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {finds.map(find => <FindCard key={find.id} find={find} />)}
+              </div>
+
+              {archived.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                  <button
+                    onClick={() => setShowArchived(s => !s)}
+                    style={{
+                      display:    'flex', alignItems: 'center', gap: 8,
+                      background: 'none', border: 'none', color: '#6b5030',
+                      cursor:     'pointer', fontSize: 13, fontWeight: 600,
+                      padding:    '8px 0', width: '100%', textAlign: 'left',
+                    }}
+                  >
+                    <span>{showArchived ? '▾' : '▸'}</span>
+                    Archived ({archived.length}) — older than 24h
+                  </button>
+                  {showArchived && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+                      {archived.map(find => <FindCard key={find.id} find={find} isArchived />)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
-        </section>
+        </div>
 
-        {/* ── Distributor Map ── */}
-        <section>
-          <div className="section-header">
-            <span className="text-xl">📋</span>
-            <div>
-              <h2 className="section-title">Distributor Map</h2>
-              <p className="text-xs text-[#9a7c55]">
-                Which truck brings which allocated bottles — use as a reference when a delivery is detected
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {distOrder.map(dist => (
-              <DistributorMapColumn
-                key={dist}
-                distributor={dist}
-                bottles={distMap[dist]}
-              />
-            ))}
-          </div>
-        </section>
-
-      </main>
-
-      {/* ── Footer ── */}
-      <footer className="border-t border-[#2a1a08] mt-16 py-6 text-center text-xs text-[#6b5030]">
-        Whiskey Hunter · Chicagoland Binny's Beverage Depot · Checked 6× daily: 7 AM · 9 AM · 11 AM · 1 PM · 3 PM · 5 PM CDT
-      </footer>
-
+      </div>
     </div>
   )
 }

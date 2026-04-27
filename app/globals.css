@@ -3,16 +3,28 @@
 @tailwind utilities;
 
 :root {
-  --bg-base: #0f0a05;
-  --bg-card: #1a1008;
-  --bg-card-hover: #221508;
-  --border: #3d2b10;
+  --bg-base:      #0f0a05;
+  --bg-card:      #1a1008;
+  --bg-card-2:    #1f1308;
+  --bg-card-hover:#221508;
+  --border:       #3d2b10;
+  --border-2:     #2a1c08;
   --text-primary: #f5e6cc;
-  --text-muted: #9a7c55;
-  --accent: #e8943a;
-  --green: #4ade80;
-  --red: #f87171;
+  --text-2:       #c9a87a;
+  --text-muted:   #9a7c55;
+  --text-dim:     #6b5030;
+  --accent:       #e8943a;
+  --accent-2:     #d4832a;
+  --green:        #4ade80;
+  --red:          #f87171;
+  --amber:        #fbbf24;
+  --purple:       #c084fc;
+  --blue:         #818cf8;
 }
+
+@keyframes fadeUp    { from { opacity: 0; transform: translateY(8px)  } to { opacity: 1; transform: translateY(0)     } }
+@keyframes scaleIn   { from { opacity: 0; transform: scale(0.93)      } to { opacity: 1; transform: scale(1)          } }
+@keyframes slideLeft { from { transform: translateX(100%)              } to { transform: translateX(0)                 } }
 
 * {
   box-sizing: border-box;
@@ -93,6 +105,16 @@ body {
   }
 
   .btn-primary {
-    @apply rounded-lg bg-bourbon-600 hover:bg-bourbon-500 active:bg-bourbon-700 text-white font-semibold px-5 py-2.5 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    background:    var(--accent);
+    color:         #fff;
+    font-weight:   700;
+    border-radius: 8px;
+    padding:       10px 20px;
+    font-size:     14px;
+    border:        none;
+    cursor:        pointer;
+    transition:    background 0.15s, opacity 0.15s;
   }
+  .btn-primary:hover   { background: var(--accent-2); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 }

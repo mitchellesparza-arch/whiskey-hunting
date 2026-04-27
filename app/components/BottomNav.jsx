@@ -4,10 +4,10 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 const TABS = [
-  { id: 'tracker',   label: 'Tracker',   icon: '🚛', href: '/'          },
-  { id: 'auctions',  label: 'Auctions',  icon: '🦄', href: '/unicorn'   },
-  { id: 'finds',     label: 'Finds',     icon: '📍', href: '/finds'     },
-  { id: 'watchlist', label: 'Watchlist', icon: '🎯', href: '/watchlist' },
+  { id: 'finds',   label: 'Finds',   icon: '📍', href: '/'        },
+  { id: 'tracker', label: 'Tracker', icon: '🚛', href: '/tracker' },
+  { id: 'auctions',label: 'Auctions',icon: '🦄', href: '/unicorn' },
+  { id: 'profile', label: 'Profile', icon: '👤', href: '/profile' },
 ]
 
 // Pages where the nav should not appear
@@ -26,7 +26,7 @@ export default function BottomNav() {
         setBadge((d.finds ?? []).filter(f => f.timestamp > cutoff).length)
       })
       .catch(() => {})
-  }, [pathname])   // re-check when navigating
+  }, [pathname])
 
   if (HIDDEN_ON.includes(pathname)) return null
 
@@ -37,19 +37,19 @@ export default function BottomNav() {
 
   return (
     <nav style={{
-      position:        'fixed',
+      position:             'fixed',
       bottom: 0, left: 0, right: 0,
-      zIndex:          100,
-      background:      'rgba(15,10,5,0.97)',
-      borderTop:       '1px solid #3d2b10',
-      display:         'flex',
-      backdropFilter:  'blur(12px)',
+      zIndex:               100,
+      background:           'rgba(15,10,5,0.97)',
+      borderTop:            '1px solid #3d2b10',
+      display:              'flex',
+      backdropFilter:       'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
-      paddingBottom:   'env(safe-area-inset-bottom)',
+      paddingBottom:        'env(safe-area-inset-bottom)',
     }}>
       {TABS.map(t => {
-        const active     = isActive(t.href)
-        const showBadge  = t.id === 'finds' && badge > 0
+        const active    = isActive(t.href)
+        const showBadge = t.id === 'finds' && badge > 0
         return (
           <Link
             key={t.id}
@@ -64,7 +64,7 @@ export default function BottomNav() {
               textDecoration: 'none',
             }}
           >
-            {/* Icon + optional notification dot */}
+            {/* Icon + optional notification badge */}
             <span style={{ fontSize: 20, position: 'relative', lineHeight: 1 }}>
               {t.icon}
               {showBadge && (
@@ -86,9 +86,9 @@ export default function BottomNav() {
 
             {/* Label */}
             <span style={{
-              fontSize:   10,
-              fontWeight: active ? 700 : 500,
-              color:      active ? '#e8943a' : '#6b5030',
+              fontSize:      10,
+              fontWeight:    active ? 700 : 500,
+              color:         active ? '#e8943a' : '#6b5030',
               letterSpacing: '0.01em',
             }}>
               {t.label}

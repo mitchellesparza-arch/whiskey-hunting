@@ -15,9 +15,9 @@ function LoginContent() {
 
         {/* Logo */}
         <div className="text-5xl mb-4">🥃</div>
-        <h1 className="text-xl font-bold text-[#f5e6cc] mb-1">Whiskey Hunter</h1>
+        <h1 className="text-xl font-bold text-[#f5e6cc] mb-1">Tater Tracker</h1>
         <p className="text-xs text-[#9a7c55] mb-8">
-          Chicagoland Binny's · Truck Tracker
+          Jon and the Juice · Chicagoland
         </p>
 
         {/* Error */}

@@ -3,7 +3,7 @@ import GoogleProvider from 'next-auth/providers/google'
 import { isApproved, addPendingUser, approveUser } from '../../../../lib/auth-users.js'
 import { sendApprovalRequestEmail }                from '../../../../lib/email.js'
 
-const authOptions = {
+export const authOptions = {
   providers: [
     GoogleProvider({
       clientId:     process.env.GOOGLE_CLIENT_ID,
