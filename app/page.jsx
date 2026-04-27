@@ -80,6 +80,7 @@ export default function FindsPage() {
   const [upc,          setUpc]          = useState('')
   const [store,        setStore]        = useState(null)
   const [storeInput,   setStoreInput]   = useState('')
+  const [price,        setPrice]        = useState('')
   const [notes,        setNotes]        = useState('')
   const [photoFile,    setPhotoFile]    = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
@@ -221,7 +222,7 @@ export default function FindsPage() {
       const res  = await fetch('/api/finds', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ bottleName, upc: upc || null, store, photoUrl, notes }),
+        body:    JSON.stringify({ bottleName, upc: upc || null, store, photoUrl, notes, price: price || null }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Submit failed')
@@ -232,6 +233,7 @@ export default function FindsPage() {
       setUpcStatus(null)
       setStore(null)
       setStoreInput('')
+      setPrice('')
       setNotes('')
       setPhotoFile(null)
       setPhotoPreview(null)
@@ -311,10 +313,10 @@ export default function FindsPage() {
             📍 {find.store?.name ?? '—'}
             {find.store?.address && <span style={{ color: '#6b5030' }}> · {find.store.address}</span>}
           </div>
-          <div style={{ fontSize: 11, color: '#6b5030' }}>
-            {fmtDate(find.timestamp)}
-            {find.timestamp && <span> · {fmtTimeAgo(find.timestamp)}</span>}
-            {isArchived && <span style={{ marginLeft: 6, color: '#6b5030', fontStyle: 'italic' }}>— archived after 24h</span>}
+          <div style={{ fontSize: 11, color: '#6b5030', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <span>{fmtDate(find.timestamp)}{find.timestamp && ` · ${fmtTimeAgo(find.timestamp)}`}</span>
+            {find.price && <span style={{ color: '#e8943a', fontWeight: 700 }}>${Number(find.price).toFixed(2)}</span>}
+            {isArchived && <span style={{ fontStyle: 'italic' }}>— archived after 24h</span>}
           </div>
         </div>
 
@@ -428,10 +430,21 @@ export default function FindsPage() {
               </p>
             )}
 
+            <label style={labelStyle}>Price (optional)</label>
+            <input
+              style={inputStyle}
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="e.g. 65"
+              value={price}
+              onChange={e => setPrice(e.target.value)}
+            />
+
             <label style={labelStyle}>Notes (optional)</label>
             <textarea
               style={{ ...inputStyle, minHeight: 64, resize: 'vertical' }}
-              placeholder="How many bottles? Price? Purchase limit?"
+              placeholder="How many bottles? Where in the store? Purchase limit?"
               value={notes}
               onChange={e => setNotes(e.target.value)}
             />
