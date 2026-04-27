@@ -29,7 +29,7 @@ function fmt$(n) {
 // ── Bottle Card ───────────────────────────────────────────────────────────────
 
 function BottleCard({ bottle, onRemove }) {
-  const score = bottle.blindScore ?? 75
+  const score = bottle.blindScore
   return (
     <div className="card" style={{ display: 'flex', gap: 0, padding: 0, overflow: 'hidden' }}>
       {/* Score Column */}
@@ -46,8 +46,8 @@ function BottleCard({ bottle, onRemove }) {
         gap:            2,
       }}>
         <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</div>
-        <div style={{ fontWeight: 800, fontSize: 24, color: scoreColor(score), lineHeight: 1 }}>
-          {score.toFixed(0)}
+        <div style={{ fontWeight: 800, fontSize: score != null ? 24 : 18, color: score != null ? scoreColor(score) : '#3d2b10', lineHeight: 1 }}>
+          {score != null ? score.toFixed(0) : '—'}
         </div>
         <div style={{ fontSize: 9, color: '#6b5030' }}>{bottle.tastings ?? 0} tastings</div>
       </div>
@@ -512,7 +512,7 @@ export default function CollectionPage() {
 
   // Sort
   const sorted = [...bottles].sort((a, b) => {
-    if (sort === 'score')     return (b.blindScore ?? 75) - (a.blindScore ?? 75)
+    if (sort === 'score')     return (b.blindScore ?? -1) - (a.blindScore ?? -1)
     if (sort === 'secondary') return (b.secondary ?? 0) - (a.secondary ?? 0)
     if (sort === 'msrp')      return (b.msrp ?? 0) - (a.msrp ?? 0)
     if (sort === 'name')      return a.name.localeCompare(b.name)
@@ -522,8 +522,9 @@ export default function CollectionPage() {
   // Stats
   const totalBottles = bottles.reduce((s, b) => s + (b.qty ?? 1), 0)
   const estValue     = bottles.reduce((s, b) => s + ((b.secondary ?? 0) * (b.qty ?? 1)), 0)
-  const avgScore     = bottles.length
-    ? (bottles.reduce((s, b) => s + (b.blindScore ?? 75), 0) / bottles.length).toFixed(1)
+  const scoredBottles = bottles.filter(b => b.blindScore != null)
+  const avgScore      = scoredBottles.length
+    ? (scoredBottles.reduce((s, b) => s + b.blindScore, 0) / scoredBottles.length).toFixed(1)
     : '—'
 
   if (status === 'loading') return null

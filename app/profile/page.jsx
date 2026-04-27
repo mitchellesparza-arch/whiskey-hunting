@@ -90,9 +90,10 @@ export default function ProfilePage() {
   const totalBottles  = collection.reduce((s, b) => s + (b.qty ?? 1), 0)
   const totalTastings = collection.reduce((s, b) => s + (b.tastings ?? 0), 0)
   const estValue      = collection.reduce((s, b) => s + ((b.secondary ?? 0) * (b.qty ?? 1)), 0)
-  const topScore      = collection.length ? Math.max(...collection.map(b => b.blindScore ?? 75)) : 0
-  const topBottle     = collection.reduce((best, b) =>
-    (b.blindScore ?? 75) > (best?.blindScore ?? 0) ? b : best, null)
+  const scoredBottles = collection.filter(b => b.blindScore != null)
+  const topScore      = scoredBottles.length ? Math.max(...scoredBottles.map(b => b.blindScore)) : 0
+  const topBottle     = scoredBottles.reduce((best, b) =>
+    b.blindScore > (best?.blindScore ?? -1) ? b : best, null)
 
   const displayName = session?.user?.name ?? 'Member'
 

@@ -14,14 +14,23 @@ export default function SettingsDrawer({ open, onClose }) {
   const { data: session } = useSession()
   const [displayName,    setDisplayName]    = useState('')
   const [discordHandle,  setDiscordHandle]  = useState('')
+  const [saving,         setSaving]         = useState(false)
   const [saved,          setSaved]          = useState(false)
+  const [saveError,      setSaveError]      = useState(null)
 
-  // Pre-fill display name from session
+  // Load stored profile when drawer opens
   useEffect(() => {
-    if (session?.user?.name && !displayName) {
-      setDisplayName(session.user.name)
-    }
-  }, [session])
+    if (!open) return
+    fetch('/api/profile')
+      .then(r => r.json())
+      .then(d => {
+        setDisplayName(d.profile?.name || session?.user?.name || '')
+        setDiscordHandle(d.profile?.discordHandle || '')
+      })
+      .catch(() => {
+        setDisplayName(session?.user?.name || '')
+      })
+  }, [open])
 
   if (!open) return null
 
@@ -67,10 +76,23 @@ export default function SettingsDrawer({ open, onClose }) {
     borderBottom:   '1px solid #1f1308',
   }
 
-  function handleSave() {
-    // Profile preferences are stored locally for now
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  async function handleSave() {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const res = await fetch('/api/profile', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ name: displayName, discordHandle }),
+      })
+      if (!res.ok) throw new Error('Save failed')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch {
+      setSaveError('Could not save — try again')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -165,22 +187,28 @@ export default function SettingsDrawer({ open, onClose }) {
             placeholder="e.g. whiskeydave#1234"
           />
 
+          {saveError && (
+            <p style={{ color: '#f87171', fontSize: 12, margin: '8px 0 0' }}>{saveError}</p>
+          )}
           <button
             onClick={handleSave}
+            disabled={saving}
             style={{
               marginTop:    12,
               width:        '100%',
               padding:      '9px',
-              background:   '#e8943a',
+              background:   saved ? '#166534' : '#e8943a',
               border:       'none',
               borderRadius: 8,
               color:        '#fff',
               fontWeight:   700,
               fontSize:     13,
-              cursor:       'pointer',
+              cursor:       saving ? 'not-allowed' : 'pointer',
+              opacity:      saving ? 0.7 : 1,
+              transition:   'background 0.2s',
             }}
           >
-            {saved ? '✓ Saved' : 'Save Profile'}
+            {saving ? '⏳ Saving…' : saved ? '✓ Saved' : 'Save Profile'}
           </button>
         </div>
 
