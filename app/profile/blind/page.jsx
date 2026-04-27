@@ -81,7 +81,7 @@ function StepIntro({ onStart }) {
           Battle of the Blinds
         </div>
         <div style={{ fontSize: 14, color: '#9a7c55', lineHeight: 1.6 }}>
-          A physical blind tasting using the glen system — your glasses never know what&apos;s in them.
+          A whiskey matchmaking system that rates your bottles without any tater influence.
         </div>
       </div>
 
