@@ -8,6 +8,27 @@ import BarcodeScanner from '../../finds/BarcodeScanner.jsx'
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const CATEGORIES  = ['Bourbon', 'Rye', 'Scotch', 'Japanese', 'American', 'Irish']
+
+// Bar-shelf SVG — replaces the 📦 box emoji throughout this page
+function ShelfIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: 'inline', verticalAlign: 'middle' }}>
+      {/* Shelf plank */}
+      <rect x="1"    y="17.5" width="22"  height="2.5" rx="1"   fill="#8B4513" />
+      {/* Bottle 1 — tall bourbon */}
+      <rect x="3"    y="8"    width="3.5" height="9.5" rx="1"   fill="#c46c1a" />
+      <rect x="4"    y="5.5"  width="1.5" height="2.5" rx="0.5" fill="#c46c1a" />
+      <rect x="3.5"  y="5.5"  width="2.5" height="1"   rx="0.5" fill="#a05010" />
+      {/* Bottle 2 — medium */}
+      <rect x="9"    y="10"   width="3.5" height="7.5" rx="1"   fill="#d4a054" />
+      <rect x="10"   y="7.5"  width="1.5" height="2.5" rx="0.5" fill="#d4a054" />
+      {/* Bottle 3 — tall */}
+      <rect x="15.5" y="8"    width="3.5" height="9.5" rx="1"   fill="#e8943a" />
+      <rect x="16.5" y="5.5"  width="1.5" height="2.5" rx="0.5" fill="#e8943a" />
+      <rect x="16"   y="5.5"  width="2.5" height="1"   rx="0.5" fill="#c47020" />
+    </svg>
+  )
+}
 const SORT_OPTIONS = [
   { key: 'score',     label: '🏆 Score'     },
   { key: 'secondary', label: '💰 Secondary' },
@@ -28,10 +49,14 @@ function fmt$(n) {
 
 // ── Bottle Card ───────────────────────────────────────────────────────────────
 
-function BottleCard({ bottle, onRemove }) {
+function BottleCard({ bottle, onRemove, onEdit }) {
   const score = bottle.blindScore
   return (
-    <div className="card" style={{ display: 'flex', gap: 0, padding: 0, overflow: 'hidden' }}>
+    <div
+      className="card"
+      onClick={() => onEdit(bottle)}
+      style={{ display: 'flex', gap: 0, padding: 0, overflow: 'hidden', cursor: 'pointer' }}
+    >
       {/* Score Column */}
       <div style={{
         width:          64,
@@ -101,7 +126,7 @@ function BottleCard({ bottle, onRemove }) {
           </div>
         )}
         <button
-          onClick={() => onRemove(bottle.id)}
+          onClick={e => { e.stopPropagation(); onRemove(bottle.id) }}
           style={{
             background: 'none',
             border:     'none',
@@ -276,6 +301,123 @@ function AddSampleSheet({ onClose, onAdd }) {
             {submitting ? '⏳ Saving…' : '+ Add Sample'}
           </button>
         </form>
+      </div>
+    </>
+  )
+}
+
+// ── Edit Bottle Sheet ─────────────────────────────────────────────────────────
+
+function EditBottleSheet({ bottle, onClose, onSave }) {
+  const [name,       setName]       = useState(bottle.name       ?? '')
+  const [distillery, setDistillery] = useState(bottle.distillery ?? '')
+  const [category,   setCategory]   = useState(bottle.category   ?? 'Bourbon')
+  const [proof,      setProof]      = useState(bottle.proof > 0  ? String(bottle.proof) : '')
+  const [msrp,       setMsrp]       = useState(bottle.msrp > 0   ? String(bottle.msrp)  : '')
+  const [secondary,  setSecondary]  = useState(bottle.secondary > 0 ? String(bottle.secondary) : '')
+  const [qty,        setQty]        = useState(String(bottle.qty ?? 1))
+  const [flavors,    setFlavors]    = useState((bottle.flavors ?? []).join(', '))
+  const [submitting, setSubmitting] = useState(false)
+  const [error,      setError]      = useState(null)
+
+  const inputStyle = {
+    width: '100%', padding: '9px 12px',
+    background: '#0f0a05', border: '1px solid #3d2b10', borderRadius: 8,
+    color: '#f5e6cc', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+  }
+  const labelStyle = {
+    display: 'block', fontSize: 10, fontWeight: 700, color: '#9a7c55',
+    marginBottom: 4, marginTop: 12, textTransform: 'uppercase', letterSpacing: '0.06em',
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!name.trim()) return setError('Bottle name is required')
+    setSubmitting(true)
+    setError(null)
+    try {
+      const flavorArr = flavors.split(',').map(s => s.trim()).filter(Boolean)
+      const res  = await fetch('/api/collection', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ id: bottle.id, name, distillery, category, proof, msrp, secondary, qty, flavors: flavorArr }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save')
+      onSave(data.bottles)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 149 }} />
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 150,
+        background: '#1a1008', borderRadius: '16px 16px 0 0',
+        border: '1px solid #3d2b10', borderBottom: 'none',
+        maxHeight: '90vh', overflowY: 'auto',
+        animation: 'fadeUp 0.25s ease',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: '#3d2b10' }} />
+        </div>
+        <div style={{ padding: '0 16px 32px' }}>
+          <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc', marginBottom: 16 }}>
+            ✏️ Edit Bottle
+          </div>
+          <form onSubmit={handleSubmit}>
+            <label style={labelStyle}>Bottle Name *</label>
+            <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} required />
+
+            <label style={labelStyle}>Distillery</label>
+            <input style={inputStyle} value={distillery} onChange={e => setDistillery(e.target.value)} />
+
+            <label style={labelStyle}>Category</label>
+            <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={labelStyle}>Proof</label>
+                <input style={inputStyle} type="number" min="0" step="0.1" value={proof} onChange={e => setProof(e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>MSRP $</label>
+                <input style={inputStyle} type="number" min="0" value={msrp} onChange={e => setMsrp(e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>Qty</label>
+                <input style={inputStyle} type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} />
+              </div>
+            </div>
+
+            <label style={labelStyle}>Secondary Market $</label>
+            <input style={inputStyle} type="number" min="0" value={secondary} onChange={e => setSecondary(e.target.value)} />
+
+            <label style={labelStyle}>Flavor Notes (comma separated)</label>
+            <input style={inputStyle} value={flavors} onChange={e => setFlavors(e.target.value)} />
+
+            {error && <p style={{ color: '#f87171', fontSize: 13, margin: '10px 0 0' }}>{error}</p>}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              style={{
+                marginTop: 16, width: '100%', padding: '12px',
+                background: '#e8943a', border: 'none', borderRadius: 8,
+                color: '#fff', fontWeight: 800, fontSize: 15,
+                cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1,
+              }}
+            >
+              {submitting ? '⏳ Saving…' : 'Save Changes'}
+            </button>
+          </form>
+        </div>
       </div>
     </>
   )
@@ -651,6 +793,7 @@ export default function CollectionPage() {
   const [sort,          setSort]          = useState('score')
   const [showAdd,       setShowAdd]       = useState(false)
   const [removing,      setRemoving]      = useState(null)
+  const [editingBottle, setEditingBottle] = useState(null) // bottle being edited
 
   // Samples tab
   const [tab,           setTab]           = useState('bottles')
@@ -708,7 +851,11 @@ export default function CollectionPage() {
 
   // Stats
   const totalBottles = bottles.reduce((s, b) => s + (b.qty ?? 1), 0)
-  const estValue     = bottles.reduce((s, b) => s + ((b.secondary ?? 0) * (b.qty ?? 1)), 0)
+  // Est. value: use secondary market price when available, fall back to MSRP
+  const estValue = bottles.reduce((s, b) => {
+    const val = b.secondary > 0 ? b.secondary : (b.msrp > 0 ? b.msrp : 0)
+    return s + val * (b.qty ?? 1)
+  }, 0)
   const scoredBottles = bottles.filter(b => b.blindScore != null)
   const avgScore      = scoredBottles.length
     ? (scoredBottles.reduce((s, b) => s + b.blindScore, 0) / scoredBottles.length).toFixed(1)
@@ -736,7 +883,9 @@ export default function CollectionPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Link href="/profile" style={{ color: '#9a7c55', textDecoration: 'none', fontSize: 20, lineHeight: 1 }}>←</Link>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc' }}>📦 My Collection</div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <ShelfIcon size={18} /> My Collection
+          </div>
             <div style={{ fontSize: 11, color: '#9a7c55' }}>Personal bottle inventory</div>
           </div>
         </div>
@@ -866,7 +1015,7 @@ export default function CollectionPage() {
             <p style={{ color: '#9a7c55', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>Loading…</p>
           ) : sorted.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 16px' }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+              <div style={{ marginBottom: 12 }}><ShelfIcon size={48} /></div>
               <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc', marginBottom: 8 }}>Your collection is empty</div>
               <div style={{ fontSize: 14, color: '#9a7c55', marginBottom: 20 }}>Add your first bottle to get started</div>
               <button
@@ -879,13 +1028,21 @@ export default function CollectionPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {sorted.map(bottle => (
-                <BottleCard key={bottle.id} bottle={bottle} onRemove={handleRemove} />
+                <BottleCard key={bottle.id} bottle={bottle} onRemove={handleRemove} onEdit={setEditingBottle} />
               ))}
             </div>
           )}
         </>}
 
       </div>
+
+      {editingBottle && (
+        <EditBottleSheet
+          bottle={editingBottle}
+          onClose={() => setEditingBottle(null)}
+          onSave={(bottles) => { setBottles(bottles); setEditingBottle(null) }}
+        />
+      )}
 
       {showAdd && (
         <AddBottleSheet

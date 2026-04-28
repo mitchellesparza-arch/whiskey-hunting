@@ -65,6 +65,7 @@ export default function ProfilePage() {
   const [friendCount,      setFriendCount]      = useState(null)
   const [pendingRequests,  setPendingRequests]  = useState(0)
   const [muleBoard,        setMuleBoard]        = useState([])
+  const [storedName,       setStoredName]       = useState(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login')
@@ -90,6 +91,11 @@ export default function ProfilePage() {
       .then(r => r.json())
       .then(d => setMuleBoard(d.leaderboard ?? []))
       .catch(() => {})
+
+    fetch('/api/profile')
+      .then(r => r.json())
+      .then(d => { if (d.profile?.name) setStoredName(d.profile.name) })
+      .catch(() => {})
   }, [])
 
   // Compute stats
@@ -101,7 +107,7 @@ export default function ProfilePage() {
   const topBottle     = scoredBottles.reduce((best, b) =>
     b.blindScore > (best?.blindScore ?? -1) ? b : best, null)
 
-  const displayName = session?.user?.name ?? 'Member'
+  const displayName = storedName ?? session?.user?.name ?? 'Member'
 
   if (status === 'loading') return null
 

@@ -79,7 +79,10 @@ function FriendProfilePanel({ friend, onClose }) {
 
   const totalBottles  = bottles.reduce((s, b) => s + (b.qty ?? 1), 0)
   const totalTastings = bottles.reduce((s, b) => s + (b.tastings ?? 0), 0)
-  const estValue      = bottles.reduce((s, b) => s + ((b.secondary ?? 0) * (b.qty ?? 1)), 0)
+  const estValue      = bottles.reduce((s, b) => {
+    const val = b.secondary > 0 ? b.secondary : (b.msrp > 0 ? b.msrp : 0)
+    return s + val * (b.qty ?? 1)
+  }, 0)
   const topBottle     = bottles.length
     ? bottles.reduce((best, b) => (b.blindScore ?? 75) > (best?.blindScore ?? 0) ? b : best, null)
     : null
