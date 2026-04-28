@@ -31,7 +31,7 @@ function StatBox({ label, value }) {
 
 const TILES = [
   {
-    icon:     '📦',
+    icon:     '🥃',
     title:    'My Collection',
     subtitle: 'Track your bottles with prices and scores',
     href:     '/profile/collection',
@@ -49,7 +49,7 @@ const TILES = [
     href:     '/profile/pour',
   },
   {
-    icon:     '🫣',
+    icon:     '🙈',
     title:    'Battle of the Blinds',
     subtitle: 'Run a blind tasting and rank by ELO',
     href:     '/profile/blind',

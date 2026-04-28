@@ -76,7 +76,7 @@ function StepIntro({ onStart }) {
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '32px 16px', animation: 'fadeUp 0.3s ease' }}>
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <div style={{ fontSize: 52, marginBottom: 12 }}>🫣</div>
+        <div style={{ fontSize: 52, marginBottom: 12 }}>🙈</div>
         <div style={{ fontWeight: 800, fontSize: 22, color: '#f5e6cc', marginBottom: 8 }}>
           Battle of the Blinds
         </div>
@@ -659,7 +659,7 @@ export default function PickMyBlindPage() {
           disabled={step >= 4 && step < 6}
         >←</button>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc' }}>🫣 Battle of the Blinds</div>
+          <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc' }}>🙈 Battle of the Blinds</div>
           <div style={{ fontSize: 11, color: '#9a7c55' }}>{stepLabels[step]}</div>
         </div>
         {/* Step dots */}

@@ -932,8 +932,8 @@ export default function CollectionPage() {
         {/* Tab switcher */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
           {[
-            { key: 'bottles', label: `📦 Bottles (${bottles.length})` },
-            { key: 'samples', label: `🥃 Samples (${samples.length})` },
+            { key: 'bottles', icon: <ShelfIcon size={14} />, text: `Bottles (${bottles.length})` },
+            { key: 'samples', icon: '🥃',                   text: `Samples (${samples.length})`  },
           ].map(t => (
             <button
               key={t.key}
@@ -948,8 +948,12 @@ export default function CollectionPage() {
                 color:        tab === t.key ? '#fff' : '#6b5030',
                 fontWeight:   700,
                 fontSize:     13,
+                display:      'flex',
+                alignItems:   'center',
+                justifyContent: 'center',
+                gap:          5,
               }}
-            >{t.label}</button>
+            >{t.icon} {t.text}</button>
           ))}
         </div>
 

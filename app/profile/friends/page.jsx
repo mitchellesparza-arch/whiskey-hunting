@@ -215,7 +215,7 @@ function FriendProfilePanel({ friend, onClose }) {
           {loaded && !forbidden && sorted.length > 0 && (
             <>
               <div style={{ fontWeight: 700, fontSize: 12, color: '#9a7c55', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                📦 Collection · {totalBottles} bottle{totalBottles !== 1 ? 's' : ''}
+                🥃 Collection · {totalBottles} bottle{totalBottles !== 1 ? 's' : ''}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {sorted.map((bottle, i) => {
