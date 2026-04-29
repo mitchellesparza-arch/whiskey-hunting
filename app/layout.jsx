@@ -2,6 +2,7 @@ import './globals.css'
 import Providers     from './providers.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import BottomNav     from './components/BottomNav.jsx'
+import PushInit      from './components/PushInit.jsx'
 
 export const metadata = {
   title:       'Tater Tracker',
@@ -50,6 +51,7 @@ export default function RootLayout({ children }) {
             {children}
           </div>
         </Providers>
+        <PushInit />
         <InstallPrompt />
         <BottomNav />
       </body>

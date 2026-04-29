@@ -5,6 +5,7 @@ import { hotlineBottles }            from '../../../lib/bottles.js'
 import { getLastState, saveState, logEvent } from '../../../lib/history.js'
 import { sendTruckEmail }            from '../../../lib/email.js'
 import { postTruckAlert }            from '../../../lib/discord.js'
+import { sendBroadcast }             from '../../../lib/push.js'
 
 const RESTOCK_THRESHOLD = 5   // quantity jump of ≥5 = truck signal
 
@@ -155,6 +156,15 @@ export async function GET(request) {
           checkFor:    e.checkFor,
         }))
       )
+      // Push notification to all subscribed members
+      const storeNames = [...new Set(truckEvents.map(e => e.storeName))].join(', ')
+      const checkNames = truckEvents.flatMap(e => e.checkFor.flatMap(g => g.names)).slice(0, 3)
+      await sendBroadcast({
+        title: '🚛 Truck Detected',
+        body:  `Check ${storeNames} for ${checkNames.join(', ')}${checkNames.length < truckEvents.flatMap(e=>e.checkFor.flatMap(g=>g.names)).length ? '…' : ''}`,
+        url:   '/tracker',
+        tag:   'truck',
+      }, 'trucks')
     } else {
       console.log('[cron] No truck activity detected')
     }

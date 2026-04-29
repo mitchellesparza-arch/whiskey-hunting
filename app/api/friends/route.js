@@ -12,6 +12,7 @@ import {
   removeFriend,
 } from '../../../lib/friends.js'
 import { getApprovedUsers } from '../../../lib/auth-users.js'
+import { sendToUser }       from '../../../lib/push.js'
 
 async function getMe(request) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
@@ -87,7 +88,19 @@ export async function POST(request) {
   try {
     const { targetEmail } = await request.json()
     if (!targetEmail) return NextResponse.json({ error: 'targetEmail required' }, { status: 400 })
-    await sendFriendRequest(me, targetEmail.toLowerCase())
+    const target = targetEmail.toLowerCase()
+    await sendFriendRequest(me, target)
+
+    // Push notification to the recipient
+    const senderProfile = await getUserProfile(me)
+    const senderName    = senderProfile?.name ?? me.split('@')[0]
+    sendToUser(target, {
+      title: '👥 New Friend Request',
+      body:  `${senderName} sent you a friend request`,
+      url:   '/profile/friends',
+      tag:   'friend-request',
+    }).catch(() => {}) // fire-and-forget, don't block response
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })

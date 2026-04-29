@@ -2,6 +2,7 @@ import { NextResponse }          from 'next/server'
 import { getToken }              from 'next-auth/jwt'
 import { getFinds, addFind, removeFind, voteFind } from '../../../lib/finds.js'
 import { getUserProfile }        from '../../../lib/friends.js'
+import { sendBroadcast }         from '../../../lib/push.js'
 
 /**
  * GET /api/finds
@@ -77,6 +78,15 @@ export async function POST(request) {
       submittedBy:   token.email,
       submitterName,
     })
+
+    // Push notification to all subscribed members (fire-and-forget)
+    sendBroadcast({
+      title: '📍 New Find',
+      body:  `${submitterName} spotted ${bottleName} at ${store.name}`,
+      url:   '/',
+      tag:   'find',
+    }, 'finds').catch(() => {})
+
     return NextResponse.json({ ok: true, find: entry })
   } catch (err) {
     console.error('[finds] POST error:', err)

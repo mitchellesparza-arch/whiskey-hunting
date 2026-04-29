@@ -23,7 +23,7 @@ export async function PATCH(req) {
   try { body = await req.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
-  const { name, discordHandle, muleRequests } = body
+  const { name, discordHandle, muleRequests, notifPrefs } = body
 
   let muleReqs
   if (muleRequests !== undefined) {
@@ -32,10 +32,22 @@ export async function PATCH(req) {
     muleReqs = muleRequests.map(r => String(r).trim()).filter(Boolean).slice(0, 5)
   }
 
+  let prefs
+  if (notifPrefs !== undefined) {
+    if (typeof notifPrefs !== 'object' || Array.isArray(notifPrefs))
+      return NextResponse.json({ error: 'notifPrefs must be an object' }, { status: 400 })
+    const allowed = ['trucks', 'finds', 'watchlist', 'auctions', 'friends']
+    prefs = {}
+    for (const key of allowed) {
+      if (key in notifPrefs) prefs[key] = !!notifPrefs[key]
+    }
+  }
+
   const updated = await updateUserProfile(me, {
     name:          name?.trim() || undefined,
     discordHandle: discordHandle?.trim() || undefined,
     muleRequests:  muleReqs,
+    notifPrefs:    prefs,
   })
   return NextResponse.json({ ok: true, profile: updated })
 }
