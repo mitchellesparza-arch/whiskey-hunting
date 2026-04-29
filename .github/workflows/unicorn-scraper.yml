@@ -2,16 +2,15 @@ name: Unicorn Auctions Scraper
 
 on:
   schedule:
-    # ── Daily scrape ──────────────────────────────────────────────────────────
-    # 6 PM CST = midnight UTC (00:00).  During CDT (summer) this fires at 7 PM.
-    - cron: '0 0 * * *'
+    # ── Every hour, all day every day ────────────────────────────────────────
+    - cron: '0 * * * *'
 
-    # ── Sunday hourly scrape (auctions close Sunday) ──────────────────────────
-    # CDT = UTC-5:  noon–6 PM CDT → 17:00–23:00 UTC Sunday
-    #               7 PM–11 PM CDT →  0:00–4:00 UTC Monday (midnight already
-    #               covered by the daily above, so start at 1:00 UTC)
-    - cron: '0 17-23 * * 0'   # noon–6 PM CDT  (Sunday)
-    - cron: '0 1-4   * * 1'   # 8 PM–11 PM CDT (Sunday night, Monday UTC)
+    # ── Every 30 min starting at 3 PM Central ────────────────────────────────
+    # CDT (summer, UTC-5): 3 PM CDT = 20:00 UTC
+    # CST (winter, UTC-6): 3 PM CST = 21:00 UTC  (20:30 run fires at 2:30 PM — fine)
+    # :30-mark runs from 20:30 UTC → 07:30 UTC covers 3:30 PM – 2:30 AM CDT
+    - cron: '30 20-23 * * *'  # 3:30 PM – 6:30 PM CDT
+    - cron: '30 0-7   * * *'  # 7:30 PM – 2:30 AM CDT (next UTC day)
 
   # Also run on-demand from the Actions tab
   workflow_dispatch:
