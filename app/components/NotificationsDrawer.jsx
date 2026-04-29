@@ -108,7 +108,7 @@ export default function NotificationsDrawer({ open, onClose }) {
   // ── Push enable / disable ────────────────────────────────────────────────
   async function enablePush() {
     setEnabling(true)
-    setPushStatus('')
+    setPushStatus('Requesting permission…')
     try {
       // Request permission (must be triggered by user gesture)
       const permission = await Notification.requestPermission()
@@ -121,29 +121,42 @@ export default function NotificationsDrawer({ open, onClose }) {
       }
 
       // Fetch VAPID public key
-      const { publicKey } = await fetch('/api/push').then(r => r.json())
-      if (!publicKey) { setPushStatus('Server config missing — contact admin'); return }
+      setPushStatus('Fetching server key…')
+      const keyRes = await fetch('/api/push')
+      if (!keyRes.ok) throw new Error(`Key fetch failed: ${keyRes.status}`)
+      const { publicKey } = await keyRes.json()
+      if (!publicKey) { setPushStatus('VAPID_PUBLIC_KEY not set in Vercel — contact admin'); return }
 
-      // Subscribe
-      const reg = await navigator.serviceWorker.ready
+      // Wait for service worker
+      setPushStatus('Waiting for service worker…')
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Service worker timed out after 10s — is /sw.js accessible?')), 10000)
+        ),
+      ])
+
+      // Subscribe to push
+      setPushStatus('Subscribing…')
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly:      true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       })
 
       // Save to server
+      setPushStatus('Saving subscription…')
       const res = await fetch('/api/push', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ subscription: sub.toJSON() }),
       })
-      if (!res.ok) throw new Error('Server save failed')
+      if (!res.ok) throw new Error(`Server save failed: ${res.status}`)
 
       setPushEnabled(true)
-      setPushStatus('Push notifications enabled!')
+      setPushStatus('✓ Push notifications enabled!')
     } catch (err) {
       console.error('[push] enable failed:', err)
-      setPushStatus('Something went wrong — try again')
+      setPushStatus(`Failed: ${err.message}`)
     } finally {
       setEnabling(false)
     }
