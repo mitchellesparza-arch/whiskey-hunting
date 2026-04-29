@@ -40,9 +40,22 @@ jobs:
         working-directory: unicorn_scraper
         run: pip install -r requirements.txt
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('unicorn_scraper/requirements.txt') }}
+
       - name: Install Playwright browsers
         working-directory: unicorn_scraper
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: playwright install chromium --with-deps
+
+      - name: Install Playwright system deps (cached browser)
+        working-directory: unicorn_scraper
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: playwright install-deps chromium
 
       - name: Run scraper
         working-directory: unicorn_scraper
