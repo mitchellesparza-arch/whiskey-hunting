@@ -30,6 +30,8 @@ export default function RootLayout({ children }) {
           href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
+        {/* iOS home-screen icon — must be explicit, Next.js auto-tag isn't reliable on all iOS versions */}
+        <link rel="apple-touch-icon" href="/apple-icon.png" />
         {/* Capture beforeinstallprompt before React hydrates — event fires early */}
         <script dangerouslySetInnerHTML={{ __html: `
           window.__installPrompt = null;
