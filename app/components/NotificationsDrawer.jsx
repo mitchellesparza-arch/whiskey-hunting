@@ -127,14 +127,34 @@ export default function NotificationsDrawer({ open, onClose }) {
       const { publicKey } = await keyRes.json()
       if (!publicKey) { setPushStatus('VAPID_PUBLIC_KEY not set in Vercel — contact admin'); return }
 
-      // Wait for service worker
-      setPushStatus('Waiting for service worker…')
-      const reg = await Promise.race([
-        navigator.serviceWorker.ready,
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Service worker timed out after 10s — is /sw.js accessible?')), 10000)
-        ),
-      ])
+      // Register service worker (idempotent if already registered)
+      setPushStatus('Registering service worker…')
+      let reg
+      try {
+        reg = await navigator.serviceWorker.register('/sw.js')
+      } catch (err) {
+        throw new Error(`SW registration failed: ${err.message}`)
+      }
+
+      // Wait for SW to become active (max 8s)
+      if (!reg.active) {
+        setPushStatus('Activating service worker…')
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(
+            () => reject(new Error('SW did not activate — check /sw.js loads in browser')),
+            8000
+          )
+          const worker = reg.installing || reg.waiting
+          if (!worker) { clearTimeout(timeout); resolve(); return }
+          worker.addEventListener('statechange', function () {
+            if (this.state === 'activated') { clearTimeout(timeout); resolve() }
+            if (this.state === 'redundant') { clearTimeout(timeout); reject(new Error('SW became redundant')) }
+          })
+        })
+        // Re-fetch registration now that it's active
+        reg = await navigator.serviceWorker.getRegistration('/sw.js')
+        if (!reg?.active) throw new Error('SW active but registration lost')
+      }
 
       // Subscribe to push
       setPushStatus('Subscribing…')
