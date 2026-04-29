@@ -47,97 +47,195 @@ function fmt$(n) {
   return `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
+// ── Unicorn auction helpers ───────────────────────────────────────────────────
+
+function normalizeName(s) {
+  return s.toLowerCase()
+    .replace(/['''‘’]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function findUnicornMatches(bottleName, deals) {
+  if (!bottleName || !deals?.length) return []
+  const norm  = normalizeName(bottleName)
+  const words = norm.split(' ').filter(w => w.length > 3)
+  if (!words.length) return []
+  return deals.filter(d => {
+    const hay  = normalizeName(d.bottle_name)
+    const hits = words.filter(w => hay.includes(w)).length
+    // first significant word (brand) must match + at least 1 more when 3+ words
+    if (!hay.includes(words[0])) return false
+    if (words.length === 1) return true
+    if (words.length === 2) return hits >= 1
+    return hits >= 2
+  })
+}
+
+function timeLeft(isoStr) {
+  if (!isoStr) return null
+  const ms = new Date(isoStr).getTime() - Date.now()
+  if (ms < 0) return 'ended'
+  const h = Math.floor(ms / 3600000)
+  if (h < 24) return `${h}h left`
+  return `${Math.floor(h / 24)}d left`
+}
+
 // ── Bottle Card ───────────────────────────────────────────────────────────────
 
-function BottleCard({ bottle, onRemove, onEdit }) {
+function BottleCard({ bottle, onRemove, onEdit, unicornMatches }) {
   const score = bottle.blindScore
+
+  // Best unicorn lot — highest current bid
+  const bestMatch = unicornMatches?.length
+    ? unicornMatches.reduce((a, b) => ((b.current_bid || 0) > (a.current_bid || 0) ? b : a))
+    : null
+  const auctionBid  = bestMatch ? (bestMatch.current_bid || 0) : 0
+  const msrpPremium = bottle.msrp > 0 && auctionBid > 0
+    ? Math.round((auctionBid - bottle.msrp) / bottle.msrp * 100)
+    : null
+  const tl = bestMatch ? timeLeft(bestMatch.end_datetime) : null
+
   return (
     <div
       className="card"
       onClick={() => onEdit(bottle)}
-      style={{ display: 'flex', gap: 0, padding: 0, overflow: 'hidden', cursor: 'pointer' }}
+      style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 0, overflow: 'hidden', cursor: 'pointer' }}
     >
-      {/* Score Column */}
-      <div style={{
-        width:          64,
-        flexShrink:     0,
-        display:        'flex',
-        flexDirection:  'column',
-        alignItems:     'center',
-        justifyContent: 'center',
-        padding:        '12px 0',
-        background:     '#1f1308',
-        borderRight:    '1px solid #2a1c08',
-        gap:            2,
-      }}>
-        <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</div>
-        <div style={{ fontWeight: 800, fontSize: score != null ? 24 : 18, color: score != null ? scoreColor(score) : '#3d2b10', lineHeight: 1 }}>
-          {score != null ? score.toFixed(0) : '—'}
-        </div>
-        <div style={{ fontSize: 9, color: '#6b5030' }}>{bottle.tastings ?? 0} tastings</div>
-      </div>
+      {/* ── Main row ──────────────────────────────────────────────── */}
+      <div style={{ display: 'flex' }}>
 
-      {/* Middle: info */}
-      <div style={{ flex: 1, padding: '12px 12px', minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', lineHeight: 1.3, marginBottom: 3 }}>
-          {bottle.name}
-        </div>
-        <div style={{ fontSize: 11, color: '#9a7c55', marginBottom: 6 }}>
-          {[bottle.distillery, bottle.proof ? `${bottle.proof}°` : null, bottle.qty > 1 ? `×${bottle.qty}` : null].filter(Boolean).join(' · ')}
-        </div>
-        {bottle.flavors?.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-            {bottle.flavors.map(f => (
-              <span key={f} style={{
-                fontSize:     10,
-                color:        '#9a7c55',
-                background:   '#1f1308',
-                border:       '1px solid #2a1c08',
-                borderRadius: 999,
-                padding:      '2px 7px',
-              }}>{f}</span>
-            ))}
+        {/* Score Column */}
+        <div style={{
+          width:          64,
+          flexShrink:     0,
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          justifyContent: 'center',
+          padding:        '12px 0',
+          background:     '#1f1308',
+          borderRight:    '1px solid #2a1c08',
+          gap:            2,
+        }}>
+          <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</div>
+          <div style={{ fontWeight: 800, fontSize: score != null ? 24 : 18, color: score != null ? scoreColor(score) : '#3d2b10', lineHeight: 1 }}>
+            {score != null ? score.toFixed(0) : '—'}
           </div>
-        )}
-      </div>
-
-      {/* Right: prices + remove */}
-      <div style={{
-        flexShrink:     0,
-        display:        'flex',
-        flexDirection:  'column',
-        alignItems:     'flex-end',
-        justifyContent: 'space-between',
-        padding:        '10px 12px',
-        gap:            4,
-      }}>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase' }}>MSRP</div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#c9a87a' }}>{fmt$(bottle.msrp)}</div>
+          <div style={{ fontSize: 9, color: '#6b5030' }}>{bottle.tastings ?? 0} tastings</div>
         </div>
-        {bottle.secondary > 0 && (
+
+        {/* Middle: info */}
+        <div style={{ flex: 1, padding: '12px 12px', minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', lineHeight: 1.3, marginBottom: 3 }}>
+            {bottle.name}
+          </div>
+          <div style={{ fontSize: 11, color: '#9a7c55', marginBottom: 6 }}>
+            {[bottle.distillery, bottle.proof ? `${bottle.proof}°` : null, bottle.qty > 1 ? `×${bottle.qty}` : null].filter(Boolean).join(' · ')}
+          </div>
+          {bottle.flavors?.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {bottle.flavors.map(f => (
+                <span key={f} style={{
+                  fontSize:     10,
+                  color:        '#9a7c55',
+                  background:   '#1f1308',
+                  border:       '1px solid #2a1c08',
+                  borderRadius: 999,
+                  padding:      '2px 7px',
+                }}>{f}</span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right: prices + remove */}
+        <div style={{
+          flexShrink:     0,
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'flex-end',
+          justifyContent: 'space-between',
+          padding:        '10px 12px',
+          gap:            4,
+        }}>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase' }}>2ndary</div>
-            <div style={{
-              fontWeight: 700,
-              fontSize:   14,
-              color:      bottle.secondary > (bottle.msrp ?? 0) * 1.4 ? '#4ade80' : '#9a7c55',
-            }}>{fmt$(bottle.secondary)}</div>
+            <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase' }}>MSRP</div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#c9a87a' }}>{fmt$(bottle.msrp)}</div>
           </div>
-        )}
-        <button
-          onClick={e => { e.stopPropagation(); onRemove(bottle.id) }}
-          style={{
-            background: 'none',
-            border:     'none',
-            color:      '#6b5030',
-            cursor:     'pointer',
-            fontSize:   16,
-            padding:    0,
-            lineHeight: 1,
-          }}
-        >✕</button>
+          {bottle.secondary > 0 && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase' }}>2ndary</div>
+              <div style={{
+                fontWeight: 700,
+                fontSize:   14,
+                color:      bottle.secondary > (bottle.msrp ?? 0) * 1.4 ? '#4ade80' : '#9a7c55',
+              }}>{fmt$(bottle.secondary)}</div>
+            </div>
+          )}
+          <button
+            onClick={e => { e.stopPropagation(); onRemove(bottle.id) }}
+            style={{
+              background: 'none',
+              border:     'none',
+              color:      '#6b5030',
+              cursor:     'pointer',
+              fontSize:   16,
+              padding:    0,
+              lineHeight: 1,
+            }}
+          >✕</button>
+        </div>
       </div>
+
+      {/* ── Unicorn Auction Footer ─────────────────────────────────── */}
+      {bestMatch && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            borderTop:      '1px solid #2a1c08',
+            padding:        '6px 12px',
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'space-between',
+            background:     '#0c0804',
+            gap:            8,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', minWidth: 0 }}>
+            <span style={{ fontSize: 11, color: '#9a7c55' }}>🔨</span>
+            {auctionBid > 0 ? (
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#f5e6cc' }}>
+                ${auctionBid.toLocaleString()} bid
+              </span>
+            ) : (
+              <span style={{ fontSize: 12, color: '#6b5030' }}>No bids yet</span>
+            )}
+            {msrpPremium !== null && msrpPremium > 0 && (
+              <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 600 }}>
+                +{msrpPremium}% vs MSRP
+              </span>
+            )}
+            {unicornMatches.length > 1 && (
+              <span style={{ fontSize: 11, color: '#6b5030' }}>
+                ({unicornMatches.length} lots)
+              </span>
+            )}
+            {tl && (
+              <span style={{ fontSize: 10, color: '#6b5030' }}>{tl}</span>
+            )}
+          </div>
+          <a
+            href={bestMatch.lot_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 12, color: '#e8943a', textDecoration: 'none', fontWeight: 700, flexShrink: 0 }}
+          >
+            view →
+          </a>
+        </div>
+      )}
     </div>
   )
 }
@@ -794,6 +892,7 @@ export default function CollectionPage() {
   const [showAdd,       setShowAdd]       = useState(false)
   const [removing,      setRemoving]      = useState(null)
   const [editingBottle, setEditingBottle] = useState(null) // bottle being edited
+  const [unicornDeals,  setUnicornDeals]  = useState([])
 
   // Samples tab
   const [tab,           setTab]           = useState('bottles')
@@ -818,6 +917,11 @@ export default function CollectionPage() {
       .then(d => setSamples(d.samples ?? []))
       .catch(() => {})
       .finally(() => setSamplesLoaded(true))
+
+    fetch('/api/unicorn-deals')
+      .then(r => r.json())
+      .then(d => setUnicornDeals(d.deals ?? []))
+      .catch(() => {})
   }, [])
 
   async function handleRemove(id) {
@@ -1032,7 +1136,13 @@ export default function CollectionPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {sorted.map(bottle => (
-                <BottleCard key={bottle.id} bottle={bottle} onRemove={handleRemove} onEdit={setEditingBottle} />
+                <BottleCard
+                  key={bottle.id}
+                  bottle={bottle}
+                  onRemove={handleRemove}
+                  onEdit={setEditingBottle}
+                  unicornMatches={findUnicornMatches(bottle.name, unicornDeals)}
+                />
               ))}
             </div>
           )}

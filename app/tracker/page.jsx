@@ -153,37 +153,58 @@ function TruckCard({ event }) {
   )
 }
 
-function StoreActivityCard({ storeName, events, isSelected, onSelect }) {
+function StoreActivityCard({ storeName, events, isSelected, onSelect, isFavorite, onFavoriteToggle, canAddFavorite }) {
   const byDist = {}
   for (const e of events) {
     if (!byDist[e.distributor]) byDist[e.distributor] = e
   }
 
   return (
-    <button
-      onClick={onSelect}
+    <div
       className="card p-4 text-left w-full transition-all"
       style={isSelected ? { borderColor: '#e8943a', boxShadow: '0 0 0 1px #e8943a' } : {}}
     >
-      <p className="text-sm font-bold text-[#f5e6cc] mb-3">
-        📍 Binny&apos;s {storeName}
-        {isSelected && <span className="ml-2 text-xs font-normal text-[#e8943a]">● filtered</span>}
-      </p>
-      <div className="space-y-2">
-        {Object.entries(byDist).map(([dist, event]) => {
-          const col = distColor(dist)
-          return (
-            <div key={dist} className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold" style={{ color: col.text }}>{dist}</span>
-              <span className="text-xs text-[#9a7c55]">{timeAgo(event.timestamp)}</span>
-            </div>
-          )
-        })}
-        {!Object.keys(byDist).length && (
-          <p className="text-xs text-[#6b5030]">No trucks detected yet</p>
-        )}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <button onClick={onSelect} className="text-left flex-1 min-w-0">
+          <p className="text-sm font-bold text-[#f5e6cc]">
+            📍 Binny&apos;s {storeName}
+            {isSelected && <span className="ml-2 text-xs font-normal text-[#e8943a]">● filtered</span>}
+          </p>
+        </button>
+        <button
+          onClick={e => { e.stopPropagation(); onFavoriteToggle() }}
+          title={isFavorite ? 'Remove from favorites' : canAddFavorite ? 'Add to favorites' : 'Max 3 favorites'}
+          style={{
+            background: 'none',
+            border:     'none',
+            fontSize:   16,
+            cursor:     isFavorite || canAddFavorite ? 'pointer' : 'default',
+            opacity:    !isFavorite && !canAddFavorite ? 0.3 : 1,
+            padding:    '0 2px',
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
+          {isFavorite ? '⭐' : '☆'}
+        </button>
       </div>
-    </button>
+      <button onClick={onSelect} className="text-left w-full">
+        <div className="space-y-2">
+          {Object.entries(byDist).map(([dist, event]) => {
+            const col = distColor(dist)
+            return (
+              <div key={dist} className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold" style={{ color: col.text }}>{dist}</span>
+                <span className="text-xs text-[#9a7c55]">{timeAgo(event.timestamp)}</span>
+              </div>
+            )
+          })}
+          {!Object.keys(byDist).length && (
+            <p className="text-xs text-[#6b5030]">No trucks detected yet</p>
+          )}
+        </div>
+      </button>
+    </div>
   )
 }
 
@@ -192,11 +213,16 @@ function StoreActivityCard({ storeName, events, isSelected, onSelect }) {
 export default function TrackerPage() {
   const { data: session } = useSession()
 
-  const [truckEvents,   setTruckEvents]   = useState([])
-  const [lastCheckedAt, setLastCheckedAt] = useState(null)
-  const [historyLoaded, setHistoryLoaded] = useState(false)
-  const [refreshing,    setRefreshing]    = useState(false)
-  const [selectedStore, setSelectedStore] = useState(null)
+  const [truckEvents,    setTruckEvents]    = useState([])
+  const [lastCheckedAt,  setLastCheckedAt]  = useState(null)
+  const [historyLoaded,  setHistoryLoaded]  = useState(false)
+  const [refreshing,     setRefreshing]     = useState(false)
+  const [selectedStore,  setSelectedStore]  = useState(null)
+  const [showAllEvents,  setShowAllEvents]  = useState(false)
+  const [favoriteStores, setFavoriteStores] = useState(() => {
+    if (typeof window === 'undefined') return []
+    try { return JSON.parse(localStorage.getItem('wh:fav-stores') ?? '[]') } catch { return [] }
+  })
 
   const loadHistory = useCallback(async () => {
     try {
@@ -228,12 +254,33 @@ export default function TrackerPage() {
     if (!storeMap[key]) storeMap[key] = []
     storeMap[key].push(e)
   }
-  const storeNames = Object.keys(storeMap).sort()
+
+  // Sort: favorites first, then alphabetical
+  const favSet    = new Set(favoriteStores)
+  const storeNames = Object.keys(storeMap).sort((a, b) => {
+    const aFav = favSet.has(a) ? 0 : 1
+    const bFav = favSet.has(b) ? 0 : 1
+    if (aFav !== bFav) return aFav - bFav
+    return a.localeCompare(b)
+  })
+
+  function toggleFavorite(name) {
+    setFavoriteStores(prev => {
+      const next = prev.includes(name)
+        ? prev.filter(s => s !== name)
+        : prev.length < 3 ? [...prev, name] : prev
+      try { localStorage.setItem('wh:fav-stores', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
 
   const lastEvent      = truckEvents[0]
   const filteredEvents = selectedStore
     ? truckEvents.filter(e => (e.storeName ?? e.storeCode ?? 'Orland Park') === selectedStore)
     : truckEvents
+
+  // Reset collapse when filter changes
+  useEffect(() => { setShowAllEvents(false) }, [selectedStore])
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
@@ -271,6 +318,11 @@ export default function TrackerPage() {
                 </p>
               </div>
             </div>
+            {favoriteStores.length > 0 && (
+              <p className="text-xs text-[#9a7c55] mb-2">
+                ⭐ {favoriteStores.length} favorite store{favoriteStores.length > 1 ? 's' : ''} pinned · tap ☆ on any card to save up to 3
+              </p>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {storeNames.map(name => (
                 <StoreActivityCard
@@ -279,6 +331,9 @@ export default function TrackerPage() {
                   events={storeMap[name]}
                   isSelected={selectedStore === name}
                   onSelect={() => setSelectedStore(prev => prev === name ? null : name)}
+                  isFavorite={favSet.has(name)}
+                  onFavoriteToggle={() => toggleFavorite(name)}
+                  canAddFavorite={favoriteStores.length < 3}
                 />
               ))}
             </div>
@@ -303,13 +358,13 @@ export default function TrackerPage() {
             <div className="flex items-center gap-2 mb-4">
               <select
                 value={selectedStore ?? ''}
-                onChange={e => setSelectedStore(e.target.value || null)}
+                onChange={e => { setSelectedStore(e.target.value || null); setShowAllEvents(false) }}
                 className="flex-1 sm:flex-none sm:w-64 bg-[#0f0a05] border border-[#3d2b10] rounded-lg px-3 py-2 text-sm text-[#f5e6cc] focus:outline-none focus:border-[#e8943a] appearance-none cursor-pointer"
               >
                 <option value="">All Stores</option>
                 {storeNames.map(name => (
                   <option key={name} value={name}>
-                    {name} · {timeAgo(storeMap[name][0]?.timestamp)}
+                    {favSet.has(name) ? '⭐ ' : ''}{name} · {timeAgo(storeMap[name][0]?.timestamp)}
                   </option>
                 ))}
               </select>
@@ -377,13 +432,19 @@ export default function TrackerPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredEvents.slice(0, 50).map((event, i) => (
+              {(showAllEvents ? filteredEvents : filteredEvents.slice(0, 10)).map((event, i) => (
                 <TruckCard key={i} event={event} />
               ))}
-              {filteredEvents.length > 50 && (
-                <p className="text-center text-xs text-[#6b5030] py-2">
-                  Showing 50 of {filteredEvents.length} events
-                </p>
+              {filteredEvents.length > 10 && (
+                <button
+                  onClick={() => setShowAllEvents(v => !v)}
+                  className="w-full text-center text-xs py-3 border border-[#3d2b10] rounded-lg transition-colors"
+                  style={{ color: '#9a7c55', background: '#1f1308', cursor: 'pointer' }}
+                >
+                  {showAllEvents
+                    ? '▲ Show less'
+                    : `▼ Show ${filteredEvents.length - 10} more events`}
+                </button>
               )}
             </div>
           )}
