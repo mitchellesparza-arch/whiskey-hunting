@@ -8,8 +8,8 @@ export const metadata = {
   description: "Track allocated bourbon truck deliveries and community finds across Chicagoland Binny's",
   manifest:    '/manifest.webmanifest',
   icons: {
-    icon:  '/icon.png',
-    apple: '/icon.png',
+    icon:  '/tater-icon.png',
+    apple: '/tater-icon.png',
   },
   appleWebApp: {
     capable:        true,
