@@ -301,6 +301,8 @@ export default function FriendsPage() {
   const [editRequests, setEditRequests] = useState([])
   const [editingMule,  setEditingMule]  = useState(false)
   const [savingMule,   setSavingMule]   = useState(false)
+  const [muleError,    setMuleError]    = useState('')
+  const [muleSaved,    setMuleSaved]    = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login')
@@ -335,6 +337,7 @@ export default function FriendsPage() {
   }
   async function saveMuleRequests() {
     setSavingMule(true)
+    setMuleError('')
     try {
       const cleaned = editRequests.map(r => r.trim()).filter(Boolean)
       const res  = await fetch('/api/profile', {
@@ -346,7 +349,13 @@ export default function FriendsPage() {
       if (res.ok) {
         setMyRequests(data.profile?.muleRequests ?? cleaned)
         setEditingMule(false)
+        setMuleSaved(true)
+        setTimeout(() => setMuleSaved(false), 3000)
+      } else {
+        setMuleError(data.error ?? `Save failed (${res.status}) — try again`)
       }
+    } catch (e) {
+      setMuleError('Network error — check connection and try again')
     } finally {
       setSavingMule(false)
     }
@@ -557,7 +566,10 @@ export default function FriendsPage() {
                 {/* My Mule Requests card */}
                 <div style={{ marginTop: 16, marginBottom: 8, background: '#1a1008', border: '1px solid #3d2b10', borderRadius: 12, padding: '14px 16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: (editingMule || myRequests.length > 0) ? 10 : 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc' }}>🫏 My Mule Requests</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc' }}>🫏 My Mule Requests</div>
+                      {muleSaved && <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 600 }}>✓ Saved</span>}
+                    </div>
                     {!editingMule && (
                       <button
                         onClick={startEditMule}
@@ -589,6 +601,11 @@ export default function FriendsPage() {
                           onClick={() => setEditRequests(prev => [...prev, ''])}
                           style={{ width: '100%', padding: '7px 0', background: 'none', border: '1px dashed #3d2b10', borderRadius: 7, color: '#9a7c55', fontSize: 12, cursor: 'pointer', marginBottom: 10 }}
                         >+ Add bottle</button>
+                      )}
+                      {muleError && (
+                        <div style={{ fontSize: 11, color: '#f87171', marginBottom: 6, padding: '5px 8px', background: 'rgba(248,113,113,0.1)', borderRadius: 6, border: '1px solid rgba(248,113,113,0.2)' }}>
+                          ⚠ {muleError}
+                        </div>
                       )}
                       <div style={{ display: 'flex', gap: 8, marginTop: editRequests.length < 5 ? 0 : 10 }}>
                         <button
