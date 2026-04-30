@@ -5,12 +5,11 @@ on:
     # ── Every hour, all day every day ────────────────────────────────────────
     - cron: '0 * * * *'
 
-    # ── Every 30 min starting at 3 PM Central ────────────────────────────────
-    # CDT (summer, UTC-5): 3 PM CDT = 20:00 UTC
-    # CST (winter, UTC-6): 3 PM CST = 21:00 UTC  (20:30 run fires at 2:30 PM — fine)
-    # :30-mark runs from 20:30 UTC → 07:30 UTC covers 3:30 PM – 2:30 AM CDT
-    - cron: '30 20-23 * * *'  # 3:30 PM – 6:30 PM CDT
-    - cron: '30 0-7   * * *'  # 7:30 PM – 2:30 AM CDT (next UTC day)
+    # ── Every 30 min, 3 PM – 7 PM Central ───────────────────────────────────
+    # CDT (summer, UTC-5): 3:30 PM – 6:30 PM CDT = 20:30–23:30 UTC
+    # CST (winter, UTC-6): 2:30 PM – 5:30 PM CST = 20:30–23:30 UTC
+    # 7 PM is still covered by the top-of-hour run above
+    - cron: '30 20-23 * * *'
 
   # Also run on-demand from the Actions tab
   workflow_dispatch:
