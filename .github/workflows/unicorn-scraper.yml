@@ -1,17 +1,8 @@
 name: Unicorn Auctions Scraper
 
 on:
-  schedule:
-    # ── Every hour, all day every day ────────────────────────────────────────
-    - cron: '0 * * * *'
-
-    # ── Every 30 min, 3 PM – 7 PM Central ───────────────────────────────────
-    # CDT (summer, UTC-5): 3:30 PM – 6:30 PM CDT = 20:30–23:30 UTC
-    # CST (winter, UTC-6): 2:30 PM – 5:30 PM CST = 20:30–23:30 UTC
-    # 7 PM is still covered by the top-of-hour run above
-    - cron: '30 20-23 * * *'
-
-  # Also run on-demand from the Actions tab
+  # Triggered by Vercel cron via /api/trigger-unicorn (workflow_dispatch API).
+  # Vercel owns the schedule — no GitHub-side crons to avoid throttling.
   workflow_dispatch:
 
 jobs:
