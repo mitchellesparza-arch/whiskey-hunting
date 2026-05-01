@@ -99,9 +99,9 @@ export default function ProfilePage() {
   }, [])
 
   // Compute stats
-  const totalBottles  = collection.reduce((s, b) => s + (b.qty ?? 1), 0)
+  const totalBottles  = collection.reduce((s, b) => s + Number(b.qty ?? 1), 0)
   const totalTastings = collection.reduce((s, b) => s + (b.tastings ?? 0), 0)
-  const estValue      = collection.reduce((s, b) => s + ((b.secondary ?? 0) * (b.qty ?? 1)), 0)
+  const estValue      = collection.reduce((s, b) => s + ((b.secondary ?? 0) * Number(b.qty ?? 1)), 0)
   const scoredBottles = collection.filter(b => b.blindScore != null)
   const topScore      = scoredBottles.length ? Math.max(...scoredBottles.map(b => b.blindScore)) : 0
   const topBottle     = scoredBottles.reduce((best, b) =>
