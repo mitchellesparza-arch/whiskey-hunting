@@ -1,6 +1,6 @@
 import { NextResponse }          from 'next/server'
 import { getToken }              from 'next-auth/jwt'
-import { getFinds, addFind, removeFind, voteFind } from '../../../lib/finds.js'
+import { getFinds, addFind, removeFind, voteFind, getMonthLeaderboard } from '../../../lib/finds.js'
 import { getUserProfile }        from '../../../lib/friends.js'
 import { sendBroadcast }         from '../../../lib/push.js'
 
@@ -18,23 +18,8 @@ export async function GET() {
     const finds    = all.filter(f => f.status === 'active')
     const archived = all.filter(f => f.status === 'archived')
 
-    // Leaderboard: count submissions per submitter since start of this month
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
-    const soMs = startOfMonth.getTime()
-
-    const leaderboard = Object.entries(
-      all
-        .filter(f => f.timestamp >= soMs)
-        .reduce((acc, f) => {
-          const key = f.submitterName ?? f.submittedBy ?? 'Anonymous'
-          acc[key] = (acc[key] ?? 0) + 1
-          return acc
-        }, {})
-    )
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
+    // Leaderboard: read from the durable monthly hash (not the expiring finds set)
+    const leaderboard = await getMonthLeaderboard()
 
     return NextResponse.json({ finds, archived, leaderboard })
   } catch (err) {
