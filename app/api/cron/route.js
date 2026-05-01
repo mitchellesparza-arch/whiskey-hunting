@@ -7,7 +7,7 @@ import { sendTruckEmail }            from '../../../lib/email.js'
 import { postTruckAlert }            from '../../../lib/discord.js'
 import { sendBroadcast }             from '../../../lib/push.js'
 
-const RESTOCK_THRESHOLD = 5   // quantity jump of ≥5 = truck signal
+const RESTOCK_THRESHOLD = 3   // quantity jump of ≥3 = truck signal
 
 /**
  * Build the tiered "check for" list for a given distributor.
