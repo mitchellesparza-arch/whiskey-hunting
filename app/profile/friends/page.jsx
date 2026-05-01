@@ -77,11 +77,11 @@ function FriendProfilePanel({ friend, onClose }) {
 
   if (!friend) return null
 
-  const totalBottles  = bottles.reduce((s, b) => s + (b.qty ?? 1), 0)
+  const totalBottles  = bottles.reduce((s, b) => s + Number(b.qty ?? 1), 0)
   const totalTastings = bottles.reduce((s, b) => s + (b.tastings ?? 0), 0)
   const estValue      = bottles.reduce((s, b) => {
-    const val = b.secondary > 0 ? b.secondary : (b.msrp > 0 ? b.msrp : 0)
-    return s + val * (b.qty ?? 1)
+    const val = Number(b.secondary) > 0 ? Number(b.secondary) : (Number(b.msrp) > 0 ? Number(b.msrp) : 0)
+    return s + val * Number(b.qty ?? 1)
   }, 0)
   const topBottle     = bottles.length
     ? bottles.reduce((best, b) => (b.blindScore ?? 75) > (best?.blindScore ?? 0) ? b : best, null)
@@ -634,6 +634,30 @@ export default function FriendsPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Friends Hunting For — consolidated mule requests from all friends */}
+                {(() => {
+                  const allRequests = (data.friends ?? []).flatMap(f =>
+                    (f.muleRequests ?? []).map(req => ({ req, name: f.name ?? f.email.split('@')[0] }))
+                  )
+                  if (allRequests.length === 0) return null
+                  return (
+                    <div style={{ marginBottom: 8, background: '#1a1008', border: '1px solid #3d2b10', borderRadius: 12, padding: '14px 16px' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', marginBottom: 10 }}>
+                        🔍 Friends Hunting For
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {allRequests.map(({ req, name }, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < allRequests.length - 1 ? '1px solid #1f1308' : 'none' }}>
+                            <span style={{ fontSize: 14, flexShrink: 0 }}>🥃</span>
+                            <span style={{ fontSize: 13, color: '#f5e6cc', flex: 1 }}>{req}</span>
+                            <span style={{ fontSize: 11, color: '#6b5030', flexShrink: 0 }}>{name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {filteredFriends.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '48px 0' }}>

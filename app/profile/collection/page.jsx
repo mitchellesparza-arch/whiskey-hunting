@@ -60,16 +60,20 @@ function normalizeName(s) {
 function findUnicornMatches(bottleName, deals) {
   if (!bottleName || !deals?.length) return []
   const norm  = normalizeName(bottleName)
-  const words = norm.split(' ').filter(w => w.length > 3)
+  const words = norm.split(/\s+/).filter(w => w.length > 3)
   if (!words.length) return []
   return deals.filter(d => {
-    const hay  = normalizeName(d.bottle_name)
-    const hits = words.filter(w => hay.includes(w)).length
-    // first significant word (brand) must match + at least 1 more when 3+ words
+    const hay  = normalizeName(d.bottle_name ?? d.title ?? '')
+    // Brand (first significant word) must always match
     if (!hay.includes(words[0])) return false
     if (words.length === 1) return true
-    if (words.length === 2) return hits >= 1
-    return hits >= 2
+
+    const hits  = words.filter(w => hay.includes(w)).length
+    const ratio = hits / words.length
+
+    if (words.length === 2) return hits === 2        // both words required
+    if (words.length === 3) return hits >= 2         // 2 of 3
+    return ratio >= 0.6                              // ≥60% for 4+ word bottles
   })
 }
 
@@ -106,25 +110,51 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches }) {
       {/* ── Main row ──────────────────────────────────────────────── */}
       <div style={{ display: 'flex' }}>
 
-        {/* Score Column */}
-        <div style={{
-          width:          64,
-          flexShrink:     0,
-          display:        'flex',
-          flexDirection:  'column',
-          alignItems:     'center',
-          justifyContent: 'center',
-          padding:        '12px 0',
-          background:     '#1f1308',
-          borderRight:    '1px solid #2a1c08',
-          gap:            2,
-        }}>
-          <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</div>
-          <div style={{ fontWeight: 800, fontSize: score != null ? 24 : 18, color: score != null ? scoreColor(score) : '#3d2b10', lineHeight: 1 }}>
-            {score != null ? score.toFixed(0) : '—'}
+        {/* Score / Photo Column */}
+        {bottle.photoUrl ? (
+          <div style={{
+            width:       64,
+            flexShrink:  0,
+            position:    'relative',
+            background:  '#0c0804',
+            borderRight: '1px solid #2a1c08',
+            overflow:    'hidden',
+          }}>
+            <img
+              src={bottle.photoUrl}
+              alt={bottle.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', minHeight: 80 }}
+              onError={e => { e.target.style.display = 'none' }}
+            />
+            {score != null && (
+              <div style={{
+                position: 'absolute', bottom: 4, left: 0, right: 0,
+                textAlign: 'center', fontSize: 11, fontWeight: 800,
+                color: scoreColor(score),
+                textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+              }}>{score.toFixed(0)}</div>
+            )}
           </div>
-          <div style={{ fontSize: 9, color: '#6b5030' }}>{bottle.tastings ?? 0} tastings</div>
-        </div>
+        ) : (
+          <div style={{
+            width:          64,
+            flexShrink:     0,
+            display:        'flex',
+            flexDirection:  'column',
+            alignItems:     'center',
+            justifyContent: 'center',
+            padding:        '12px 0',
+            background:     '#1f1308',
+            borderRight:    '1px solid #2a1c08',
+            gap:            2,
+          }}>
+            <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</div>
+            <div style={{ fontWeight: 800, fontSize: score != null ? 24 : 18, color: score != null ? scoreColor(score) : '#3d2b10', lineHeight: 1 }}>
+              {score != null ? score.toFixed(0) : '—'}
+            </div>
+            <div style={{ fontSize: 9, color: '#6b5030' }}>{bottle.tastings ?? 0} tastings</div>
+          </div>
+        )}
 
         {/* Middle: info */}
         <div style={{ flex: 1, padding: '12px 12px', minWidth: 0 }}>
@@ -146,6 +176,24 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches }) {
                   padding:      '2px 7px',
                 }}>{f}</span>
               ))}
+            </div>
+          )}
+          {(bottle.forSale || bottle.forTrade) && (
+            <div style={{ display: 'flex', gap: 5, marginTop: 5 }}>
+              {bottle.forSale && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700,
+                  color: '#4ade80', background: 'rgba(21,128,61,0.15)',
+                  border: '1px solid #16a34a', borderRadius: 999, padding: '2px 8px',
+                }}>For Sale</span>
+              )}
+              {bottle.forTrade && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700,
+                  color: '#60a5fa', background: 'rgba(37,99,235,0.15)',
+                  border: '1px solid #2563eb', borderRadius: 999, padding: '2px 8px',
+                }}>For Trade</span>
+              )}
             </div>
           )}
         </div>
@@ -407,16 +455,40 @@ function AddSampleSheet({ onClose, onAdd }) {
 // ── Edit Bottle Sheet ─────────────────────────────────────────────────────────
 
 function EditBottleSheet({ bottle, onClose, onSave }) {
-  const [name,       setName]       = useState(bottle.name       ?? '')
-  const [distillery, setDistillery] = useState(bottle.distillery ?? '')
-  const [category,   setCategory]   = useState(bottle.category   ?? 'Bourbon')
-  const [proof,      setProof]      = useState(bottle.proof > 0  ? String(bottle.proof) : '')
-  const [msrp,       setMsrp]       = useState(bottle.msrp > 0   ? String(bottle.msrp)  : '')
-  const [secondary,  setSecondary]  = useState(bottle.secondary > 0 ? String(bottle.secondary) : '')
-  const [qty,        setQty]        = useState(String(bottle.qty ?? 1))
-  const [flavors,    setFlavors]    = useState((bottle.flavors ?? []).join(', '))
-  const [submitting, setSubmitting] = useState(false)
-  const [error,      setError]      = useState(null)
+  const [name,         setName]         = useState(bottle.name       ?? '')
+  const [distillery,   setDistillery]   = useState(bottle.distillery ?? '')
+  const [category,     setCategory]     = useState(bottle.category   ?? 'Bourbon')
+  const [proof,        setProof]        = useState(bottle.proof > 0  ? String(bottle.proof) : '')
+  const [msrp,         setMsrp]         = useState(bottle.msrp > 0   ? String(bottle.msrp)  : '')
+  const [secondary,    setSecondary]    = useState(bottle.secondary > 0 ? String(bottle.secondary) : '')
+  const [qty,          setQty]          = useState(Number(bottle.qty ?? 1))
+  const [flavors,      setFlavors]      = useState((bottle.flavors ?? []).join(', '))
+  const [forSale,      setForSale]      = useState(bottle.forSale  ?? false)
+  const [forTrade,     setForTrade]     = useState(bottle.forTrade ?? false)
+  const [photoUrl,     setPhotoUrl]     = useState(bottle.photoUrl ?? null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [submitting,   setSubmitting]   = useState(false)
+  const [error,        setError]        = useState(null)
+  const photoInputRef = useRef(null)
+
+  async function handlePhotoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingPhoto(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res  = await fetch('/api/collection/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+      setPhotoUrl(data.url)
+    } catch (err) {
+      setError(`Photo upload failed: ${err.message}`)
+    } finally {
+      setUploadingPhoto(false)
+      e.target.value = ''
+    }
+  }
 
   const inputStyle = {
     width: '100%', padding: '9px 12px',
@@ -438,7 +510,15 @@ function EditBottleSheet({ bottle, onClose, onSave }) {
       const res  = await fetch('/api/collection', {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ id: bottle.id, name, distillery, category, proof, msrp, secondary, qty, flavors: flavorArr }),
+        body:    JSON.stringify({
+          id: bottle.id, name, distillery, category,
+          proof, msrp, secondary,
+          qty:      Number(qty),
+          flavors:  flavorArr,
+          forSale,
+          forTrade,
+          photoUrl: photoUrl ?? null,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to save')
@@ -500,6 +580,57 @@ function EditBottleSheet({ bottle, onClose, onSave }) {
             <label style={labelStyle}>Flavor Notes (comma separated)</label>
             <input style={inputStyle} value={flavors} onChange={e => setFlavors(e.target.value)} />
 
+            {/* Photo */}
+            <label style={labelStyle}>Photo</label>
+            <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} style={{ display: 'none' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {photoUrl ? (
+                <>
+                  <img src={photoUrl} alt="Bottle" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid #3d2b10', flexShrink: 0 }} onError={() => setPhotoUrl(null)} />
+                  <button type="button" onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto} style={{ flex: 1, padding: '7px 10px', background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8, color: '#9a7c55', fontSize: 12, cursor: 'pointer' }}>
+                    {uploadingPhoto ? '⏳ Uploading…' : '📷 Change Photo'}
+                  </button>
+                  <button type="button" onClick={() => setPhotoUrl(null)} style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 18, padding: 0 }}>✕</button>
+                </>
+              ) : (
+                <button type="button" onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto} style={{ width: '100%', padding: '9px', background: '#0f0a05', border: '1px dashed #3d2b10', borderRadius: 8, color: '#9a7c55', fontSize: 13, cursor: 'pointer' }}>
+                  {uploadingPhoto ? '⏳ Uploading…' : '📷 Add Photo'}
+                </button>
+              )}
+            </div>
+
+            {/* For Sale / For Trade toggles */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              <label style={{
+                flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 12px', borderRadius: 8, cursor: 'pointer',
+                background: forSale ? 'rgba(21,128,61,0.2)' : '#0f0a05',
+                border: `1px solid ${forSale ? '#16a34a' : '#3d2b10'}`,
+              }}>
+                <input
+                  type="checkbox"
+                  checked={forSale}
+                  onChange={e => setForSale(e.target.checked)}
+                  style={{ accentColor: '#16a34a', width: 16, height: 16 }}
+                />
+                <span style={{ fontSize: 13, color: forSale ? '#4ade80' : '#6b5030', fontWeight: 600 }}>For Sale</span>
+              </label>
+              <label style={{
+                flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 12px', borderRadius: 8, cursor: 'pointer',
+                background: forTrade ? 'rgba(37,99,235,0.2)' : '#0f0a05',
+                border: `1px solid ${forTrade ? '#2563eb' : '#3d2b10'}`,
+              }}>
+                <input
+                  type="checkbox"
+                  checked={forTrade}
+                  onChange={e => setForTrade(e.target.checked)}
+                  style={{ accentColor: '#3b82f6', width: 16, height: 16 }}
+                />
+                <span style={{ fontSize: 13, color: forTrade ? '#60a5fa' : '#6b5030', fontWeight: 600 }}>For Trade</span>
+              </label>
+            </div>
+
             {error && <p style={{ color: '#f87171', fontSize: 13, margin: '10px 0 0' }}>{error}</p>}
 
             <button
@@ -533,6 +664,9 @@ function AddBottleSheet({ onClose, onAdd }) {
   const [qty,         setQty]         = useState('1')
   const [flavors,     setFlavors]     = useState('')
   const [upc,         setUpc]         = useState('')
+  const [photoUrl,    setPhotoUrl]    = useState(null)  // pre-populated from UPC or uploaded
+  const [forSale,     setForSale]     = useState(false)
+  const [forTrade,    setForTrade]    = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [submitting,  setSubmitting]  = useState(false)
   const [lookingUp,   setLookingUp]   = useState(false) // UPC or photo in progress
@@ -547,6 +681,7 @@ function AddBottleSheet({ onClose, onAdd }) {
     if (b.name)       setName(b.name)
     if (b.distillery) setDistillery(b.distillery)
     if (b.category)   setCategory(b.category)
+    if (b.imageUrl)   setPhotoUrl(b.imageUrl)  // pre-populate from UPC lookup
     if (b.proof)      setProof(String(b.proof))
     if (b.msrp)       setMsrp(String(b.msrp))
     if (msg)          setLookupMsg(msg)
@@ -560,12 +695,20 @@ function AddBottleSheet({ onClose, onAdd }) {
     setLookingUp(true)
     setLookupMsg(null)
     try {
+      // Primary lookup: internal DB + Algolia (returns bottle details)
       const r = await fetch(`/api/lookup?upc=${encodeURIComponent(code)}`)
       const d = await r.json()
       if (d.found) {
         applyBottle(d.bottle, `✓ Found via barcode (${d.bottle.source})`)
       } else {
         setLookupMsg('Barcode not in database — fill in manually')
+      }
+      // Also hit /api/upc for imageUrl (fire separately — doesn't block)
+      if (!d.found || !d.bottle?.imageUrl) {
+        fetch(`/api/upc?code=${encodeURIComponent(code)}`)
+          .then(r => r.json())
+          .then(u => { if (u.imageUrl) setPhotoUrl(u.imageUrl) })
+          .catch(() => {})
       }
     } catch {
       setLookupMsg('Lookup failed — fill in manually')
@@ -632,7 +775,7 @@ function AddBottleSheet({ onClose, onAdd }) {
       const res  = await fetch('/api/collection', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ name, distillery, category, proof, msrp, secondary, qty, flavors: flavorArr, upc }),
+        body:    JSON.stringify({ name, distillery, category, proof, msrp, secondary, qty, flavors: flavorArr, upc, photoUrl: photoUrl || null, forSale, forTrade }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to add bottle')
@@ -760,6 +903,24 @@ function AddBottleSheet({ onClose, onAdd }) {
               border:       '1px solid #2a1c08',
             }}>
               {lookupMsg}
+            </div>
+          )}
+
+          {/* Photo preview from UPC scan */}
+          {photoUrl && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <img
+                src={photoUrl}
+                alt="Bottle"
+                style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid #3d2b10', flexShrink: 0 }}
+                onError={() => setPhotoUrl(null)}
+              />
+              <div style={{ flex: 1, fontSize: 11, color: '#9a7c55' }}>Photo pre-populated from scan</div>
+              <button
+                type="button"
+                onClick={() => setPhotoUrl(null)}
+                style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 16, padding: 0 }}
+              >✕</button>
             </div>
           )}
 
@@ -953,12 +1114,12 @@ export default function CollectionPage() {
     return 0
   })
 
-  // Stats
-  const totalBottles = bottles.reduce((s, b) => s + (b.qty ?? 1), 0)
+  // Stats — Number() guards prevent string-concatenation after an edit
+  const totalBottles = bottles.reduce((s, b) => s + Number(b.qty ?? 1), 0)
   // Est. value: use secondary market price when available, fall back to MSRP
   const estValue = bottles.reduce((s, b) => {
-    const val = b.secondary > 0 ? b.secondary : (b.msrp > 0 ? b.msrp : 0)
-    return s + val * (b.qty ?? 1)
+    const val = Number(b.secondary) > 0 ? Number(b.secondary) : (Number(b.msrp) > 0 ? Number(b.msrp) : 0)
+    return s + val * Number(b.qty ?? 1)
   }, 0)
   const scoredBottles = bottles.filter(b => b.blindScore != null)
   const avgScore      = scoredBottles.length
