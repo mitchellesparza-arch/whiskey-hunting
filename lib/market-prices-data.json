@@ -456,6 +456,22 @@
     "lastUpdated": "2025-01"
   },
   {
+    "name": "Wild Turkey 101",
+    "aliases": ["wild turkey 101 bourbon", "wt 101"],
+    "rarity": "Common",
+    "msrp": 25,
+    "secondary": { "low": 25, "avg": 28, "high": 35 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Wild Turkey 81",
+    "aliases": ["wild turkey 81 bourbon", "wt 81"],
+    "rarity": "Common",
+    "msrp": 22,
+    "secondary": { "low": 22, "avg": 25, "high": 30 },
+    "lastUpdated": "2025-01"
+  },
+  {
     "name": "Wild Turkey Rare Breed",
     "aliases": ["wild turkey rare breed", "rare breed"],
     "rarity": "Common",
