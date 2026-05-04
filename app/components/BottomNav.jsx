@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 const TABS = [
   { id: 'finds',   label: 'Finds',   icon: '📍', href: '/'        },
   { id: 'tracker', label: 'Tracker', icon: '🚛', href: '/tracker' },
-  { id: 'auctions',label: 'Auctions',icon: '🦄', href: '/unicorn' },
+  { id: 'marketplace', label: 'Marketplace', icon: '🏪', href: '/marketplace' },
   { id: 'profile', label: 'Profile', icon: '👤', href: '/profile' },
 ]
 
