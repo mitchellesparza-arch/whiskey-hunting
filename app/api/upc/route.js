@@ -9,8 +9,7 @@ import { UPC_MAP }      from '../../../lib/whiskey-db.js'
  *   0. Static UPC_MAP   — hand-curated allocated/rare bottles (instant, no API)
  *   1. Redis cache      — permanent; grows with every successful scan
  *   2. UPC Item DB      — 100 free lookups/day; cached on hit so same bottle never repeats
- *   3. EAN-Search       — barcode-focused DB, 100 free/day (requires EAN_SEARCH_TOKEN)
- *   4. Open Food Facts  — unlimited free fallback
+ *   3. Open Food Facts  — unlimited free fallback
  *
  * Every successful external lookup is written to Redis permanently so the same
  * barcode never hits an external API twice. The cache builds itself over time
@@ -66,26 +65,7 @@ export async function GET(request) {
     }
   } catch {}
 
-  // 3. EAN-Search — barcode-focused DB, 100 free/day; cache on hit
-  const eanToken = process.env.EAN_SEARCH_TOKEN
-  if (eanToken) {
-    try {
-      const r = await fetch(
-        `https://api.ean-search.org/api?token=${encodeURIComponent(eanToken)}&ean=${encodeURIComponent(code)}&format=json`,
-        { cache: 'no-store' }
-      )
-      if (r.ok) {
-        const d        = await r.json()
-        const name     = Array.isArray(d) ? (d[0]?.name ?? null) : (d?.name ?? null)
-        if (name) {
-          await cacheUpc(code, name, null)
-          return NextResponse.json({ name, imageUrl: null })
-        }
-      }
-    } catch {}
-  }
-
-  // 4. Open Food Facts — unlimited, no key required; cache on hit
+  // 3. Open Food Facts — unlimited, no key required; cache on hit
   try {
     const r = await fetch(
       `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
