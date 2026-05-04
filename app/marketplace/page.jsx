@@ -705,17 +705,46 @@ function CreateListingModal({ onClose, onCreated, userEmail }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function copyDiscordText(listing) {
-  const type   = TYPE_META[listing.type]
-  const names  = listing.bottles.map(b => b.name).join(', ')
-  const price  = listing.binPrice ? `BIN $${listing.binPrice}` : listing.askingPrice ? `$${listing.askingPrice}` : ''
-  const loc    = listing.zip ? `📍 ${listing.zip}` : ''
-  const handle = listing.discordHandle ? `· ${listing.discordHandle}` : ''
-  const text   = [
-    `${type?.icon ?? '🥃'} [${type?.label?.toUpperCase() ?? listing.type.toUpperCase()}] ${names}${price ? ` — ${price}` : ''}`,
-    [loc, handle].filter(Boolean).join(' '),
-    listing.notes || '',
-  ].filter(Boolean).join('\n')
-  navigator.clipboard.writeText(text).catch(() => {})
+  const type = TYPE_META[listing.type]
+  const isLot = listing.bottles.length > 1
+
+  // Header line
+  const headerPrice = [
+    listing.askingPrice != null ? `Asking: $${listing.askingPrice}` : null,
+    listing.binPrice    != null ? `BIN: $${listing.binPrice}`       : null,
+  ].filter(Boolean).join(' · ')
+
+  const lines = [
+    `${type?.icon ?? '🥃'} **[${type?.label?.toUpperCase() ?? listing.type.toUpperCase()}]** ${isLot ? `Lot of ${listing.bottles.length}` : listing.bottles[0]?.name ?? ''}${headerPrice ? ` — ${headerPrice}` : ''}`,
+  ]
+
+  // Bottle details
+  if (isLot) {
+    listing.bottles.forEach((b, i) => {
+      const meta = [b.category, b.condition, b.notes].filter(Boolean).join(' · ')
+      lines.push(`  ${i + 1}. ${b.name}${meta ? ` (${meta})` : ''}`)
+    })
+  } else {
+    const b    = listing.bottles[0] ?? {}
+    const meta = [b.category, b.condition].filter(Boolean).join(' · ')
+    if (meta)    lines.push(`Category/Condition: ${meta}`)
+    if (b.notes) lines.push(`Bottle notes: ${b.notes}`)
+  }
+
+  // Location + contact
+  const locContact = [
+    listing.zip           ? `📍 ${listing.zip}`          : null,
+    listing.discordHandle ? `Discord: ${listing.discordHandle}` : null,
+  ].filter(Boolean).join('  ·  ')
+  if (locContact) lines.push(locContact)
+
+  // Listing notes
+  if (listing.notes) lines.push(`Notes: ${listing.notes}`)
+
+  // Posted by
+  lines.push(`Posted by ${listing.submitterName} via Tater Tracker`)
+
+  navigator.clipboard.writeText(lines.join('\n')).catch(() => {})
 }
 
 function ListingCard({ listing, currentUserEmail, onBinClaim, onDeactivate }) {
