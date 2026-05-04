@@ -7,14 +7,13 @@ import { UPC_MAP }      from '../../../lib/whiskey-db.js'
  *
  * Lookup priority:
  *   0. Static UPC_MAP   — hand-curated allocated/rare bottles (instant, no API)
- *   1. Redis cache      — every successful external hit is written back here
- *   2. UPC Item DB      — broad spirits coverage, returns images
- *   3. go-upc.com       — independent database, strong spirits coverage
- *   4. Open Food Facts  — wide fallback
+ *   1. Redis cache      — permanent; grows with every successful scan
+ *   2. UPC Item DB      — 100 free lookups/day; cached on hit so same bottle never repeats
+ *   3. Open Food Facts  — unlimited free fallback
  *
- * Every successful external lookup is cached to Redis permanently so the same
- * barcode never hits an external API twice. This builds up the database over
- * time as users scan bottles.
+ * Every successful external lookup is written to Redis permanently so the same
+ * barcode never hits an external API twice. The cache builds itself over time
+ * as users scan bottles in the wild.
  */
 
 let _redis = null
@@ -39,7 +38,7 @@ export async function GET(request) {
     return NextResponse.json({ name: UPC_MAP[code].name, imageUrl: UPC_MAP[code].imageUrl ?? null })
   }
 
-  // 1. Redis cache — built up from every successful external lookup
+  // 1. Redis cache — permanent, grows with every new scan
   try {
     const cached = await getRedis().get(`wh:upc:${code}`)
     if (cached) {
@@ -48,7 +47,7 @@ export async function GET(request) {
     }
   } catch {}
 
-  // 2. UPC Item DB
+  // 2. UPC Item DB — 100/day free; cache on hit so this only fires once per unique barcode
   try {
     const r = await fetch(
       `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(code)}`,
@@ -66,30 +65,7 @@ export async function GET(request) {
     }
   } catch {}
 
-  // 3. go-upc.com — requires GO_UPC_KEY env var (go-upc.com/api)
-  const goUpcKey = process.env.GO_UPC_KEY
-  if (goUpcKey) {
-    try {
-      const r = await fetch(
-        `https://go-upc.com/api/v1/code/${encodeURIComponent(code)}`,
-        {
-          headers: { Authorization: `Bearer ${goUpcKey}`, Accept: 'application/json' },
-          cache: 'no-store',
-        }
-      )
-      if (r.ok) {
-        const d        = await r.json()
-        const name     = d?.product?.name ?? null
-        const imageUrl = d?.product?.imageUrl ?? null
-        if (name) {
-          await cacheUpc(code, name, imageUrl)
-          return NextResponse.json({ name, imageUrl })
-        }
-      }
-    } catch {}
-  }
-
-  // 4. Open Food Facts — broadest fallback, no key required
+  // 3. Open Food Facts — unlimited, no key required
   try {
     const r = await fetch(
       `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
