@@ -1,17 +1,18 @@
 /**
- * Scrape all Binny's products from Algolia and populate Redis UPC cache.
+ * Scrape Binny's product catalog from Algolia and populate Redis name cache.
  *
- * Uses the Algolia Browse API (/1/indexes/{index}/browse) which iterates
- * every record in the index without search-result limits.
+ * Binny's Algolia records do NOT contain UPC/barcode fields — only productName,
+ * objectID, and pricing. So instead of a UPC map, we build a product name catalog
+ * that the /api/upc route uses to normalize and confirm bottle names returned by
+ * UPC Item DB.
  *
- * Writes:  wh:upc:{upc} → { name, imageUrl, objectID, price }
+ * Writes:
+ *   wh:binnys-catalog  — Redis hash: normalized(productName) → JSON{ name, objectID, price }
  *
  * Run:
  *   node scripts/scrape-binnys-upcs.mjs
- *   node scripts/scrape-binnys-upcs.mjs --dry-run   (prints stats, no writes)
+ *   node scripts/scrape-binnys-upcs.mjs --dry-run
  */
-
-import { createInterface } from 'readline'
 
 const ALG_APP   = process.env.ALGOLIA_APP_ID  || 'Z25A2A928M'
 const ALG_KEY   = process.env.ALGOLIA_API_KEY || '88b6125855a0bbd845447e35de8d51c5'
@@ -22,159 +23,117 @@ const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN
 
 const DRY_RUN = process.argv.includes('--dry-run')
 
-// ─── Algolia browse ───────────────────────────────────────────────────────────
+const SEARCH_TERMS = [
+  'bourbon', 'whiskey', 'whisky', 'scotch', 'rye',
+  'irish whiskey', 'japanese whisky', 'tennessee whiskey',
+  'single malt', 'canadian whisky',
+  'vodka', 'gin', 'rum', 'tequila', 'mezcal',
+  'brandy', 'cognac', 'armagnac', 'calvados',
+  'liqueur', 'amaro', 'aperitif', 'vermouth',
+  "blanton's", 'pappy van winkle', 'weller', 'eagle rare', 'buffalo trace',
+  'elijah craig', 'four roses', 'wild turkey', 'woodford', 'knob creek',
+  "maker's mark", "booker's", "michter's", "angel's envy", "whistlepig",
+  'heaven hill', 'old forester', 'old fitzgerald', 'stagg', 'taylor',
+]
 
-async function* browseAlgolia() {
-  let cursor = null
-  let page   = 0
-
-  do {
-    const body = {
-      hitsPerPage: 1000,
-      attributesToRetrieve: [
-        'objectID', 'productName', 'upc', 'barcode', 'sku',
-        'images', 'prices', 'categories',
-      ],
-    }
-    if (cursor) body.cursor = cursor
-
-    const res = await fetch(
-      `https://${ALG_APP}-dsn.algolia.net/1/indexes/${ALG_INDEX}/browse`,
-      {
-        method:  'POST',
-        headers: {
-          'Content-Type':            'application/json',
-          'X-Algolia-Application-Id': ALG_APP,
-          'X-Algolia-API-Key':        ALG_KEY,
-        },
-        body: JSON.stringify(body),
-      }
-    )
-
-    if (!res.ok) {
-      console.error(`Algolia browse failed: ${res.status} ${await res.text()}`)
-      break
-    }
-
-    const data = await res.json()
-    cursor = data.cursor ?? null
-    page++
-
-    if (page === 1) {
-      // Print field names from the first hit so we can verify the UPC field name
-      const sample = data.hits?.[0]
-      if (sample) {
-        console.log('\nSample record fields:', Object.keys(sample).join(', '))
-        console.log('Sample UPC fields:',
-          JSON.stringify({ upc: sample.upc, barcode: sample.barcode, sku: sample.sku, objectID: sample.objectID })
-        )
-        console.log('Sample name:', sample.productName)
-        console.log()
-      }
-    }
-
-    if (page % 10 === 0) process.stdout.write(`  page ${page} (${page * 1000} records)...\r`)
-
-    yield* (data.hits ?? [])
-  } while (cursor)
+function normName(s) {
+  return (s ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-// ─── Redis write ──────────────────────────────────────────────────────────────
+async function searchAlgolia(query, page = 0) {
+  const res = await fetch(
+    `https://${ALG_APP}-dsn.algolia.net/1/indexes/${ALG_INDEX}/query`,
+    {
+      method:  'POST',
+      headers: {
+        'Content-Type':            'application/json',
+        'X-Algolia-Application-Id': ALG_APP,
+        'X-Algolia-API-Key':        ALG_KEY,
+      },
+      body: JSON.stringify({
+        query,
+        hitsPerPage: 1000,
+        page,
+        attributesToRetrieve: ['objectID', 'productName', 'prices', 'storesPriceAndInventory'],
+      }),
+    }
+  )
+  if (!res.ok) throw new Error(`Algolia ${res.status}: ${await res.text()}`)
+  return res.json()
+}
 
-async function redisPipeline(pairs) {
-  if (!REDIS_URL || !REDIS_TOKEN) throw new Error('Missing UPSTASH_REDIS_REST_URL / TOKEN')
-
-  // Upstash supports pipeline via POST /pipeline — array of [cmd, ...args]
-  const commands = pairs.flatMap(([key, value]) => [
-    ['SET', key, JSON.stringify(value)],
-  ])
-
+async function redisHmset(hash, fields) {
+  if (!REDIS_URL || !REDIS_TOKEN) throw new Error('Missing Redis env vars')
+  // Upstash pipeline: one HSET per field pair
+  const commands = Object.entries(fields).map(([k, v]) => ['HSET', hash, k, JSON.stringify(v)])
   const res = await fetch(`${REDIS_URL}/pipeline`, {
     method:  'POST',
     headers: { Authorization: `Bearer ${REDIS_TOKEN}`, 'Content-Type': 'application/json' },
     body:    JSON.stringify(commands),
   })
-
   if (!res.ok) throw new Error(`Redis pipeline failed: ${res.status}`)
-  return res.json()
 }
 
-// ─── main ─────────────────────────────────────────────────────────────────────
-
 async function main() {
-  console.log(`Binny's UPC scraper — ${DRY_RUN ? 'DRY RUN' : 'LIVE'}`)
-  console.log(`Algolia index: ${ALG_INDEX}\n`)
+  console.log(`Binny's catalog scraper — ${DRY_RUN ? 'DRY RUN' : 'LIVE'}`)
+  console.log(`Note: Binny's Algolia has no UPC fields — building name catalog instead.\n`)
 
-  let total    = 0
-  let withUpc  = 0
-  let noUpc    = 0
-  let spirits  = 0
+  const seen    = new Set()
+  const catalog = {}   // normName → { name, objectID, price }
 
-  const BATCH_SIZE = 500
-  let batch        = []
-  let batchNum     = 0
+  for (const term of SEARCH_TERMS) {
+    let page = 0, nbPages = 1
+    while (page < nbPages) {
+      let data
+      try { data = await searchAlgolia(term, page) }
+      catch (e) { console.warn(`  ✗ "${term}":`, e.message); break }
 
-  async function flushBatch() {
-    if (!batch.length) return
-    batchNum++
-    if (!DRY_RUN) {
-      try {
-        await redisPipeline(batch)
-      } catch (e) {
-        console.warn(`  Batch ${batchNum} write error:`, e.message)
+      nbPages = Math.min(data.nbPages ?? 1, 10)
+      for (const hit of (data.hits ?? [])) {
+        if (seen.has(hit.objectID)) continue
+        seen.add(hit.objectID)
+        const name = (hit.productName ?? '').trim()
+        if (!name) continue
+        const price = hit.prices?.bestPrice
+          ?? hit.storesPriceAndInventory?.find(s => s.storeCode === '47')?.prices?.bestPrice
+          ?? null
+        catalog[normName(name)] = { name, objectID: hit.objectID, price }
       }
+      page++
     }
-    batch = []
+    process.stdout.write(`  ✓ "${term}" — ${seen.size} products\n`)
+    await new Promise(r => setTimeout(r, 150))
   }
 
-  for await (const hit of browseAlgolia()) {
-    total++
-
-    // Binny's may use 'upc', 'barcode', or 'sku' for the UPC field
-    const upc = (hit.upc || hit.barcode || hit.sku || '').toString().replace(/\D/g, '')
-
-    // Only care about spirits/whiskey category products
-    const cats = (hit.categories ?? []).join(' ').toLowerCase()
-    const isSpirit = cats.includes('whiskey') || cats.includes('whisky')
-                  || cats.includes('bourbon') || cats.includes('scotch')
-                  || cats.includes('spirit')  || cats.includes('brandy')
-                  || cats.includes('cognac')  || cats.includes('rum')
-                  || cats.includes('vodka')   || cats.includes('gin')
-                  || cats.includes('tequila') || cats.includes('mezcal')
-                  || cats.includes('liqueur')
-
-    if (!isSpirit && cats) {
-      noUpc++
-      continue
-    }
-    spirits++
-
-    if (!upc || upc.length < 8) {
-      noUpc++
-      continue
-    }
-    withUpc++
-
-    const name     = (hit.productName ?? '').trim()
-    const imageUrl = hit.images?.[0] ?? null
-    const price    = hit.prices?.bestPrice ?? null
-
-    const value = { name, imageUrl, objectID: hit.objectID, price }
-    batch.push([`wh:upc:${upc}`, value])
-
-    if (batch.length >= BATCH_SIZE) await flushBatch()
-  }
-
-  await flushBatch()
-
+  const total = Object.keys(catalog).length
   console.log(`\n${'─'.repeat(50)}`)
-  console.log(`Total records scanned:  ${total.toLocaleString()}`)
-  console.log(`Spirit/whiskey records: ${spirits.toLocaleString()}`)
-  console.log(`With UPC (written):     ${withUpc.toLocaleString()}`)
-  console.log(`Without UPC (skipped):  ${noUpc.toLocaleString()}`)
-  console.log(`Redis batches:          ${batchNum}`)
-  if (DRY_RUN) console.log('\n⚠  Dry run — nothing written to Redis')
-  else          console.log('\n✓  Done — Redis UPC cache populated')
+  console.log(`Unique products: ${seen.size.toLocaleString()}`)
+  console.log(`Catalog entries: ${total.toLocaleString()}`)
+
+  if (DRY_RUN) {
+    console.log('\n⚠  Dry run — nothing written to Redis')
+    console.log('\nSample entries:')
+    Object.entries(catalog).slice(0, 15).forEach(([k, v]) =>
+      console.log(`  "${v.name}" → objectID ${v.objectID}${v.price ? ` ($${v.price})` : ''}`)
+    )
+    return
+  }
+
+  // Write in batches of 200 fields per pipeline call
+  const entries   = Object.entries(catalog)
+  const BATCH     = 200
+  let written     = 0
+  for (let i = 0; i < entries.length; i += BATCH) {
+    const chunk = Object.fromEntries(entries.slice(i, i + BATCH))
+    try {
+      await redisHmset('wh:binnys-catalog', chunk)
+      written += Object.keys(chunk).length
+      process.stdout.write(`  Writing… ${written}/${total}\r`)
+    } catch (e) {
+      console.warn(`\n  Batch error at ${i}:`, e.message)
+    }
+  }
+  console.log(`\n\n✓  Done — ${written.toLocaleString()} products in wh:binnys-catalog`)
 }
 
 main().catch(err => { console.error(err); process.exit(1) })
