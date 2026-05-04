@@ -297,12 +297,14 @@ export default function FriendsPage() {
   const [viewing,     setViewing]     = useState(null) // friend profile panel
 
   // Mule requests — bottles I'm hunting that friends can help find
-  const [myRequests,   setMyRequests]   = useState([])
-  const [editRequests, setEditRequests] = useState([])
-  const [editingMule,  setEditingMule]  = useState(false)
-  const [savingMule,   setSavingMule]   = useState(false)
-  const [muleError,    setMuleError]    = useState('')
-  const [muleSaved,    setMuleSaved]    = useState(false)
+  const [myRequests,      setMyRequests]      = useState([])
+  const [editRequests,    setEditRequests]    = useState([])
+  const [editingMule,     setEditingMule]     = useState(false)
+  const [savingMule,      setSavingMule]      = useState(false)
+  const [muleError,       setMuleError]       = useState('')
+  const [muleSaved,       setMuleSaved]       = useState(false)
+  // Friends' structured wishlists (Hunting entries)
+  const [friendWishlists, setFriendWishlists] = useState({})
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login')
@@ -325,6 +327,15 @@ export default function FriendsPage() {
       .then(d => setMyRequests(d.profile?.muleRequests ?? []))
       .catch(() => {})
   }, [])
+
+  // Load friends' wishlist Hunting entries once friends load
+  useEffect(() => {
+    if (!loaded || !(data.friends ?? []).length) return
+    fetch('/api/wishlist?friends=1')
+      .then(r => r.json())
+      .then(d => setFriendWishlists(d.wishlists ?? {}))
+      .catch(() => {})
+  }, [loaded, data.friends?.length])
 
   // ── Mule request handlers ─────────────────────────────────────────────────
   function startEditMule() {
@@ -635,22 +646,45 @@ export default function FriendsPage() {
                   )}
                 </div>
 
-                {/* Friends Hunting For — consolidated mule requests from all friends */}
+                {/* Friends Hunting For — mule requests + structured wishlist Hunting entries */}
                 {(() => {
-                  const allRequests = (data.friends ?? []).flatMap(f =>
-                    (f.muleRequests ?? []).map(req => ({ req, name: f.name ?? f.email.split('@')[0] }))
+                  const nameFor = f => f.name ?? f.email.split('@')[0]
+                  // Legacy mule requests
+                  const muleRows = (data.friends ?? []).flatMap(f =>
+                    (f.muleRequests ?? []).map(req => ({ req, name: nameFor(f), source: 'mule' }))
                   )
+                  // Structured wishlist Hunting entries
+                  const wishlistRows = (data.friends ?? []).flatMap(f => {
+                    const entries = (friendWishlists[f.email] ?? [])
+                    return entries.map(e => ({ req: e.name, name: nameFor(f), rarity: e.rarity, source: 'wishlist' }))
+                  })
+                  // Merge: wishlist entries take priority; de-dupe by (name+req)
+                  const seen = new Set()
+                  const allRequests = [...wishlistRows, ...muleRows].filter(r => {
+                    const k = `${r.name}:${r.req.toLowerCase()}`
+                    if (seen.has(k)) return false
+                    seen.add(k)
+                    return true
+                  })
                   if (allRequests.length === 0) return null
+
+                  const rarityColor = { Common: '#9a7c55', Allocated: '#e8943a', Unicorn: '#c084fc' }
+
                   return (
                     <div style={{ marginBottom: 8, background: '#1a1008', border: '1px solid #3d2b10', borderRadius: 12, padding: '14px 16px' }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', marginBottom: 10 }}>
                         🔍 Friends Hunting For
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {allRequests.map(({ req, name }, i) => (
+                        {allRequests.map(({ req, name, rarity }, i) => (
                           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < allRequests.length - 1 ? '1px solid #1f1308' : 'none' }}>
                             <span style={{ fontSize: 14, flexShrink: 0 }}>🥃</span>
                             <span style={{ fontSize: 13, color: '#f5e6cc', flex: 1 }}>{req}</span>
+                            {rarity && rarity !== 'Common' && (
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999, color: rarityColor[rarity] ?? '#9a7c55', background: `${rarityColor[rarity] ?? '#9a7c55'}18`, border: `1px solid ${rarityColor[rarity] ?? '#9a7c55'}40`, flexShrink: 0 }}>
+                                {rarity === 'Unicorn' ? '🦄' : rarity}
+                              </span>
+                            )}
                             <span style={{ fontSize: 11, color: '#6b5030', flexShrink: 0 }}>{name}</span>
                           </div>
                         ))}

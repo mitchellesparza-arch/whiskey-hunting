@@ -1,0 +1,2106 @@
+[
+  {
+    "name": "Blanton's Original Single Barrel",
+    "aliases": ["blanton's original", "blantons original", "blanton original"],
+    "rarity": "Allocated",
+    "msrp": 65,
+    "secondary": { "low": 80, "avg": 105, "high": 135 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Blanton's Gold Edition",
+    "aliases": ["blanton's gold", "blantons gold"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 120, "avg": 155, "high": 195 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Blanton's Straight from the Barrel",
+    "aliases": ["blanton's straight from the barrel", "blantons sftb", "blanton sftb", "blantons straight from barrel"],
+    "rarity": "Allocated",
+    "msrp": 120,
+    "secondary": { "low": 220, "avg": 290, "high": 380 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Eagle Rare 10 Year",
+    "aliases": ["eagle rare 10", "eagle rare"],
+    "rarity": "Allocated",
+    "msrp": 35,
+    "secondary": { "low": 55, "avg": 75, "high": 100 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Eagle Rare 17 Year",
+    "aliases": ["eagle rare 17"],
+    "rarity": "Unicorn",
+    "msrp": 190,
+    "secondary": { "low": 480, "avg": 650, "high": 900 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Buffalo Trace Bourbon",
+    "aliases": ["buffalo trace"],
+    "rarity": "Allocated",
+    "msrp": 28,
+    "secondary": { "low": 38, "avg": 50, "high": 65 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Buffalo Trace Kosher Wheat Recipe",
+    "aliases": ["buffalo trace kosher wheat", "bt kosher wheat"],
+    "rarity": "Allocated",
+    "msrp": 40,
+    "secondary": { "low": 60, "avg": 85, "high": 120 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Buffalo Trace Kosher Rye Recipe",
+    "aliases": ["buffalo trace kosher rye", "bt kosher rye"],
+    "rarity": "Allocated",
+    "msrp": 40,
+    "secondary": { "low": 60, "avg": 85, "high": 120 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Rock Hill Farms Single Barrel",
+    "aliases": ["rock hill farms", "rhf"],
+    "rarity": "Allocated",
+    "msrp": 50,
+    "secondary": { "low": 90, "avg": 130, "high": 175 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Hancock's President's Reserve",
+    "aliases": ["hancock's president's reserve", "hancocks presidents reserve", "hancocks reserve"],
+    "rarity": "Allocated",
+    "msrp": 50,
+    "secondary": { "low": 70, "avg": 95, "high": 130 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Benchmark Top Floor",
+    "aliases": ["benchmark top floor"],
+    "rarity": "Allocated",
+    "msrp": 35,
+    "secondary": { "low": 45, "avg": 60, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Charter Oak French Oak",
+    "aliases": ["old charter oak french oak", "charter oak french oak"],
+    "rarity": "Allocated",
+    "msrp": 75,
+    "secondary": { "low": 90, "avg": 120, "high": 160 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Charter Oak Canadian Oak",
+    "aliases": ["old charter oak canadian oak", "charter oak canadian oak"],
+    "rarity": "Allocated",
+    "msrp": 75,
+    "secondary": { "low": 90, "avg": 115, "high": 150 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Caribou Crossing Single Barrel",
+    "aliases": ["caribou crossing"],
+    "rarity": "Allocated",
+    "msrp": 50,
+    "secondary": { "low": 65, "avg": 90, "high": 120 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "W.L. Weller Special Reserve",
+    "aliases": ["weller special reserve", "weller sr", "wl weller special reserve"],
+    "rarity": "Allocated",
+    "msrp": 25,
+    "secondary": { "low": 55, "avg": 80, "high": 110 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "W.L. Weller 12 Year",
+    "aliases": ["weller 12", "weller 12 year", "wl weller 12"],
+    "rarity": "Allocated",
+    "msrp": 35,
+    "secondary": { "low": 90, "avg": 130, "high": 175 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "W.L. Weller Full Proof",
+    "aliases": ["weller full proof", "weller fp", "wl weller full proof"],
+    "rarity": "Allocated",
+    "msrp": 50,
+    "secondary": { "low": 150, "avg": 210, "high": 280 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "W.L. Weller Antique 107",
+    "aliases": ["weller antique", "weller antique 107", "weller 107", "wla"],
+    "rarity": "Allocated",
+    "msrp": 45,
+    "secondary": { "low": 100, "avg": 145, "high": 195 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "William Larue Weller",
+    "aliases": ["william larue weller", "wlw"],
+    "rarity": "Unicorn",
+    "msrp": 190,
+    "secondary": { "low": 700, "avg": 950, "high": 1300 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "W.L. Weller CYPB",
+    "aliases": ["weller cypb", "craft your perfect bourbon", "weller cyp"],
+    "rarity": "Allocated",
+    "msrp": 55,
+    "secondary": { "low": 130, "avg": 175, "high": 230 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Pappy Van Winkle 10 Year",
+    "aliases": ["pappy 10", "pappy van winkle 10", "old rip van winkle 10"],
+    "rarity": "Unicorn",
+    "msrp": 80,
+    "secondary": { "low": 600, "avg": 800, "high": 1100 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Pappy Van Winkle 12 Year",
+    "aliases": ["pappy 12", "pappy van winkle 12", "van winkle special reserve 12"],
+    "rarity": "Unicorn",
+    "msrp": 110,
+    "secondary": { "low": 800, "avg": 1100, "high": 1500 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Pappy Van Winkle 15 Year",
+    "aliases": ["pappy 15", "pappy van winkle 15", "van winkle family reserve 15"],
+    "rarity": "Unicorn",
+    "msrp": 130,
+    "secondary": { "low": 1100, "avg": 1500, "high": 2100 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Pappy Van Winkle 20 Year",
+    "aliases": ["pappy 20", "pappy van winkle 20", "van winkle family reserve 20"],
+    "rarity": "Unicorn",
+    "msrp": 200,
+    "secondary": { "low": 2200, "avg": 2900, "high": 4000 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Pappy Van Winkle 23 Year",
+    "aliases": ["pappy 23", "pappy van winkle 23", "van winkle family reserve 23"],
+    "rarity": "Unicorn",
+    "msrp": 300,
+    "secondary": { "low": 3200, "avg": 4200, "high": 6000 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "George T. Stagg",
+    "aliases": ["george t stagg", "gt stagg"],
+    "rarity": "Unicorn",
+    "msrp": 190,
+    "secondary": { "low": 650, "avg": 900, "high": 1300 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Thomas H. Handy Sazerac",
+    "aliases": ["thomas h handy", "th handy", "handy sazerac", "thomas handy"],
+    "rarity": "Unicorn",
+    "msrp": 190,
+    "secondary": { "low": 500, "avg": 700, "high": 1000 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Sazerac 18 Year Rye",
+    "aliases": ["sazerac 18", "sazerac rye 18"],
+    "rarity": "Unicorn",
+    "msrp": 190,
+    "secondary": { "low": 400, "avg": 580, "high": 800 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Stagg Jr.",
+    "aliases": ["stagg jr", "stagg junior"],
+    "rarity": "Allocated",
+    "msrp": 55,
+    "secondary": { "low": 65, "avg": 85, "high": 120 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "E.H. Taylor Small Batch",
+    "aliases": ["e.h. taylor small batch", "eh taylor small batch", "colonel eh taylor small batch", "eht small batch"],
+    "rarity": "Allocated",
+    "msrp": 40,
+    "secondary": { "low": 90, "avg": 130, "high": 175 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "E.H. Taylor Single Barrel",
+    "aliases": ["e.h. taylor single barrel", "eh taylor single barrel", "colonel eh taylor single barrel", "eht single barrel"],
+    "rarity": "Allocated",
+    "msrp": 45,
+    "secondary": { "low": 110, "avg": 155, "high": 210 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "E.H. Taylor Barrel Proof",
+    "aliases": ["e.h. taylor barrel proof", "eh taylor barrel proof", "colonel eh taylor barrel proof", "eht barrel proof"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 220, "avg": 320, "high": 450 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "E.H. Taylor Straight Rye",
+    "aliases": ["e.h. taylor rye", "eh taylor rye", "colonel eh taylor rye", "e.h. taylor straight rye"],
+    "rarity": "Allocated",
+    "msrp": 40,
+    "secondary": { "low": 90, "avg": 130, "high": 175 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "E.H. Taylor Warehouse C Tornado Surviving",
+    "aliases": ["eh taylor tornado", "e.h. taylor warehouse c", "eht tornado"],
+    "rarity": "Unicorn",
+    "msrp": 190,
+    "secondary": { "low": 800, "avg": 1200, "high": 1800 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "E.H. Taylor Four Grain",
+    "aliases": ["eh taylor four grain", "e.h. taylor four grain", "eht four grain"],
+    "rarity": "Allocated",
+    "msrp": 75,
+    "secondary": { "low": 180, "avg": 260, "high": 370 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Elijah Craig Barrel Proof",
+    "aliases": ["elijah craig barrel proof", "ec barrel proof", "ecbp"],
+    "rarity": "Allocated",
+    "msrp": 65,
+    "secondary": { "low": 80, "avg": 100, "high": 135 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Elijah Craig Small Batch",
+    "aliases": ["elijah craig small batch", "ec small batch", "ecsb"],
+    "rarity": "Common",
+    "msrp": 35,
+    "secondary": { "low": 35, "avg": 42, "high": 55 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Elijah Craig 18 Year Single Barrel",
+    "aliases": ["elijah craig 18", "ec 18", "elijah craig 18 year"],
+    "rarity": "Allocated",
+    "msrp": 175,
+    "secondary": { "low": 250, "avg": 340, "high": 460 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Elijah Craig 23 Year",
+    "aliases": ["elijah craig 23", "ec 23", "elijah craig 23 year"],
+    "rarity": "Unicorn",
+    "msrp": 400,
+    "secondary": { "low": 550, "avg": 750, "high": 1050 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Larceny Barrel Proof",
+    "aliases": ["larceny barrel proof", "larceny bp"],
+    "rarity": "Allocated",
+    "msrp": 55,
+    "secondary": { "low": 70, "avg": 95, "high": 130 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Henry McKenna 10 Year Bottled in Bond",
+    "aliases": ["henry mckenna 10", "henry mckenna bib", "mckenna 10 year"],
+    "rarity": "Allocated",
+    "msrp": 35,
+    "secondary": { "low": 50, "avg": 70, "high": 100 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Evan Williams Single Barrel Vintage",
+    "aliases": ["evan williams single barrel", "evan williams vintage", "ewsb"],
+    "rarity": "Common",
+    "msrp": 30,
+    "secondary": { "low": 30, "avg": 38, "high": 50 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Fitzgerald Bottled in Bond 8 Year",
+    "aliases": ["old fitzgerald bib 8", "old fitz bib 8", "old fitzgerald 8 year bib"],
+    "rarity": "Allocated",
+    "msrp": 40,
+    "secondary": { "low": 65, "avg": 90, "high": 125 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Fitzgerald Bottled in Bond 11 Year",
+    "aliases": ["old fitzgerald bib 11", "old fitz bib 11", "old fitzgerald 11 year bib"],
+    "rarity": "Allocated",
+    "msrp": 65,
+    "secondary": { "low": 100, "avg": 145, "high": 200 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Fitzgerald Bottled in Bond 13 Year",
+    "aliases": ["old fitzgerald bib 13", "old fitz bib 13", "old fitzgerald 13 year bib"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 130, "avg": 185, "high": 255 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Fitzgerald Bottled in Bond 14 Year",
+    "aliases": ["old fitzgerald bib 14", "old fitz bib 14", "old fitzgerald 14 year bib"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 150, "avg": 215, "high": 300 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Fitzgerald Bottled in Bond",
+    "aliases": ["old fitzgerald bib", "old fitz bib", "old fitz bottled in bond"],
+    "rarity": "Allocated",
+    "msrp": 50,
+    "secondary": { "low": 75, "avg": 105, "high": 145 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Parker's Heritage Collection",
+    "aliases": ["parker's heritage", "parkers heritage", "phc"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 200, "avg": 300, "high": 450 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Heaven Hill 7 Year Bottled in Bond",
+    "aliases": ["heaven hill 7", "heaven hill 7 year", "heaven hill bib", "hh 7 year"],
+    "rarity": "Allocated",
+    "msrp": 30,
+    "secondary": { "low": 35, "avg": 50, "high": 70 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Four Roses Small Batch Select",
+    "aliases": ["four roses small batch select", "four roses sbse"],
+    "rarity": "Common",
+    "msrp": 60,
+    "secondary": { "low": 60, "avg": 70, "high": 85 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Four Roses Single Barrel",
+    "aliases": ["four roses single barrel", "four roses private selection", "frsb"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 70, "high": 90 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Four Roses Limited Small Batch",
+    "aliases": ["four roses limited small batch", "four roses small batch limited", "four roses lsb"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 130, "avg": 175, "high": 230 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Four Roses Limited Single Barrel",
+    "aliases": ["four roses limited single barrel", "four roses single barrel limited", "four roses lsib"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 250, "avg": 350, "high": 480 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Four Roses Elliott's Select",
+    "aliases": ["four roses elliotts select", "four roses elliott select"],
+    "rarity": "Unicorn",
+    "msrp": 250,
+    "secondary": { "low": 500, "avg": 700, "high": 1000 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Four Roses Al Young 50th Anniversary",
+    "aliases": ["four roses al young 50th", "al young 50th anniversary"],
+    "rarity": "Unicorn",
+    "msrp": 500,
+    "secondary": { "low": 1000, "avg": 1400, "high": 2000 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Four Roses Single Barrel OBSK",
+    "aliases": ["four roses obsk", "frsb obsk"],
+    "rarity": "Allocated",
+    "msrp": 55,
+    "secondary": { "low": 65, "avg": 85, "high": 115 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Four Roses Single Barrel OBSF",
+    "aliases": ["four roses obsf", "frsb obsf"],
+    "rarity": "Allocated",
+    "msrp": 55,
+    "secondary": { "low": 65, "avg": 85, "high": 115 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Wild Turkey Rare Breed",
+    "aliases": ["wild turkey rare breed", "rare breed"],
+    "rarity": "Common",
+    "msrp": 60,
+    "secondary": { "low": 60, "avg": 70, "high": 85 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Wild Turkey Russell's Reserve 10 Year",
+    "aliases": ["russell's reserve 10", "russells reserve 10", "russell's reserve 10 year"],
+    "rarity": "Common",
+    "msrp": 50,
+    "secondary": { "low": 50, "avg": 60, "high": 75 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Russell's Reserve Single Barrel Bourbon",
+    "aliases": ["russell's reserve single barrel", "russells reserve single barrel", "rrsb"],
+    "rarity": "Allocated",
+    "msrp": 70,
+    "secondary": { "low": 80, "avg": 105, "high": 140 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Russell's Reserve Single Barrel Rye",
+    "aliases": ["russell's reserve single barrel rye", "russells reserve single barrel rye"],
+    "rarity": "Allocated",
+    "msrp": 70,
+    "secondary": { "low": 75, "avg": 95, "high": 130 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Wild Turkey Master's Keep Decades",
+    "aliases": ["master's keep decades", "masters keep decades", "wild turkey decades"],
+    "rarity": "Allocated",
+    "msrp": 175,
+    "secondary": { "low": 250, "avg": 360, "high": 500 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Wild Turkey Master's Keep Revival",
+    "aliases": ["master's keep revival", "masters keep revival", "wild turkey revival"],
+    "rarity": "Allocated",
+    "msrp": 150,
+    "secondary": { "low": 200, "avg": 285, "high": 400 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Wild Turkey Master's Keep Unforgotten",
+    "aliases": ["master's keep unforgotten", "masters keep unforgotten", "wild turkey unforgotten"],
+    "rarity": "Allocated",
+    "msrp": 175,
+    "secondary": { "low": 220, "avg": 310, "high": 430 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Wild Turkey Master's Keep Bottled in Bond",
+    "aliases": ["master's keep bottled in bond", "masters keep bib", "wild turkey masters keep bib"],
+    "rarity": "Allocated",
+    "msrp": 175,
+    "secondary": { "low": 230, "avg": 320, "high": 445 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Wild Turkey Kentucky Spirit",
+    "aliases": ["wild turkey kentucky spirit", "wt kentucky spirit"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Forester Birthday Bourbon",
+    "aliases": ["old forester birthday", "of birthday", "of birthday bourbon"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 155, "avg": 210, "high": 290 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Forester 1910 Old Fine Whisky",
+    "aliases": ["old forester 1910", "of 1910"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Forester 1897 Bottled in Bond",
+    "aliases": ["old forester 1897", "of 1897", "of 1897 bib"],
+    "rarity": "Common",
+    "msrp": 45,
+    "secondary": { "low": 45, "avg": 55, "high": 70 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Forester 1920 Prohibition Style",
+    "aliases": ["old forester 1920", "of 1920"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Forester 1924 10 Year",
+    "aliases": ["old forester 1924", "of 1924 10 year"],
+    "rarity": "Allocated",
+    "msrp": 125,
+    "secondary": { "low": 155, "avg": 210, "high": 290 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Old Forester Statesman",
+    "aliases": ["old forester statesman", "of statesman"],
+    "rarity": "Common",
+    "msrp": 70,
+    "secondary": { "low": 70, "avg": 82, "high": 100 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Woodford Reserve Batch Proof",
+    "aliases": ["woodford reserve batch proof", "woodford batch proof"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 100, "avg": 135, "high": 180 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Woodford Reserve Master's Collection",
+    "aliases": ["woodford master's collection", "woodford masters collection"],
+    "rarity": "Allocated",
+    "msrp": 120,
+    "secondary": { "low": 130, "avg": 180, "high": 260 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Woodford Reserve Double Oaked",
+    "aliases": ["woodford double oaked", "woodford reserve double oaked"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Woodford Reserve Distillery Series",
+    "aliases": ["woodford distillery series"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 120, "avg": 165, "high": 225 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Woodford Reserve Personal Selection",
+    "aliases": ["woodford personal selection", "woodford reserve personal select"],
+    "rarity": "Allocated",
+    "msrp": 140,
+    "secondary": { "low": 160, "avg": 215, "high": 295 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Michter's US*1 Small Batch Bourbon",
+    "aliases": ["michter's us*1", "michters us1", "michter's us1 bourbon", "michter's small batch"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Michter's US*1 Rye",
+    "aliases": ["michter's us*1 rye", "michters us1 rye", "michter's rye"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Michter's US*1 Sour Mash",
+    "aliases": ["michter's sour mash", "michters us1 sour mash", "michter's us*1 sour mash"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Michter's 10 Year Bourbon",
+    "aliases": ["michter's 10", "michters 10", "michter 10 year bourbon"],
+    "rarity": "Allocated",
+    "msrp": 165,
+    "secondary": { "low": 270, "avg": 360, "high": 480 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Michter's 10 Year Rye",
+    "aliases": ["michter's 10 rye", "michters 10 year rye"],
+    "rarity": "Allocated",
+    "msrp": 165,
+    "secondary": { "low": 250, "avg": 340, "high": 460 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Michter's 20 Year Bourbon",
+    "aliases": ["michter's 20", "michters 20", "michter 20 year"],
+    "rarity": "Unicorn",
+    "msrp": 700,
+    "secondary": { "low": 1000, "avg": 1350, "high": 1800 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Michter's 25 Year Bourbon",
+    "aliases": ["michter's 25", "michters 25", "michter 25 year"],
+    "rarity": "Unicorn",
+    "msrp": 1000,
+    "secondary": { "low": 1600, "avg": 2200, "high": 3000 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Michter's Celebration Sour Mash",
+    "aliases": ["michter's celebration", "michters celebration sour mash"],
+    "rarity": "Unicorn",
+    "msrp": 1000,
+    "secondary": { "low": 2500, "avg": 3500, "high": 5000 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Angel's Envy Port Barrel Finish",
+    "aliases": ["angel's envy port", "angels envy port barrel", "ae port"],
+    "rarity": "Common",
+    "msrp": 45,
+    "secondary": { "low": 45, "avg": 55, "high": 68 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Angel's Envy Cask Strength",
+    "aliases": ["angel's envy cask strength", "angels envy cask strength", "ae cask strength"],
+    "rarity": "Allocated",
+    "msrp": 180,
+    "secondary": { "low": 220, "avg": 290, "high": 390 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Angel's Envy Bottled in Bond",
+    "aliases": ["angel's envy bib", "angels envy bib", "angel's envy bottled in bond"],
+    "rarity": "Allocated",
+    "msrp": 50,
+    "secondary": { "low": 60, "avg": 80, "high": 110 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Angel's Envy Rye",
+    "aliases": ["angel's envy rye", "angels envy rye", "ae rye"],
+    "rarity": "Allocated",
+    "msrp": 75,
+    "secondary": { "low": 95, "avg": 130, "high": 175 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Jefferson's Ocean Aged at Sea",
+    "aliases": ["jefferson's ocean", "jeffersons ocean", "jefferson ocean"],
+    "rarity": "Allocated",
+    "msrp": 75,
+    "secondary": { "low": 80, "avg": 100, "high": 130 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Jefferson's Presidential Select 21 Year",
+    "aliases": ["jefferson's presidential select", "jeffersons presidential select 21"],
+    "rarity": "Unicorn",
+    "msrp": 450,
+    "secondary": { "low": 700, "avg": 1000, "high": 1500 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Jefferson's Very Old Very Small Batch",
+    "aliases": ["jefferson's vovsmb", "jeffersons very old very small batch"],
+    "rarity": "Allocated",
+    "msrp": 65,
+    "secondary": { "low": 75, "avg": 95, "high": 125 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Jefferson's Chef's Collaboration",
+    "aliases": ["jefferson's chef collaboration", "jeffersons chefs collaboration"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 100, "avg": 135, "high": 185 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Knob Creek 2001 Limited Edition",
+    "aliases": ["knob creek 2001", "knob creek 2001 limited"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 120, "avg": 165, "high": 225 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Knob Creek Single Barrel Reserve",
+    "aliases": ["knob creek single barrel", "knob creek single barrel reserve"],
+    "rarity": "Common",
+    "msrp": 50,
+    "secondary": { "low": 50, "avg": 60, "high": 75 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Knob Creek Cask Strength Rye",
+    "aliases": ["knob creek cask strength rye", "knob creek rye cask strength"],
+    "rarity": "Allocated",
+    "msrp": 60,
+    "secondary": { "low": 70, "avg": 90, "high": 120 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Knob Creek 25th Anniversary",
+    "aliases": ["knob creek 25th", "knob creek 25th anniversary"],
+    "rarity": "Unicorn",
+    "msrp": 250,
+    "secondary": { "low": 400, "avg": 580, "high": 850 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Booker's Bourbon",
+    "aliases": ["booker's bourbon", "bookers bourbon"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 100, "avg": 130, "high": 175 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Booker's Granny's Batch",
+    "aliases": ["booker's granny's batch", "bookers grannys batch"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 105, "avg": 140, "high": 190 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Booker's Center Cut",
+    "aliases": ["booker's center cut", "bookers center cut"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 100, "avg": 135, "high": 180 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Booker's Big Man Small Batch",
+    "aliases": ["booker's big man small batch", "bookers big man"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 100, "avg": 135, "high": 180 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Booker's 30th Anniversary",
+    "aliases": ["booker's 30th", "bookers 30th anniversary"],
+    "rarity": "Unicorn",
+    "msrp": 300,
+    "secondary": { "low": 600, "avg": 900, "high": 1300 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Maker's Mark Cask Strength",
+    "aliases": ["maker's mark cask strength", "makers mark cask strength", "mm cask strength"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Maker's Mark 46",
+    "aliases": ["maker's mark 46", "makers 46", "mm 46"],
+    "rarity": "Common",
+    "msrp": 40,
+    "secondary": { "low": 40, "avg": 48, "high": 60 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Maker's Mark Private Select",
+    "aliases": ["maker's mark private select", "makers private select", "mm private select"],
+    "rarity": "Allocated",
+    "msrp": 85,
+    "secondary": { "low": 90, "avg": 115, "high": 155 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Maker's Mark Wood Finishing Series",
+    "aliases": ["maker's mark wood finishing", "makers mark wood finishing series", "mm wood finishing"],
+    "rarity": "Allocated",
+    "msrp": 70,
+    "secondary": { "low": 80, "avg": 105, "high": 145 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "WhistlePig 10 Year",
+    "aliases": ["whistlepig 10", "whistle pig 10 year"],
+    "rarity": "Common",
+    "msrp": 70,
+    "secondary": { "low": 70, "avg": 82, "high": 100 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "WhistlePig 12 Year Old World",
+    "aliases": ["whistlepig 12", "whistle pig 12", "whistlepig 12 old world"],
+    "rarity": "Allocated",
+    "msrp": 120,
+    "secondary": { "low": 130, "avg": 165, "high": 220 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "WhistlePig 15 Year Vermont Oak",
+    "aliases": ["whistlepig 15", "whistle pig 15", "whistlepig 15 vermont oak"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 240, "avg": 320, "high": 435 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "WhistlePig 18 Year Double Malt",
+    "aliases": ["whistlepig 18", "whistle pig 18", "whistlepig 18 double malt"],
+    "rarity": "Allocated",
+    "msrp": 350,
+    "secondary": { "low": 420, "avg": 580, "high": 800 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "WhistlePig The Boss Hog",
+    "aliases": ["whistlepig boss hog", "whistle pig boss hog", "boss hog"],
+    "rarity": "Unicorn",
+    "msrp": 600,
+    "secondary": { "low": 800, "avg": 1100, "high": 1600 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "WhistlePig FarmStock",
+    "aliases": ["whistlepig farmstock", "whistle pig farmstock"],
+    "rarity": "Allocated",
+    "msrp": 85,
+    "secondary": { "low": 95, "avg": 125, "high": 165 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "WhistlePig Piggyback",
+    "aliases": ["whistlepig piggyback", "whistle pig piggyback"],
+    "rarity": "Common",
+    "msrp": 50,
+    "secondary": { "low": 50, "avg": 60, "high": 75 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "WhistlePig Beholden",
+    "aliases": ["whistlepig beholden", "whistle pig beholden"],
+    "rarity": "Unicorn",
+    "msrp": 250,
+    "secondary": { "low": 350, "avg": 500, "high": 700 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "WhistlePig Smokestock",
+    "aliases": ["whistlepig smokestock", "whistle pig smokestock"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 115, "avg": 155, "high": 210 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Willett Family Estate Pot Still 4 Year",
+    "aliases": ["willett pot still 4", "willett family estate 4", "wfe 4 year"],
+    "rarity": "Allocated",
+    "msrp": 65,
+    "secondary": { "low": 90, "avg": 130, "high": 185 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Willett Family Estate Pot Still 5 Year",
+    "aliases": ["willett pot still 5", "willett family estate 5", "wfe 5 year"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 110, "avg": 160, "high": 225 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Willett Family Estate Rye",
+    "aliases": ["willett family estate rye", "wfe rye", "willett rye"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 100, "avg": 145, "high": 200 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Noah's Mill Bourbon",
+    "aliases": ["noah's mill", "noahs mill"],
+    "rarity": "Allocated",
+    "msrp": 55,
+    "secondary": { "low": 60, "avg": 80, "high": 110 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Rowan's Creek Bourbon",
+    "aliases": ["rowan's creek", "rowans creek"],
+    "rarity": "Allocated",
+    "msrp": 45,
+    "secondary": { "low": 55, "avg": 72, "high": 100 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Pure Kentucky XO",
+    "aliases": ["pure kentucky", "pure kentucky xo"],
+    "rarity": "Allocated",
+    "msrp": 50,
+    "secondary": { "low": 60, "avg": 80, "high": 110 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Johnny Drum Private Stock",
+    "aliases": ["johnny drum", "johnny drum private stock"],
+    "rarity": "Allocated",
+    "msrp": 35,
+    "secondary": { "low": 40, "avg": 55, "high": 75 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Bardstown Bourbon Co. Fusion Series",
+    "aliases": ["bardstown fusion", "bardstown bourbon fusion", "bbc fusion"],
+    "rarity": "Allocated",
+    "msrp": 55,
+    "secondary": { "low": 60, "avg": 80, "high": 110 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Bardstown Bourbon Co. Discovery Series",
+    "aliases": ["bardstown discovery", "bardstown bourbon discovery", "bbc discovery"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 130, "avg": 180, "high": 255 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Bardstown Bourbon Co. Collaborative Series",
+    "aliases": ["bardstown collaborative", "bbc collaborative", "bardstown bourbon collaborative"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 100, "avg": 140, "high": 195 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Bardstown Bourbon Co. Origin Series",
+    "aliases": ["bardstown origin", "bbc origin"],
+    "rarity": "Common",
+    "msrp": 40,
+    "secondary": { "low": 40, "avg": 50, "high": 65 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "High West Midwinter Night's Dram",
+    "aliases": ["high west midwinter", "midwinter night's dram", "hwmnd"],
+    "rarity": "Allocated",
+    "msrp": 130,
+    "secondary": { "low": 175, "avg": 245, "high": 340 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "High West Yippee Ki-Yay",
+    "aliases": ["high west yippee ki yay", "yippee ki yay"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 130, "avg": 180, "high": 250 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "High West Bourye",
+    "aliases": ["high west bourye", "bourye"],
+    "rarity": "Allocated",
+    "msrp": 85,
+    "secondary": { "low": 100, "avg": 140, "high": 195 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "High West Campfire",
+    "aliases": ["high west campfire"],
+    "rarity": "Common",
+    "msrp": 65,
+    "secondary": { "low": 65, "avg": 78, "high": 95 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "High West Rendezvous Rye",
+    "aliases": ["high west rendezvous rye", "rendezvous rye"],
+    "rarity": "Common",
+    "msrp": 60,
+    "secondary": { "low": 60, "avg": 72, "high": 90 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "High West Double Rye",
+    "aliases": ["high west double rye"],
+    "rarity": "Common",
+    "msrp": 45,
+    "secondary": { "low": 45, "avg": 54, "high": 68 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Garrison Brothers Small Batch",
+    "aliases": ["garrison brothers small batch", "garrison small batch"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 90, "avg": 120, "high": 165 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Garrison Brothers Single Barrel",
+    "aliases": ["garrison brothers single barrel", "garrison single barrel"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 120, "avg": 165, "high": 230 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Garrison Brothers Cowboy Bourbon",
+    "aliases": ["garrison brothers cowboy", "garrison cowboy", "garrison cowboy bourbon"],
+    "rarity": "Unicorn",
+    "msrp": 250,
+    "secondary": { "low": 400, "avg": 580, "high": 850 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Garrison Brothers Balmorhea",
+    "aliases": ["garrison brothers balmorhea", "garrison balmorhea"],
+    "rarity": "Unicorn",
+    "msrp": 400,
+    "secondary": { "low": 600, "avg": 900, "high": 1300 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Garrison Brothers Guadalupe",
+    "aliases": ["garrison brothers guadalupe", "garrison guadalupe"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 280, "avg": 390, "high": 550 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Garrison Brothers HonkyTonk",
+    "aliases": ["garrison brothers honkytonk", "garrison honkytonk"],
+    "rarity": "Allocated",
+    "msrp": 50,
+    "secondary": { "low": 60, "avg": 80, "high": 110 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Garrison Brothers Laguna Madre",
+    "aliases": ["garrison brothers laguna madre", "garrison laguna madre"],
+    "rarity": "Unicorn",
+    "msrp": 500,
+    "secondary": { "low": 800, "avg": 1150, "high": 1650 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Barrell Bourbon Batch",
+    "aliases": ["barrell bourbon", "barrel bourbon batch", "barrell craft bourbon"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 100, "avg": 135, "high": 185 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Barrell Whiskey Armida",
+    "aliases": ["barrell armida", "barrel armida"],
+    "rarity": "Allocated",
+    "msrp": 150,
+    "secondary": { "low": 180, "avg": 250, "high": 345 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Barrell Whiskey Vantage",
+    "aliases": ["barrell vantage", "barrel vantage"],
+    "rarity": "Allocated",
+    "msrp": 120,
+    "secondary": { "low": 145, "avg": 200, "high": 280 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Barrell Gold Label",
+    "aliases": ["barrell gold label", "barrel gold label"],
+    "rarity": "Unicorn",
+    "msrp": 450,
+    "secondary": { "low": 650, "avg": 950, "high": 1400 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Barrell Seascape",
+    "aliases": ["barrell seascape", "barrel seascape"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 90, "avg": 120, "high": 165 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "New Riff Bottled in Bond Bourbon",
+    "aliases": ["new riff bib", "new riff bottled in bond", "new riff bourbon"],
+    "rarity": "Common",
+    "msrp": 45,
+    "secondary": { "low": 45, "avg": 55, "high": 70 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "New Riff Bottled in Bond Rye",
+    "aliases": ["new riff bib rye", "new riff rye"],
+    "rarity": "Common",
+    "msrp": 45,
+    "secondary": { "low": 45, "avg": 55, "high": 70 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "New Riff Single Barrel Bourbon",
+    "aliases": ["new riff single barrel", "new riff private selection"],
+    "rarity": "Allocated",
+    "msrp": 60,
+    "secondary": { "low": 65, "avg": 85, "high": 115 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "New Riff Malted Rye",
+    "aliases": ["new riff malted rye"],
+    "rarity": "Allocated",
+    "msrp": 55,
+    "secondary": { "low": 60, "avg": 80, "high": 110 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Rabbit Hole Dareringer",
+    "aliases": ["rabbit hole dareringer"],
+    "rarity": "Common",
+    "msrp": 70,
+    "secondary": { "low": 70, "avg": 82, "high": 100 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Rabbit Hole Heigold",
+    "aliases": ["rabbit hole heigold"],
+    "rarity": "Common",
+    "msrp": 60,
+    "secondary": { "low": 60, "avg": 72, "high": 88 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Rabbit Hole Cavehill",
+    "aliases": ["rabbit hole cavehill"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Rabbit Hole Nevallier",
+    "aliases": ["rabbit hole nevallier"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 120, "avg": 165, "high": 230 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Rabbit Hole PX Sherry Cask",
+    "aliases": ["rabbit hole px sherry", "rabbit hole px"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 105, "avg": 140, "high": 195 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Wilderness Trail Bottled in Bond Wheated",
+    "aliases": ["wilderness trail bib wheated", "wilderness trail wheated", "wt bib wheated"],
+    "rarity": "Allocated",
+    "msrp": 60,
+    "secondary": { "low": 70, "avg": 95, "high": 130 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Wilderness Trail Settlers Select Rye",
+    "aliases": ["wilderness trail settlers select", "wilderness trail rye"],
+    "rarity": "Allocated",
+    "msrp": 55,
+    "secondary": { "low": 65, "avg": 88, "high": 120 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Castle & Key Restoration Rye",
+    "aliases": ["castle and key restoration rye", "castle key restoration rye"],
+    "rarity": "Allocated",
+    "msrp": 60,
+    "secondary": { "low": 70, "avg": 95, "high": 130 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Castle & Key Small Batch Bourbon",
+    "aliases": ["castle and key small batch", "castle key small batch bourbon"],
+    "rarity": "Allocated",
+    "msrp": 65,
+    "secondary": { "low": 75, "avg": 100, "high": 140 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "FEW Bourbon",
+    "aliases": ["few bourbon", "few spirits bourbon"],
+    "rarity": "Allocated",
+    "msrp": 50,
+    "secondary": { "low": 60, "avg": 80, "high": 110 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "FEW Rye",
+    "aliases": ["few rye", "few spirits rye"],
+    "rarity": "Allocated",
+    "msrp": 50,
+    "secondary": { "low": 60, "avg": 80, "high": 110 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Breckenridge Port Cask Bourbon",
+    "aliases": ["breckenridge port cask", "breckenridge bourbon port"],
+    "rarity": "Allocated",
+    "msrp": 55,
+    "secondary": { "low": 65, "avg": 85, "high": 115 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Stranahan's Diamond Peak",
+    "aliases": ["stranahan's diamond peak", "stranahans diamond peak"],
+    "rarity": "Allocated",
+    "msrp": 110,
+    "secondary": { "low": 135, "avg": 185, "high": 260 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Stranahan's Snowflake",
+    "aliases": ["stranahan's snowflake", "stranahans snowflake"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 300, "avg": 430, "high": 600 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Stranahan's Sherry Cask",
+    "aliases": ["stranahan's sherry cask", "stranahans sherry cask"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 105, "avg": 140, "high": 195 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Balcones Texas Pot Still Bourbon",
+    "aliases": ["balcones texas pot still", "balcones pot still"],
+    "rarity": "Allocated",
+    "msrp": 55,
+    "secondary": { "low": 65, "avg": 85, "high": 115 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Balcones True Blue",
+    "aliases": ["balcones true blue"],
+    "rarity": "Allocated",
+    "msrp": 40,
+    "secondary": { "low": 50, "avg": 65, "high": 90 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Balcones Lineage",
+    "aliases": ["balcones lineage"],
+    "rarity": "Allocated",
+    "msrp": 70,
+    "secondary": { "low": 80, "avg": 105, "high": 145 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Balcones Brimstone",
+    "aliases": ["balcones brimstone"],
+    "rarity": "Allocated",
+    "msrp": 65,
+    "secondary": { "low": 75, "avg": 100, "high": 140 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Smoke Wagon Straight Bourbon",
+    "aliases": ["smoke wagon bourbon", "smoke wagon straight bourbon"],
+    "rarity": "Allocated",
+    "msrp": 65,
+    "secondary": { "low": 75, "avg": 100, "high": 135 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Smoke Wagon Undefeated",
+    "aliases": ["smoke wagon undefeated"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 110, "avg": 155, "high": 215 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Jack Daniel's Single Barrel Select",
+    "aliases": ["jack daniel's single barrel", "jack daniels single barrel", "jd single barrel"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Jack Daniel's Single Barrel Barrel Proof",
+    "aliases": ["jack daniels barrel proof", "jd barrel proof", "jack daniel's barrel proof"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 90, "avg": 120, "high": 165 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Jack Daniel's Sinatra Select",
+    "aliases": ["jack daniels sinatra", "sinatra select", "jd sinatra"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 230, "avg": 310, "high": 430 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Jack Daniel's Tennessee Whiskey 150th Anniversary",
+    "aliases": ["jack daniels 150th anniversary", "jd 150th"],
+    "rarity": "Allocated",
+    "msrp": 150,
+    "secondary": { "low": 180, "avg": 250, "high": 360 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "George Dickel Bottled in Bond",
+    "aliases": ["george dickel bib", "dickel bottled in bond"],
+    "rarity": "Common",
+    "msrp": 35,
+    "secondary": { "low": 35, "avg": 44, "high": 58 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "George Dickel 15 Year",
+    "aliases": ["george dickel 15", "dickel 15 year"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 95, "avg": 130, "high": 180 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "George Dickel 17 Year",
+    "aliases": ["george dickel 17", "dickel 17 year"],
+    "rarity": "Allocated",
+    "msrp": 130,
+    "secondary": { "low": 160, "avg": 220, "high": 310 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Smooth Ambler Old Scout Single Barrel",
+    "aliases": ["smooth ambler old scout", "old scout single barrel"],
+    "rarity": "Allocated",
+    "msrp": 60,
+    "secondary": { "low": 70, "avg": 95, "high": 130 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Smooth Ambler Contradiction",
+    "aliases": ["smooth ambler contradiction"],
+    "rarity": "Allocated",
+    "msrp": 60,
+    "secondary": { "low": 70, "avg": 90, "high": 125 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Laws Whiskey House Four Grain",
+    "aliases": ["laws four grain", "laws whiskey four grain"],
+    "rarity": "Allocated",
+    "msrp": 65,
+    "secondary": { "low": 75, "avg": 100, "high": 140 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Westland Sherry Wood",
+    "aliases": ["westland sherry wood", "westland sherry"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 100, "avg": 135, "high": 185 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Westland Peated",
+    "aliases": ["westland peated"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 90, "avg": 120, "high": 165 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Westland Solum",
+    "aliases": ["westland solum"],
+    "rarity": "Unicorn",
+    "msrp": 200,
+    "secondary": { "low": 300, "avg": 430, "high": 620 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Barrel Bourbon",
+    "aliases": ["barrel bourbon"],
+    "rarity": "Allocated",
+    "msrp": 70,
+    "secondary": { "low": 75, "avg": 100, "high": 140 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Redbreast 12 Year",
+    "aliases": ["redbreast 12", "red breast 12 year"],
+    "rarity": "Common",
+    "msrp": 65,
+    "secondary": { "low": 65, "avg": 75, "high": 92 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Redbreast 12 Year Cask Strength",
+    "aliases": ["redbreast 12 cask strength", "redbreast 12 cs"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 100, "avg": 135, "high": 185 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Redbreast 15 Year",
+    "aliases": ["redbreast 15", "red breast 15 year"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 120, "avg": 165, "high": 230 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Redbreast 21 Year",
+    "aliases": ["redbreast 21", "red breast 21 year"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 260, "avg": 360, "high": 500 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Redbreast 27 Year",
+    "aliases": ["redbreast 27", "red breast 27 year"],
+    "rarity": "Unicorn",
+    "msrp": 500,
+    "secondary": { "low": 750, "avg": 1050, "high": 1500 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Green Spot Irish Whiskey",
+    "aliases": ["green spot", "green spot irish"],
+    "rarity": "Common",
+    "msrp": 50,
+    "secondary": { "low": 50, "avg": 60, "high": 75 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Yellow Spot 12 Year",
+    "aliases": ["yellow spot", "yellow spot 12"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 100, "avg": 130, "high": 175 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Red Spot 15 Year",
+    "aliases": ["red spot", "red spot 15"],
+    "rarity": "Allocated",
+    "msrp": 150,
+    "secondary": { "low": 185, "avg": 255, "high": 355 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Blue Spot 7 Year",
+    "aliases": ["blue spot", "blue spot 7"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 105, "avg": 140, "high": 195 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Midleton Very Rare",
+    "aliases": ["midleton very rare"],
+    "rarity": "Unicorn",
+    "msrp": 200,
+    "secondary": { "low": 350, "avg": 500, "high": 720 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Midleton Barry Crockett Legacy",
+    "aliases": ["midleton barry crockett", "barry crockett legacy"],
+    "rarity": "Unicorn",
+    "msrp": 250,
+    "secondary": { "low": 450, "avg": 650, "high": 950 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Yamazaki 12 Year",
+    "aliases": ["yamazaki 12", "suntory yamazaki 12"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 175, "avg": 250, "high": 360 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Yamazaki 18 Year",
+    "aliases": ["yamazaki 18", "suntory yamazaki 18"],
+    "rarity": "Unicorn",
+    "msrp": 400,
+    "secondary": { "low": 700, "avg": 1000, "high": 1500 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Yamazaki 25 Year",
+    "aliases": ["yamazaki 25", "suntory yamazaki 25"],
+    "rarity": "Unicorn",
+    "msrp": 2000,
+    "secondary": { "low": 5000, "avg": 7500, "high": 11000 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Yamazaki Distillers Reserve",
+    "aliases": ["yamazaki distillers reserve", "yamazaki no age"],
+    "rarity": "Allocated",
+    "msrp": 75,
+    "secondary": { "low": 95, "avg": 130, "high": 180 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Hakushu 12 Year",
+    "aliases": ["hakushu 12", "suntory hakushu 12"],
+    "rarity": "Unicorn",
+    "msrp": 150,
+    "secondary": { "low": 350, "avg": 500, "high": 720 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Hakushu 18 Year",
+    "aliases": ["hakushu 18", "suntory hakushu 18"],
+    "rarity": "Unicorn",
+    "msrp": 600,
+    "secondary": { "low": 1200, "avg": 1700, "high": 2500 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Hakushu Distillers Reserve",
+    "aliases": ["hakushu distillers reserve", "hakushu no age"],
+    "rarity": "Allocated",
+    "msrp": 75,
+    "secondary": { "low": 100, "avg": 145, "high": 200 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Hibiki 17 Year",
+    "aliases": ["hibiki 17", "suntory hibiki 17"],
+    "rarity": "Unicorn",
+    "msrp": 450,
+    "secondary": { "low": 1000, "avg": 1500, "high": 2200 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Hibiki 21 Year",
+    "aliases": ["hibiki 21", "suntory hibiki 21"],
+    "rarity": "Unicorn",
+    "msrp": 650,
+    "secondary": { "low": 1500, "avg": 2200, "high": 3200 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Hibiki 30 Year",
+    "aliases": ["hibiki 30", "suntory hibiki 30"],
+    "rarity": "Unicorn",
+    "msrp": 2000,
+    "secondary": { "low": 6000, "avg": 9000, "high": 14000 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Hibiki Japanese Harmony",
+    "aliases": ["hibiki harmony", "hibiki japanese harmony"],
+    "rarity": "Allocated",
+    "msrp": 70,
+    "secondary": { "low": 90, "avg": 125, "high": 175 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Hibiki Blenders Choice",
+    "aliases": ["hibiki blenders choice", "hibiki blender's choice"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 115, "avg": 160, "high": 220 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Nikka From the Barrel",
+    "aliases": ["nikka from the barrel", "nikka ftb"],
+    "rarity": "Allocated",
+    "msrp": 75,
+    "secondary": { "low": 90, "avg": 125, "high": 175 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Nikka Coffey Grain",
+    "aliases": ["nikka coffey grain"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 100, "avg": 135, "high": 185 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Nikka Coffey Malt",
+    "aliases": ["nikka coffey malt"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 105, "avg": 145, "high": 200 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Yoichi Single Malt",
+    "aliases": ["nikka yoichi", "yoichi single malt"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 110, "avg": 155, "high": 215 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Miyagikyo Single Malt",
+    "aliases": ["nikka miyagikyo", "miyagikyo single malt"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 105, "avg": 145, "high": 200 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Kavalan Solist Vinho Barrique",
+    "aliases": ["kavalan solist vinho", "kavalan vinho barrique"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 250, "avg": 350, "high": 490 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Kavalan Solist ex-Bourbon",
+    "aliases": ["kavalan solist bourbon", "kavalan ex-bourbon"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 240, "avg": 330, "high": 460 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Kavalan King Car Conductor",
+    "aliases": ["kavalan king car", "kavalan conductor"],
+    "rarity": "Allocated",
+    "msrp": 75,
+    "secondary": { "low": 90, "avg": 125, "high": 175 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "The Macallan 12 Year Sherry Oak",
+    "aliases": ["macallan 12 sherry", "macallan 12 year sherry", "macallan 12 sherry oak"],
+    "rarity": "Common",
+    "msrp": 90,
+    "secondary": { "low": 90, "avg": 105, "high": 130 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "The Macallan 18 Year Sherry Oak",
+    "aliases": ["macallan 18 sherry", "macallan 18 year", "macallan 18"],
+    "rarity": "Allocated",
+    "msrp": 450,
+    "secondary": { "low": 550, "avg": 750, "high": 1050 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "The Macallan 25 Year",
+    "aliases": ["macallan 25", "macallan 25 year"],
+    "rarity": "Unicorn",
+    "msrp": 2000,
+    "secondary": { "low": 3000, "avg": 4500, "high": 6500 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "The Macallan Rare Cask",
+    "aliases": ["macallan rare cask"],
+    "rarity": "Allocated",
+    "msrp": 350,
+    "secondary": { "low": 450, "avg": 625, "high": 880 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "The Macallan Edition Series",
+    "aliases": ["macallan edition", "macallan no age edition"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 130, "avg": 185, "high": 265 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Glenfiddich 21 Year Gran Reserva",
+    "aliases": ["glenfiddich 21", "glenfiddich 21 year"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 230, "avg": 315, "high": 440 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Glenfiddich 26 Year Excellence",
+    "aliases": ["glenfiddich 26", "glenfiddich 26 year"],
+    "rarity": "Unicorn",
+    "msrp": 700,
+    "secondary": { "low": 900, "avg": 1250, "high": 1750 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Glenfiddich Grand Yozakura",
+    "aliases": ["glenfiddich yozakura", "glenfiddich grand yozakura"],
+    "rarity": "Allocated",
+    "msrp": 300,
+    "secondary": { "low": 380, "avg": 530, "high": 750 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "The Balvenie 21 Year PortWood",
+    "aliases": ["balvenie 21", "balvenie 21 portwood", "balvenie 21 year"],
+    "rarity": "Allocated",
+    "msrp": 300,
+    "secondary": { "low": 380, "avg": 530, "high": 750 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "The Balvenie 25 Year",
+    "aliases": ["balvenie 25", "balvenie 25 year"],
+    "rarity": "Unicorn",
+    "msrp": 900,
+    "secondary": { "low": 1200, "avg": 1700, "high": 2500 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "The Balvenie 30 Year",
+    "aliases": ["balvenie 30", "balvenie 30 year"],
+    "rarity": "Unicorn",
+    "msrp": 2000,
+    "secondary": { "low": 3500, "avg": 5000, "high": 7500 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "The Balvenie Caribbean Cask 14 Year",
+    "aliases": ["balvenie 14 caribbean", "balvenie caribbean cask 14"],
+    "rarity": "Common",
+    "msrp": 80,
+    "secondary": { "low": 80, "avg": 95, "high": 115 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Springbank 10 Year",
+    "aliases": ["springbank 10", "springbank 10 year"],
+    "rarity": "Allocated",
+    "msrp": 90,
+    "secondary": { "low": 130, "avg": 185, "high": 265 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Springbank 12 Year",
+    "aliases": ["springbank 12", "springbank 12 year"],
+    "rarity": "Allocated",
+    "msrp": 110,
+    "secondary": { "low": 160, "avg": 230, "high": 330 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Springbank 15 Year",
+    "aliases": ["springbank 15", "springbank 15 year"],
+    "rarity": "Allocated",
+    "msrp": 150,
+    "secondary": { "low": 230, "avg": 330, "high": 475 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Springbank 21 Year",
+    "aliases": ["springbank 21", "springbank 21 year"],
+    "rarity": "Unicorn",
+    "msrp": 400,
+    "secondary": { "low": 700, "avg": 1000, "high": 1500 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Longrow Red",
+    "aliases": ["longrow red"],
+    "rarity": "Allocated",
+    "msrp": 130,
+    "secondary": { "low": 165, "avg": 230, "high": 325 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Ardbeg 10 Year",
+    "aliases": ["ardbeg 10", "ardbeg 10 year"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Ardbeg Uigeadail",
+    "aliases": ["ardbeg uigeadail", "ardbeg oogie"],
+    "rarity": "Common",
+    "msrp": 75,
+    "secondary": { "low": 75, "avg": 88, "high": 108 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Ardbeg Corryvreckan",
+    "aliases": ["ardbeg corryvreckan"],
+    "rarity": "Common",
+    "msrp": 75,
+    "secondary": { "low": 75, "avg": 90, "high": 110 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Ardbeg Traigh Bhan 19 Year",
+    "aliases": ["ardbeg traigh bhan", "ardbeg traigh bhan 19"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 280, "avg": 400, "high": 580 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Ardbeg Blaaack",
+    "aliases": ["ardbeg blaaack"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 250, "avg": 360, "high": 520 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Ardbeg AN OA",
+    "aliases": ["ardbeg an oa", "ardbeg an-oa"],
+    "rarity": "Common",
+    "msrp": 60,
+    "secondary": { "low": 60, "avg": 72, "high": 88 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Lagavulin 16 Year",
+    "aliases": ["lagavulin 16", "lagavulin 16 year"],
+    "rarity": "Common",
+    "msrp": 100,
+    "secondary": { "low": 100, "avg": 118, "high": 145 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Lagavulin 8 Year",
+    "aliases": ["lagavulin 8", "lagavulin 8 year"],
+    "rarity": "Common",
+    "msrp": 75,
+    "secondary": { "low": 75, "avg": 88, "high": 108 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Lagavulin 12 Year Cask Strength",
+    "aliases": ["lagavulin 12 cask strength", "lagavulin 12 cs"],
+    "rarity": "Allocated",
+    "msrp": 120,
+    "secondary": { "low": 155, "avg": 220, "high": 315 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Laphroaig 10 Year",
+    "aliases": ["laphroaig 10", "laphroaig 10 year"],
+    "rarity": "Common",
+    "msrp": 50,
+    "secondary": { "low": 50, "avg": 60, "high": 75 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Laphroaig 10 Year Cask Strength",
+    "aliases": ["laphroaig 10 cask strength", "laphroaig 10 cs", "laphroaig cask strength"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 100, "avg": 140, "high": 195 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Laphroaig Quarter Cask",
+    "aliases": ["laphroaig quarter cask", "laphroaig qc"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 65, "high": 80 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Laphroaig 18 Year",
+    "aliases": ["laphroaig 18", "laphroaig 18 year"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 260, "avg": 365, "high": 525 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Highland Park 18 Year Viking Pride",
+    "aliases": ["highland park 18", "highland park 18 year", "highland park viking pride"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 240, "avg": 330, "high": 460 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Highland Park 25 Year",
+    "aliases": ["highland park 25", "highland park 25 year"],
+    "rarity": "Unicorn",
+    "msrp": 700,
+    "secondary": { "low": 900, "avg": 1250, "high": 1750 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "GlenDronach 18 Year Allardice",
+    "aliases": ["glendronach 18", "glendronach allardice", "glendronach 18 allardice"],
+    "rarity": "Allocated",
+    "msrp": 150,
+    "secondary": { "low": 180, "avg": 250, "high": 355 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "GlenDronach 21 Year Parliament",
+    "aliases": ["glendronach 21", "glendronach parliament", "glendronach 21 parliament"],
+    "rarity": "Allocated",
+    "msrp": 250,
+    "secondary": { "low": 325, "avg": 460, "high": 660 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "GlenAllachie 10 Year Cask Strength",
+    "aliases": ["glenallachie 10 cask strength", "glenallachie 10 cs"],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": { "low": 100, "avg": 145, "high": 205 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "GlenAllachie 12 Year",
+    "aliases": ["glenallachie 12", "glenallachie 12 year"],
+    "rarity": "Common",
+    "msrp": 65,
+    "secondary": { "low": 65, "avg": 78, "high": 96 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "GlenAllachie 15 Year",
+    "aliases": ["glenallachie 15", "glenallachie 15 year"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 120, "avg": 165, "high": 235 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Bruichladdich Octomore",
+    "aliases": ["octomore", "bruichladdich octomore"],
+    "rarity": "Allocated",
+    "msrp": 150,
+    "secondary": { "low": 200, "avg": 285, "high": 405 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Bruichladdich Port Charlotte",
+    "aliases": ["port charlotte", "bruichladdich port charlotte"],
+    "rarity": "Common",
+    "msrp": 65,
+    "secondary": { "low": 65, "avg": 78, "high": 96 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Talisker 18 Year",
+    "aliases": ["talisker 18", "talisker 18 year"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 250, "avg": 355, "high": 510 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Talisker 25 Year",
+    "aliases": ["talisker 25", "talisker 25 year"],
+    "rarity": "Unicorn",
+    "msrp": 700,
+    "secondary": { "low": 900, "avg": 1300, "high": 1900 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Glenfarclas 21 Year",
+    "aliases": ["glenfarclas 21", "glenfarclas 21 year"],
+    "rarity": "Allocated",
+    "msrp": 150,
+    "secondary": { "low": 175, "avg": 245, "high": 345 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Glenfarclas 25 Year",
+    "aliases": ["glenfarclas 25", "glenfarclas 25 year"],
+    "rarity": "Allocated",
+    "msrp": 250,
+    "secondary": { "low": 325, "avg": 455, "high": 640 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Glenfarclas 105",
+    "aliases": ["glenfarclas 105", "glenfarclas cask strength 105"],
+    "rarity": "Common",
+    "msrp": 70,
+    "secondary": { "low": 70, "avg": 82, "high": 100 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Amrut Fusion",
+    "aliases": ["amrut fusion"],
+    "rarity": "Allocated",
+    "msrp": 75,
+    "secondary": { "low": 90, "avg": 125, "high": 175 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Amrut Intermediate Sherry",
+    "aliases": ["amrut intermediate sherry"],
+    "rarity": "Allocated",
+    "msrp": 100,
+    "secondary": { "low": 130, "avg": 185, "high": 265 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Paul John Mithuna",
+    "aliases": ["paul john mithuna"],
+    "rarity": "Allocated",
+    "msrp": 200,
+    "secondary": { "low": 260, "avg": 370, "high": 530 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Paul John Bold",
+    "aliases": ["paul john bold"],
+    "rarity": "Common",
+    "msrp": 55,
+    "secondary": { "low": 55, "avg": 66, "high": 82 },
+    "lastUpdated": "2025-01"
+  },
+  {
+    "name": "Paul John Christmas Edition",
+    "aliases": ["paul john christmas", "paul john christmas edition"],
+    "rarity": "Allocated",
+    "msrp": 130,
+    "secondary": { "low": 170, "avg": 240, "high": 340 },
+    "lastUpdated": "2025-01"
+  }
+]

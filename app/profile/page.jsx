@@ -43,6 +43,12 @@ const TILES = [
     href:     '/profile/friends',
   },
   {
+    icon:     '🎯',
+    title:    'Wishlist',
+    subtitle: 'Track bottles you\'re hunting with rarity and price targets',
+    href:     '/profile/wishlist',
+  },
+  {
     icon:     '🎲',
     title:    'Pick My Pour',
     subtitle: "Can't decide? Let the app choose",

@@ -88,7 +88,7 @@ function timeLeft(isoStr) {
 
 // ── Bottle Card ───────────────────────────────────────────────────────────────
 
-function BottleCard({ bottle, onRemove, onEdit, unicornMatches }) {
+function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
   const score = bottle.blindScore
 
   // Best unicorn lot — highest current bid
@@ -194,6 +194,16 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches }) {
                   border: '1px solid #2563eb', borderRadius: 999, padding: '2px 8px',
                 }}>For Trade</span>
               )}
+            </div>
+          )}
+          {marketPrice && !bottle.secondary && (
+            <div style={{ marginTop: 5 }}>
+              <span style={{
+                fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 999,
+                color: '#60a5fa', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)',
+              }}>
+                📊 ${marketPrice.low}–${marketPrice.high} secondary
+              </span>
             </div>
           )}
         </div>
@@ -1054,6 +1064,7 @@ export default function CollectionPage() {
   const [removing,      setRemoving]      = useState(null)
   const [editingBottle, setEditingBottle] = useState(null) // bottle being edited
   const [unicornDeals,  setUnicornDeals]  = useState([])
+  const [marketPrices,  setMarketPrices]  = useState({})
 
   // Samples tab
   const [tab,           setTab]           = useState('bottles')
@@ -1069,7 +1080,20 @@ export default function CollectionPage() {
   useEffect(() => {
     fetch('/api/collection')
       .then(r => r.json())
-      .then(d => setBottles(d.bottles ?? []))
+      .then(d => {
+        const bs = d.bottles ?? []
+        setBottles(bs)
+        // Batch-fetch market prices for all unique bottle names
+        const names = [...new Set(bs.map(b => b.name))]
+        Promise.all(
+          names.map(name =>
+            fetch(`/api/market-price?name=${encodeURIComponent(name)}`)
+              .then(r => r.json())
+              .then(d => [name, d.price])
+              .catch(() => [name, null])
+          )
+        ).then(pairs => setMarketPrices(Object.fromEntries(pairs)))
+      })
       .catch(() => {})
       .finally(() => setLoaded(true))
 
@@ -1303,6 +1327,7 @@ export default function CollectionPage() {
                   onRemove={handleRemove}
                   onEdit={setEditingBottle}
                   unicornMatches={findUnicornMatches(bottle.name, unicornDeals)}
+                  marketPrice={marketPrices[bottle.name] ?? null}
                 />
               ))}
             </div>

@@ -414,7 +414,21 @@ function CreateListingModal({ onClose, onCreated, userEmail }) {
   const [uploading,     setUploading]     = useState(false)
   const [submitting,    setSubmitting]    = useState(false)
   const [error,         setError]         = useState(null)
+  const [marketPrice,   setMarketPrice]   = useState(null)
   const photoInputRef = useRef(null)
+
+  // Fetch market price when the primary bottle name changes
+  const primaryName = bottles[0]?.name?.trim()
+  useEffect(() => {
+    if (!primaryName || type === 'iso') { setMarketPrice(null); return }
+    const t = setTimeout(() => {
+      fetch(`/api/market-price?name=${encodeURIComponent(primaryName)}`)
+        .then(r => r.json())
+        .then(d => setMarketPrice(d.price ?? null))
+        .catch(() => setMarketPrice(null))
+    }, 400)
+    return () => clearTimeout(t)
+  }, [primaryName, type])
 
   function updateCurrentBottle(val) {
     setBottles(prev => prev.map((b, i) => i === currentBottle ? val : b))
@@ -632,6 +646,17 @@ function CreateListingModal({ onClose, onCreated, userEmail }) {
                     style={{ width: '100%', padding: '9px 12px', background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8, color: '#f5e6cc', fontSize: 14, boxSizing: 'border-box' }} />
                 </div>
               </div>
+              {/* Market price reference nudge */}
+              {marketPrice && (
+                <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 8 }}>
+                  <span style={{ fontSize: 11, color: '#60a5fa', fontWeight: 600 }}>
+                    📊 Secondary market range: ${marketPrice.low}–${marketPrice.high} (avg ${marketPrice.avg})
+                  </span>
+                  <span style={{ fontSize: 10, color: '#4b5563', marginLeft: 8 }}>
+                    · {marketPrice.source} · {marketPrice.lastUpdated}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
