@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tater Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg:#0f0a05; --card:#1a1008; --card2:#1f1308;
+    --border:#3d2b10; --border2:#2a1c08;
+    --t1:#f5e6cc; --t2:#c9a87a; --t3:#9a7c55; --t4:#6b5030;
+    --accent:#e8943a; --green:#4ade80; --red:#f87171; --amber:#fbbf24;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body,#root{height:100%;}
+  body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--t1);-webkit-font-smoothing:antialiased;}
+  ::-webkit-scrollbar{width:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes scaleIn{from{opacity:0;transform:scale(0.93)}to{opacity:1;transform:scale(1)}}
+  @keyframes slideLeft{from{transform:translateX(100%)}to{transform:translateX(0)}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+  @keyframes spinSlot{0%{transform:translateY(0)}100%{transform:translateY(-600%)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+// ── Tokens ────────────────────────────────────────────────────────────────────
+const T = {
+  bg:'#0f0a05', card:'#1a1008', card2:'#1f1308',
+  border:'#3d2b10', border2:'#2a1c08',
+  t1:'#f5e6cc', t2:'#c9a87a', t3:'#9a7c55', t4:'#6b5030',
+  accent:'#e8943a', accent2:'#d4832a',
+  green:'#4ade80', red:'#f87171', amber:'#fbbf24', purple:'#c084fc', blue:'#818cf8',
+};
+const DIST_COLOR = {
+  'Breakthru Beverage':{text:'#e8943a',bg:'#2a1500',border:'#7c3a0a'},
+  "Southern Glazer's":{text:'#4ade80',bg:'#0f2010',border:'#2d5a2d'},
+  'RNDC':{text:'#818cf8',bg:'#10102a',border:'#2d2d7c'},
+  'BC Merchants':{text:'#c084fc',bg:'#1e0f26',border:'#5a2d7c'},
+};
+const BLIND_LABELS = ['A','B','C','D','E','F'];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function timeAgo(ts){
+  if(!ts)return null;
+  const mins=Math.floor((Date.now()-new Date(ts).getTime())/60000);
+  if(mins<1)return'just now';
+  if(mins<60)return`${mins}m ago`;
+  const hrs=Math.floor(mins/60);
+  if(hrs<24)return`${hrs}h ago`;
+  return`${Math.floor(hrs/24)}d ago`;
+}
+function fmtUSD(v){if(v==null)return'—';return v>=1000?`$${(v/1000).toFixed(1)}k`:`$${v}`;}
+function eloUpdate(aScore,bScore,result){
+  const K=12,ea=1/(1+Math.pow(10,(bScore-aScore)/25));
+  const sa=result==='a'?1:result==='tie'?0.5:0;
+  return{
+    newA:+Math.max(0,Math.min(100,aScore+K*(sa-ea))).toFixed(1),
+    newB:+Math.max(0,Math.min(100,bScore+K*((1-sa)-(1-ea)))).toFixed(1),
+  };
+}
+function genPairs(n){const p=[];for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)p.push([i,j]);return p;}
+
+// ── Mock data ─────────────────────────────────────────────────────────────────
+const _now = new Date('2026-04-26T14:30:00Z');
+
+const MOCK_COLLECTION_INIT = [
+  {id:1,name:"Blanton's Original Single Barrel",distillery:"Buffalo Trace",category:"Bourbon",proof:93,msrp:65,secondary:120,blindScore:87.4,tastings:6,flavors:["Caramel","Citrus","Vanilla"],qty:2},
+  {id:2,name:"Eagle Rare 10yr",distillery:"Buffalo Trace",category:"Bourbon",proof:90,msrp:35,secondary:55,blindScore:74.2,tastings:3,flavors:["Oak","Dried Fruit","Spice"],qty:1},
+  {id:3,name:"Weller Special Reserve",distillery:"Buffalo Trace",category:"Bourbon",proof:90,msrp:30,secondary:65,blindScore:71.8,tastings:4,flavors:["Honey","Caramel","Wheat"],qty:3},
+  {id:4,name:"Four Roses Small Batch Select",distillery:"Four Roses",category:"Bourbon",proof:104,msrp:60,secondary:85,blindScore:82.1,tastings:5,flavors:["Floral","Spice","Peach"],qty:1},
+  {id:5,name:"Elijah Craig Barrel Proof B524",distillery:"Heaven Hill",category:"Bourbon",proof:119.6,msrp:60,secondary:95,blindScore:91.3,tastings:8,flavors:["Dark Fruit","Oak","Baking Spice"],qty:1},
+  {id:6,name:"Wild Turkey Rare Breed",distillery:"Wild Turkey",category:"Bourbon",proof:116.8,msrp:45,secondary:58,blindScore:68.5,tastings:2,flavors:["Pepper","Honey","Oak"],qty:2},
+];
+const MOCK_FINDS=[
+  {id:1,bottleName:"Blanton's Original Single Barrel",store:{name:"Binny's Wilmette",address:"565 Green Bay Rd, Wilmette, IL"},notes:"3 bottles, no limit. Grabbed 1 myself.",timestamp:_now-2*3600000,user:"@whiskeydave",hasPhoto:true},
+  {id:2,bottleName:"Eagle Rare 10yr",store:{name:"Binny's Lincoln Park",address:"1720 N Marcey St, Chicago, IL"},notes:"2 left when I was there, 1 per person.",timestamp:_now-5*3600000,user:"@bourbonbob",hasPhoto:false},
+  {id:3,bottleName:"Weller Full Proof",store:{name:"Friar Tuck Homewood",address:"2600 183rd St, Homewood, IL"},notes:"Spotted on shelf, ~5 bottles. No limit seen.",timestamp:_now-26*3600000,user:"@sipmaster",hasPhoto:true},
+  {id:4,bottleName:"George T. Stagg 2025",store:{name:"Binny's Orland Park",address:"15820 S 94th Ave, Orland Park, IL"},notes:"Lottery allocation — already gone.",timestamp:_now-3*24*3600000,user:"@whiskeydave",hasPhoto:false},
+];
+const MOCK_NOTIFS_INIT=[
+  {id:1,type:'truck',icon:'🚛',title:"Breakthru truck at Binny's Wilmette",sub:"Check for Blanton's, Eagle Rare, Weller",time:_now-25*60000,read:false},
+  {id:2,type:'find',icon:'📍',title:'New find: Weller Full Proof',sub:'Friar Tuck Homewood · @sipmaster',time:_now-2*3600000,read:false},
+  {id:3,type:'watchlist',icon:'🎯',title:'Watchlist match: Eagle Rare 10yr',sub:"Spotted at Binny's Lincoln Park",time:_now-5*3600000,read:true},
+  {id:4,type:'truck',icon:'🚛',title:"Southern Glazer's at Binny's Lincoln Park",sub:"Check for ECBP, Parker's Heritage",time:_now-2*24*3600000,read:true},
+];
+const MOCK_DEALS=[
+  {id:1,name:"Blanton's Original Single Barrel",category:"Bourbon",section:"General",lot:"4821",bid:95,est_display:"$120–150",discount:29.3,reserve_met:true,url:"#"},
+  {id:2,name:"Old Fitzgerald Bottled in Bond 9yr",category:"Bourbon",section:"Bargain Buys",lot:"4842",bid:72,est_display:"$105–130",discount:36.5,reserve_met:true,url:"#"},
+  {id:3,name:"Eagle Rare 10yr",category:"Bourbon",section:"Bargain Buys",lot:"4809",bid:44,est_display:"$60–75",discount:32.3,reserve_met:false,url:"#"},
+  {id:4,name:"Elijah Craig Barrel Proof C924",category:"Bourbon",section:"General",lot:"4815",bid:68,est_display:"$90–110",discount:30.0,reserve_met:true,url:"#"},
+  {id:5,name:"Four Roses Small Batch Select",category:"Bourbon",section:"General",lot:"4833",bid:58,est_display:"$80–95",discount:30.7,reserve_met:false,url:"#"},
+  {id:6,name:"Wild Turkey Rare Breed Barrel Proof",category:"Bourbon",section:"Bargain Buys",lot:"4801",bid:38,est_display:"$52–65",discount:30.5,reserve_met:true,url:"#"},
+  {id:7,name:"Pappy Van Winkle 15yr Family Reserve",category:"Bourbon",section:"Horn of Unicorn",lot:"4799",bid:1150,est_display:"$1,600–2,000",discount:34.3,reserve_met:true,url:"#"},
+  {id:8,name:"Weller Special Reserve",category:"Bourbon",section:"Bargain Buys",lot:"4856",bid:52,est_display:"$70–90",discount:33.3,reserve_met:false,url:"#"},
+  {id:9,name:"High West Double Rye!",category:"Rye",section:"General",lot:"4862",bid:35,est_display:"$48–60",discount:30.6,reserve_met:true,url:"#"},
+  {id:10,name:"Nikka From The Barrel",category:"Japanese",section:"General",lot:"4870",bid:95,est_display:"$130–160",discount:31.0,reserve_met:true,url:"#"},
+];
+const DIST_BOTTLES={
+  'Breakthru Beverage':[
+    {tier:"Buffalo Trace / Sazerac",names:["Blanton's Original","Blanton's SFTB","Weller Antique 107","Weller Special Reserve","Weller Full Proof","Eagle Rare 10yr","E.H. Taylor Small Batch","E.H. Taylor Single Barrel","George T. Stagg","William Larue Weller","Pappy Van Winkle 10yr","Pappy Van Winkle 12yr","Pappy Van Winkle 15yr","Pappy 20yr","Pappy 23yr"]},
+    {tier:"Brown-Forman",names:["Woodford Reserve Double Oaked","Old Forester Birthday Bourbon","Old Forester 1920","Old Forester 117 Series"]},
+    {tier:"Bardstown BC",names:["Bardstown Bourbon Co. Fusion Series","Bardstown Discovery Series"]},
+  ],
+  "Southern Glazer's":[
+    {tier:"Heaven Hill",names:["Parker's Heritage Collection","Old Fitzgerald BIB","Elijah Craig Barrel Proof","Larceny Barrel Proof"]},
+    {tier:"Beam Suntory",names:["Booker's Bourbon","Knob Creek Single Barrel","Maker's Mark Private Select","Little Book"]},
+    {tier:"Wild Turkey / Campari",names:["Russell's Reserve Single Barrel","Wild Turkey Master's Keep","Wild Turkey Rare Breed"]},
+    {tier:"Other",names:["Angel's Envy Cask Strength","WhistlePig 15yr","High West Midwinter Night's Dram"]},
+  ],
+  'RNDC':[{tier:"Four Roses (Kirin)",names:["Four Roses Limited Edition Small Batch","Four Roses Limited Edition Single Barrel","Four Roses Al Young 50th Anniversary"]}],
+  'BC Merchants':[
+    {tier:"Willett / KBD",names:["Willett Pot Still Reserve","Willett Family Estate Rye","Noah's Mill","Rowan's Creek"]},
+    {tier:"Barrell Craft Spirits",names:["Barrell Craft Spirits Batch","Barrell Bourbon Single Barrel","Barrell Dovetail"]},
+  ],
+};
+
+// ── Shared primitives ─────────────────────────────────────────────────────────
+function Card({children,style,onClick}){
+  return(
+    <div onClick={onClick} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,overflow:'hidden',cursor:onClick?'pointer':undefined,transition:'background 0.15s',...style}}>
+      {children}
+    </div>
+  );
+}
+function Badge({label,color,bg,border}){
+  return<span style={{display:'inline-block',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:999,color:color??T.accent,background:bg??`${T.accent}18`,border:`1px solid ${border??T.accent+'40'}`}}>{label}</span>;
+}
+function Divider(){return<div style={{height:1,background:T.border2,margin:'20px 0'}}/>;}
+function SectionHead({icon,title,sub,action}){
+  return(
+    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:14}}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <span style={{fontSize:20}}>{icon}</span>
+        <div>
+          <div style={{fontWeight:800,fontSize:16,color:T.t1,letterSpacing:'-0.02em'}}>{title}</div>
+          {sub&&<div style={{fontSize:12,color:T.t3,marginTop:1}}>{sub}</div>}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+function Toggle({defaultOn=true,onChange}){
+  const[on,setOn]=useState(defaultOn);
+  return(
+    <button onClick={()=>{setOn(v=>!v);onChange&&onChange(!on);}} style={{width:40,height:22,borderRadius:11,border:'none',cursor:'pointer',background:on?T.accent:T.border,position:'relative',flexShrink:0,transition:'background 0.2s',padding:0}}>
+      <span style={{position:'absolute',top:3,left:on?21:3,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left 0.2s',display:'block'}}/>
+    </button>
+  );
+}
+function BackHeader({title,onBack,action}){
+  return(
+    <div style={{padding:'12px 16px',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:T.bg,zIndex:10}}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <button onClick={onBack} style={{background:'none',border:'none',color:T.t3,cursor:'pointer',fontSize:20,padding:0,lineHeight:1,display:'flex',alignItems:'center'}}>←</button>
+        <div style={{fontWeight:800,fontSize:16,color:T.t1}}>{title}</div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+// ── FINDS SCREEN ──────────────────────────────────────────────────────────────
+function FindCard({find}){
+  const hoursOld=(Date.now()-find.timestamp)/3600000;
+  const isFresh=hoursOld<6,isStale=hoursOld>20;
+  return(
+    <Card style={{padding:0,animation:'fadeUp 0.3s ease'}}>
+      <div style={{padding:'12px 14px',borderBottom:`1px solid ${T.border2}`}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:6}}>
+          <div style={{fontWeight:700,fontSize:15,color:T.t1,lineHeight:1.3}}>🥃 {find.bottleName}</div>
+          <div style={{display:'flex',gap:5,flexShrink:0}}>
+            {isFresh&&<Badge label="🔥 Fresh" color={T.green} bg="rgba(74,222,128,0.1)" border="rgba(74,222,128,0.3)"/>}
+            {isStale&&<Badge label="⏰ Aging" color={T.t4} bg="transparent" border={T.border}/>}
+          </div>
+        </div>
+        <div style={{fontSize:12,color:T.t3,marginBottom:2}}>📍 {find.store.name}</div>
+        <div style={{fontSize:11,color:T.t4}}>{find.store.address}</div>
+      </div>
+      {find.hasPhoto&&(
+        <div style={{height:110,background:'#1a1208',display:'flex',alignItems:'center',justifyContent:'center',borderBottom:`1px solid ${T.border2}`}}>
+          <div style={{textAlign:'center'}}><div style={{fontSize:24,opacity:0.3}}>📸</div><div style={{fontSize:10,color:T.t4,fontFamily:'DM Mono',marginTop:3}}>bottle photo</div></div>
+        </div>
+      )}
+      {find.notes&&<div style={{padding:'10px 14px',fontSize:12,color:T.t2,fontStyle:'italic',borderBottom:`1px solid ${T.border2}`}}>"{find.notes}"</div>}
+      <div style={{padding:'8px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <span style={{fontSize:11,color:T.t4}}>{find.user} · {timeAgo(find.timestamp)}</span>
+        <button style={{background:'none',border:'none',color:T.t4,cursor:'pointer',fontSize:12,padding:0}}>✕</button>
+      </div>
+    </Card>
+  );
+}
+
+function FindsMapSVG(){
+  const pts=[{cx:320,cy:105,label:"Binny's Wilmette",fresh:true},{cx:338,cy:165,label:"Binny's Lincoln Park",fresh:true},{cx:345,cy:310,label:"Friar Tuck Homewood",fresh:false},{cx:210,cy:290,label:"Binny's Orland Park",fresh:false}];
+  return(
+    <div style={{borderRadius:12,overflow:'hidden',border:`1px solid ${T.border}`,background:'#0d0805'}}>
+      <svg viewBox="0 0 460 400" width="100%" style={{display:'block'}}>
+        {[0,1,2,3,4,5].map(i=><line key={`h${i}`} x1={0} y1={i*80} x2={460} y2={i*80} stroke={T.border} strokeWidth={0.5} opacity={0.4}/>)}
+        {[0,1,2,3,4,5].map(i=><line key={`v${i}`} x1={i*92} y1={0} x2={i*92} y2={400} stroke={T.border} strokeWidth={0.5} opacity={0.4}/>)}
+        <path d="M 380,0 Q 410,100 400,200 Q 390,300 370,400 L 460,400 L 460,0 Z" fill="#0a1520" opacity={0.8}/>
+        <text x={412} y={50} fill={T.t4} fontSize={9} opacity={0.5} fontFamily="DM Mono">Lake</text>
+        <text x={408} y={62} fill={T.t4} fontSize={9} opacity={0.5} fontFamily="DM Mono">Michigan</text>
+        <path d="M 310,100 L 370,90 Q 380,100 378,180 Q 376,240 360,300 L 300,310 L 260,320 L 240,280 L 200,270 L 160,260 L 140,200 L 180,160 L 240,140 Z" fill="none" stroke={T.border} strokeWidth={1} opacity={0.4}/>
+        {pts.map((p,i)=>{const col=p.fresh?T.green:T.accent;return(
+          <g key={i}>
+            <circle cx={p.cx} cy={p.cy} r={14} fill={col} opacity={0.12}/>
+            <circle cx={p.cx} cy={p.cy} r={7} fill={col} opacity={0.7}/>
+            <circle cx={p.cx} cy={p.cy} r={3} fill="#fff"/>
+            <rect x={p.cx+12} y={p.cy-10} width={112} height={16} rx={4} fill="#1a1008" opacity={0.9}/>
+            <text x={p.cx+17} y={p.cy+2} fill={T.t2} fontSize={9} fontFamily="DM Sans">{p.label}</text>
+          </g>
+        );})}
+        <circle cx={16} cy={384} r={5} fill={T.green} opacity={0.7}/><text x={26} y={388} fill={T.t3} fontSize={9} fontFamily="DM Sans">Fresh (&lt;6h)</text>
+        <circle cx={100} cy={384} r={5} fill={T.accent} opacity={0.7}/><text x={110} y={388} fill={T.t3} fontSize={9} fontFamily="DM Sans">Aging</text>
+      </svg>
+    </div>
+  );
+}
+
+function FindsScreen(){
+  const[view,setView]=useState('list');
+  const[bottleName,setBottleName]=useState('');
+  const[storeInput,setStoreInput]=useState('');
+  const[notes,setNotes]=useState('');
+  const[submitted,setSubmitted]=useState(false);
+  function handleSubmit(e){e.preventDefault();setSubmitted(true);setTimeout(()=>{setSubmitted(false);setBottleName('');setStoreInput('');setNotes('');},2500);}
+  const inp={width:'100%',padding:'9px 12px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,color:T.t1,fontSize:14,outline:'none',fontFamily:'DM Sans'};
+  const lbl={display:'block',fontSize:11,fontWeight:700,color:T.t3,marginBottom:5,marginTop:14,textTransform:'uppercase',letterSpacing:'0.05em'};
+  return(
+    <div style={{padding:'16px',maxWidth:700,margin:'0 auto'}}>
+      <Card style={{padding:16,marginBottom:16}}>
+        <div style={{fontWeight:800,fontSize:16,color:T.t1,marginBottom:14}}>📍 Report a Find</div>
+        <form onSubmit={handleSubmit}>
+          <label style={lbl}>Bottle Name *</label>
+          <div style={{display:'flex',gap:8}}>
+            <input style={{...inp,flex:1}} placeholder="e.g. Blanton's Original" value={bottleName} onChange={e=>setBottleName(e.target.value)} required/>
+            <button type="button" style={{padding:'9px 13px',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,color:T.accent,cursor:'pointer',fontSize:18,flexShrink:0}}>📷</button>
+          </div>
+          <label style={lbl}>Store Location *</label>
+          <input style={inp} placeholder="Search for a store (e.g. Binny's Wilmette…)" value={storeInput} onChange={e=>setStoreInput(e.target.value)}/>
+          <label style={lbl}>Notes</label>
+          <textarea style={{...inp,minHeight:60,resize:'vertical'}} placeholder="How many bottles? Price? Purchase limit?" value={notes} onChange={e=>setNotes(e.target.value)}/>
+          <label style={lbl}>Photo</label>
+          <label style={{display:'block',background:T.bg,border:`1px dashed ${T.border}`,borderRadius:8,padding:12,cursor:'pointer',textAlign:'center',color:T.t4,fontSize:13}}>
+            📸 Tap to attach a photo
+            <input type="file" accept="image/*" style={{display:'none'}}/>
+          </label>
+          {submitted&&<div style={{fontSize:13,color:T.green,marginTop:10}}>✓ Find submitted! The club appreciates you.</div>}
+          <button type="submit" style={{marginTop:14,width:'100%',padding:11,background:T.accent,color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:15,fontWeight:700}}>📍 Submit Find</button>
+        </form>
+      </Card>
+      <div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+          <div style={{fontWeight:800,fontSize:16,color:T.t1}}>Club Finds <span style={{fontSize:13,color:T.t4,fontWeight:400}}>({MOCK_FINDS.length})</span></div>
+          <div style={{display:'flex',gap:6}}>
+            {['list','map'].map(v=>(
+              <button key={v} onClick={()=>setView(v)} style={{padding:'5px 12px',borderRadius:6,border:'none',cursor:'pointer',background:view===v?T.accent:T.card2,color:view===v?'#fff':T.t3,fontSize:12,fontWeight:600}}>
+                {v==='map'?'🗺 Map':'📋 List'}
+              </button>
+            ))}
+          </div>
+        </div>
+        {view==='map'&&<FindsMapSVG/>}
+        {view==='list'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>{MOCK_FINDS.map(f=><FindCard key={f.id} find={f}/>)}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ── TRACKER SCREEN ────────────────────────────────────────────────────────────
+function DistributorColumn({name}){
+  const col=DIST_COLOR[name]??{text:T.t3,bg:T.card2,border:T.border};
+  return(
+    <div style={{background:col.bg,border:`1px solid ${col.border}`,borderRadius:12,minWidth:200,flex:1}}>
+      <div style={{padding:'10px 14px',borderBottom:`1px solid ${col.border}`,fontWeight:700,fontSize:13,color:col.text}}>🚛 {name}</div>
+      <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:12}}>
+        {(DIST_BOTTLES[name]??[]).map(g=>(
+          <div key={g.tier}>
+            <div style={{fontSize:10,fontWeight:700,color:col.text,opacity:0.65,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:5}}>{g.tier}</div>
+            {g.names.map(n=><div key={n} style={{fontSize:11.5,color:T.t3,lineHeight:'1.7'}}>· {n}</div>)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+function TrackerScreen(){
+  return(
+    <div style={{paddingBottom:24}}>
+      <div style={{background:'linear-gradient(160deg,#1e1004 0%,#0f0a05 60%)',padding:'32px 16px 24px',borderBottom:`1px solid ${T.border2}`}}>
+        <div style={{maxWidth:600,margin:'0 auto',textAlign:'center'}}>
+          <div style={{fontSize:48,marginBottom:12}}>🚛</div>
+          <div style={{fontWeight:800,fontSize:22,color:T.t1,letterSpacing:'-0.02em',marginBottom:8}}>No truck deliveries detected yet</div>
+          <div style={{fontSize:14,color:T.t3,lineHeight:1.65,marginBottom:20}}>
+            Checks Binny's inventory 6× daily — at 7, 9, 11 AM and 1, 3, 5 PM CDT.<br/>When a delivery truck is detected at any Chicagoland location, it shows up here.
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center'}}>
+            {['Next check: 3 PM CDT','20+ Binny\'s stores monitored','6× daily cadence'].map(t=>(
+              <span key={t} style={{fontSize:12,color:T.t3,background:T.card,border:`1px solid ${T.border}`,borderRadius:999,padding:'4px 12px'}}>{t}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{padding:'0 16px',maxWidth:900,margin:'0 auto'}}>
+        <div style={{marginTop:24,marginBottom:24}}>
+          <SectionHead icon="💡" title="How it works" sub="Understanding what you're seeing"/>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:10}}>
+            {[
+              {step:'1',label:'Canary scan',desc:'Every 6h, checks if high-volume bottles (Old Forester, Benchmark, etc.) have restocked at each store.'},
+              {step:'2',label:'Truck detected',desc:'A sudden restock of canary bottles means a delivery truck visited. We flag it and log the distributor.'},
+              {step:'3',label:'Check the map',desc:'Use the Distributor Map below to know which allocated bottles may be on that truck — then head to the store.'},
+            ].map(s=>(
+              <Card key={s.step} style={{padding:14}}>
+                <div style={{fontWeight:800,fontSize:28,color:T.accent,opacity:0.3,marginBottom:4}}>{s.step}</div>
+                <div style={{fontWeight:700,fontSize:13,color:T.t1,marginBottom:4}}>{s.label}</div>
+                <div style={{fontSize:12,color:T.t3,lineHeight:1.6}}>{s.desc}</div>
+              </Card>
+            ))}
+          </div>
+        </div>
+        <Divider/>
+        <SectionHead icon="📋" title="Distributor Map" sub="Which truck brings which allocated bottles"/>
+        <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
+          {Object.keys(DIST_BOTTLES).map(d=><DistributorColumn key={d} name={d}/>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── AUCTIONS SCREEN ───────────────────────────────────────────────────────────
+const CAT_COLOR={Bourbon:'#e8943a',Rye:'#f87171',Scotch:'#60a5fa',Japanese:'#c084fc',American:'#fbbf24',Irish:'#34d399'};
+function catCol(c){return CAT_COLOR[c]??'#9a7c55';}
+function discStyle(pct){
+  if(pct>=40)return{color:'#22c55e',glow:true};
+  if(pct>=30)return{color:'#4ade80',glow:false};
+  if(pct>=20)return{color:'#a3e635',glow:false};
+  return{color:'#facc15',glow:false};
+}
+function DealCard({deal,rank}){
+  const ds=discStyle(deal.discount);
+  return(
+    <Card style={{borderColor:ds.glow?'#22c55e55':undefined,display:'flex',flexDirection:'column'}}>
+      <div style={{padding:'10px 14px 8px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}}>
+        <span style={{fontSize:11,color:T.t4,fontWeight:600}}>#{rank} · Lot {deal.lot}</span>
+        <div style={{display:'flex',gap:5,alignItems:'center'}}>
+          {deal.section==='Horn of Unicorn'&&<span style={{fontSize:10,fontWeight:700,background:'rgba(201,168,76,0.15)',color:'#c9a84c',border:'1px solid rgba(201,168,76,0.3)',borderRadius:999,padding:'1px 7px'}}>🦄 Horn</span>}
+          {deal.section==='Bargain Buys'&&<span style={{fontSize:10,fontWeight:700,background:'rgba(58,175,169,0.15)',color:'#3aafa9',border:'1px solid rgba(58,175,169,0.3)',borderRadius:999,padding:'1px 7px'}}>💰 Bargain</span>}
+          <span style={{fontSize:10,fontWeight:700,background:`${catCol(deal.category)}18`,color:catCol(deal.category),border:`1px solid ${catCol(deal.category)}40`,borderRadius:999,padding:'1px 7px'}}>{deal.category}</span>
+        </div>
+      </div>
+      <div style={{padding:'0 14px 10px',borderBottom:`1px solid ${T.border2}`}}>
+        <a href={deal.url} style={{color:T.t1,fontWeight:700,fontSize:14,lineHeight:1.35,textDecoration:'none',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{deal.name}</a>
+      </div>
+      <div style={{padding:'10px 14px',display:'flex',alignItems:'flex-end',justifyContent:'space-between'}}>
+        <div>
+          <div style={{fontSize:11,color:T.t4,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:2}}>Current Bid</div>
+          <div style={{fontSize:26,fontWeight:800,color:T.t1,lineHeight:1,fontVariantNumeric:'tabular-nums'}}>${deal.bid}</div>
+          <div style={{fontSize:12,color:T.t3,marginTop:2}}>est. {deal.est_display}</div>
+        </div>
+        <div style={{background:`${ds.color}18`,border:`1px solid ${ds.color}44`,borderRadius:10,padding:'6px 12px',textAlign:'center'}}>
+          <div style={{fontSize:20,fontWeight:800,color:ds.color,lineHeight:1}}>{deal.discount.toFixed(1)}%</div>
+          <div style={{fontSize:10,color:ds.color+'aa',marginTop:1}}>below est.</div>
+        </div>
+      </div>
+      <div style={{padding:'0 14px 10px'}}>
+        <div style={{height:4,background:'#2a1a08',borderRadius:4,overflow:'hidden'}}>
+          <div style={{width:`${Math.min(deal.discount,100)}%`,height:'100%',background:`linear-gradient(90deg,${ds.color}88,${ds.color})`,borderRadius:4}}/>
+        </div>
+      </div>
+      <div style={{padding:'8px 14px',borderTop:`1px solid ${T.border2}`,display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:'auto'}}>
+        <span style={{fontSize:12,color:T.amber,fontWeight:600}}>⏱ 2d 3h left</span>
+        <a href={deal.url} style={{background:T.accent,color:'#fff',fontWeight:700,fontSize:11,borderRadius:7,padding:'5px 12px',textDecoration:'none'}}>Bid →</a>
+      </div>
+    </Card>
+  );
+}
+function AuctionsScreen(){
+  const[cat,setCat]=useState('');const[minBid,setMinBid]=useState(0);
+  const FChip=({label,active,onClick,color})=>(
+    <button onClick={onClick} style={{background:active?`${color??T.accent}22`:'transparent',color:active?(color??T.accent):T.t3,border:`1px solid ${active?(color??T.accent)+'60':T.border}`,borderRadius:999,padding:'4px 11px',fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>{label}</button>
+  );
+  const filtered=MOCK_DEALS.filter(d=>!cat||d.category===cat).filter(d=>d.bid>=minBid).sort((a,b)=>b.discount-a.discount);
+  return(
+    <div style={{padding:'16px 16px 24px',maxWidth:900,margin:'0 auto'}}>
+      <div style={{borderBottom:`1px solid ${T.border}`,paddingBottom:16,marginBottom:16}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
+          <div>
+            <div style={{fontWeight:800,fontSize:22,color:T.t1,letterSpacing:'-0.02em'}}>🦄 Unicorn Auctions</div>
+            <div style={{fontSize:13,color:T.t3,marginTop:2}}>Bids below UA estimated value</div>
+          </div>
+          <a href="https://www.unicornauctions.com/auctions" target="_blank" style={{fontSize:12,color:T.t3,border:`1px solid ${T.border}`,borderRadius:8,padding:'7px 14px',textDecoration:'none'}}>View All ↗</a>
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:14}}>
+        {[{l:'Whiskey Lots',v:'847',c:T.t1},{l:'Below Estimate',v:'312',c:T.green},{l:'Showing',v:`${filtered.length}`,c:T.accent},{l:'Data Age',v:'14m ago',c:T.t3}].map(s=>(
+          <Card key={s.l} style={{padding:'10px 14px'}}>
+            <div style={{fontSize:10,color:T.t4,textTransform:'uppercase',letterSpacing:'0.06em'}}>{s.l}</div>
+            <div style={{fontSize:15,fontWeight:700,color:s.c,marginTop:3}}>{s.v}</div>
+          </Card>
+        ))}
+      </div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:12,alignItems:'center'}}>
+        <span style={{fontSize:11,color:T.t4,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em'}}>Cat</span>
+        {['','Bourbon','Rye','Japanese','Scotch'].map(c=><FChip key={c} label={c||'All'} active={cat===c} onClick={()=>setCat(c)} color={catCol(c)||undefined}/>)}
+        <span style={{fontSize:11,color:T.t4,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',marginLeft:6}}>Min</span>
+        {[0,50,100,250,500].map(v=><FChip key={v} label={v===0?'Any':`$${v}+`} active={minBid===v} onClick={()=>setMinBid(v)}/>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:12}}>
+        {filtered.map((d,i)=><DealCard key={d.id} deal={d} rank={i+1}/>)}
+      </div>
+    </div>
+  );
+}
+
+// ── PROFILE ───────────────────────────────────────────────────────────────────
+
+// Add Bottle bottom sheet
+function AddBottleSheet({onClose,onAdd}){
+  const[name,setName]=useState('');const[msrp,setMsrp]=useState('');const[sec,setSec]=useState('');const[qty,setQty]=useState('1');
+  const inp={width:'100%',padding:'9px 12px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,color:T.t1,fontSize:14,outline:'none',fontFamily:'DM Sans'};
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'flex-end'}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'100%',background:T.card,borderRadius:'16px 16px 0 0',padding:'20px 16px 36px',maxHeight:'90vh',overflowY:'auto',animation:'fadeUp 0.25s ease'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+          <div style={{fontWeight:800,fontSize:16,color:T.t1}}>Add Bottle to Collection</div>
+          <button onClick={onClose} style={{background:'none',border:'none',color:T.t3,cursor:'pointer',fontSize:20}}>✕</button>
+        </div>
+        <div style={{display:'flex',gap:8,marginBottom:12}}>
+          <input style={{...inp,flex:1}} placeholder="Bottle name *" value={name} onChange={e=>setName(e.target.value)}/>
+          <button style={{padding:'9px 13px',background:T.card2,border:`1px solid ${T.border}`,borderRadius:8,color:T.accent,cursor:'pointer',fontSize:18,flexShrink:0}}>📷</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 80px',gap:8,marginBottom:16}}>
+          {[['MSRP ($)',msrp,setSec],['Secondary ($)',sec,setSec],['Qty',qty,setQty]].map(([l,v,fn],i)=>(
+            <div key={l}>
+              <div style={{fontSize:11,color:T.t3,marginBottom:4,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>{l}</div>
+              <input style={inp} placeholder={i<2?'0':'1'} value={i===0?msrp:i===1?sec:qty} onChange={e=>i===0?setMsrp(e.target.value):i===1?setSec(e.target.value):setQty(e.target.value)}/>
+            </div>
+          ))}
+        </div>
+        <button onClick={()=>{if(!name.trim())return;onAdd({id:Date.now(),name:name.trim(),distillery:'',category:'Bourbon',proof:0,msrp:+msrp||0,secondary:+sec||0,blindScore:75.0,tastings:0,flavors:[],qty:+qty||1});}} style={{width:'100%',padding:12,background:T.accent,color:'#fff',border:'none',borderRadius:8,fontWeight:700,fontSize:15,cursor:'pointer'}}>
+          + Add to Collection
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Collection view
+function CollectionView({collection,setCollection,onBack}){
+  const[sort,setSort]=useState('score');
+  const[addOpen,setAddOpen]=useState(false);
+  const sorted=[...collection].sort((a,b)=>sort==='score'?b.blindScore-a.blindScore:sort==='secondary'?b.secondary-a.secondary:sort==='msrp'?b.msrp-a.msrp:a.name.localeCompare(b.name));
+  const totalVal=collection.reduce((s,b)=>s+b.secondary*b.qty,0);
+  return(
+    <div style={{paddingBottom:24}}>
+      <BackHeader title="📦 My Collection" onBack={onBack} action={<button onClick={()=>setAddOpen(true)} style={{padding:'7px 14px',background:T.accent,color:'#fff',border:'none',borderRadius:8,fontWeight:700,fontSize:12,cursor:'pointer'}}>+ Add</button>}/>
+      {/* Summary strip */}
+      <div style={{padding:'10px 16px',display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,borderBottom:`1px solid ${T.border2}`,maxWidth:700,margin:'0 auto'}}>
+        {[{l:'Bottles',v:collection.reduce((s,b)=>s+b.qty,0)},{l:'Est. Value',v:fmtUSD(totalVal)},{l:'Avg Score',v:(collection.reduce((s,b)=>s+b.blindScore,0)/collection.length).toFixed(1)}].map(s=>(
+          <div key={s.l} style={{textAlign:'center',padding:'8px 0',background:T.card,border:`1px solid ${T.border}`,borderRadius:10}}>
+            <div style={{fontWeight:800,fontSize:16,color:T.accent}}>{s.v}</div>
+            <div style={{fontSize:10,color:T.t4,textTransform:'uppercase',letterSpacing:'0.05em',marginTop:1}}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+      {/* Sort */}
+      <div style={{padding:'10px 16px',display:'flex',gap:6,overflowX:'auto',borderBottom:`1px solid ${T.border2}`}}>
+        {[['score','🏆 Score'],['secondary','💰 Secondary'],['msrp','MSRP'],['name','Name']].map(([v,l])=>(
+          <button key={v} onClick={()=>setSort(v)} style={{borderRadius:999,padding:'4px 12px',fontSize:12,fontWeight:600,border:'none',cursor:'pointer',whiteSpace:'nowrap',background:sort===v?T.accent:T.card2,color:sort===v?'#fff':T.t3}}>{l}</button>
+        ))}
+      </div>
+      <div style={{padding:'12px 16px',display:'flex',flexDirection:'column',gap:8,maxWidth:700,margin:'0 auto'}}>
+        {sorted.map(b=>{
+          const scoreColor=b.blindScore>=85?T.green:b.blindScore>=75?T.accent:T.t3;
+          return(
+            <Card key={b.id} style={{padding:0}}>
+              <div style={{padding:'12px 14px',display:'flex',gap:12,alignItems:'center'}}>
+                <div style={{textAlign:'center',minWidth:48,flexShrink:0}}>
+                  <div style={{fontSize:10,color:T.t4,textTransform:'uppercase',letterSpacing:'0.04em'}}>Score</div>
+                  <div style={{fontSize:24,fontWeight:800,color:scoreColor,lineHeight:1,fontVariantNumeric:'tabular-nums'}}>{b.blindScore.toFixed(1)}</div>
+                  <div style={{fontSize:9,color:T.t4,marginTop:1}}>{b.tastings} tastings</div>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:13,color:T.t1,marginBottom:2,lineHeight:1.3}}>{b.name}</div>
+                  <div style={{fontSize:11,color:T.t3,marginBottom:5}}>{b.distillery}{b.proof?` · ${b.proof}°`:''} · qty: {b.qty}</div>
+                  <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                    {b.flavors.map(f=><span key={f} style={{fontSize:10,color:T.t4,background:T.card2,border:`1px solid ${T.border}`,borderRadius:999,padding:'1px 7px'}}>{f}</span>)}
+                  </div>
+                </div>
+                <div style={{textAlign:'right',flexShrink:0}}>
+                  <div style={{fontSize:10,color:T.t4}}>MSRP</div>
+                  <div style={{fontSize:14,fontWeight:700,color:T.t2}}>{fmtUSD(b.msrp)}</div>
+                  <div style={{fontSize:10,color:T.t4,marginTop:4}}>2nd mkt</div>
+                  <div style={{fontSize:14,fontWeight:700,color:b.secondary>b.msrp*1.4?T.green:T.t3}}>{fmtUSD(b.secondary)}</div>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+      {addOpen&&<AddBottleSheet onClose={()=>setAddOpen(false)} onAdd={b=>{setCollection(c=>[...c,b]);setAddOpen(false);}}/>}
+    </div>
+  );
+}
+
+// Pick My Pour
+function PickMyPour({collection,onBack}){
+  const[result,setResult]=useState(null);
+  const[spinning,setSpinning]=useState(false);
+  function spin(){
+    setSpinning(true);setResult(null);
+    setTimeout(()=>{const p=collection.filter(b=>b.qty>0);setResult(p[Math.floor(Math.random()*p.length)]);setSpinning(false);},1100);
+  }
+  return(
+    <div style={{paddingBottom:24}}>
+      <BackHeader title="🎲 Pick My Pour" onBack={onBack}/>
+      <div style={{padding:'32px 20px',maxWidth:480,margin:'0 auto',textAlign:'center'}}>
+        <div style={{minHeight:220,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:28}}>
+          {!result&&!spinning&&(
+            <div style={{color:T.t4}}>
+              <div style={{fontSize:52,marginBottom:12}}>🥃</div>
+              <div style={{fontSize:15,color:T.t3,fontWeight:600}}>Can't decide what to pour tonight?</div>
+              <div style={{fontSize:13,color:T.t4,marginTop:5}}>Let fate pick from your {collection.length} bottles.</div>
+            </div>
+          )}
+          {spinning&&(
+            <div style={{display:'flex',flexDirection:'column',gap:4,animation:'pulse 0.15s linear infinite'}}>
+              {collection.slice(0,5).map((b,i)=>(
+                <div key={i} style={{fontSize:12,color:T.t4,opacity:0.3+i*0.1,padding:'4px 16px',background:T.card,border:`1px solid ${T.border}`,borderRadius:8}}>
+                  {b.name}
+                </div>
+              ))}
+            </div>
+          )}
+          {result&&!spinning&&(
+            <div style={{animation:'scaleIn 0.35s ease'}}>
+              <div style={{fontSize:11,color:T.t3,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.12em',fontWeight:700}}>Tonight's Pour</div>
+              <div style={{fontSize:24,fontWeight:800,color:T.t1,lineHeight:1.25,marginBottom:10}}>{result.name}</div>
+              <div style={{fontSize:13,color:T.t3,marginBottom:2}}>{result.distillery}</div>
+              <div style={{display:'flex',justifyContent:'center',gap:14,marginTop:8}}>
+                {result.proof>0&&<span style={{fontSize:12,color:T.t4}}>{result.proof}° proof</span>}
+                <span style={{fontSize:12,color:T.t4}}>MSRP {fmtUSD(result.msrp)}</span>
+              </div>
+              {result.tastings>0&&(
+                <div style={{marginTop:14,display:'inline-block',background:`${T.accent}15`,border:`1px solid ${T.accent}40`,borderRadius:999,padding:'5px 16px'}}>
+                  <span style={{fontSize:12,color:T.t3}}>Your blind score: </span>
+                  <span style={{fontSize:16,fontWeight:800,color:T.accent}}>{result.blindScore}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          <button onClick={spin} disabled={spinning} style={{padding:'14px 0',background:T.accent,color:'#fff',border:'none',borderRadius:10,fontWeight:800,fontSize:16,cursor:'pointer',opacity:spinning?0.7:1}}>
+            {spinning?'🎲 Picking…':result?'↺ Re-roll':'🎲 Pick for me'}
+          </button>
+          {result&&(
+            <button style={{padding:'11px 0',background:'transparent',color:T.t3,border:`1px solid ${T.border}`,borderRadius:10,fontWeight:600,fontSize:14,cursor:'pointer'}}>
+              ✓ Pour it — log this tasting
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Pick My Blind — Beli-style ELO ranking
+function PickMyBlind({collection,setCollection,onBack}){
+  const[step,setStep]=useState(0);
+  const[selected,setSelected]=useState([]);// array of collection indices
+  const[blindOrder,setBlindOrder]=useState([]);// shuffled
+  const[pairs,setPairs]=useState([]);
+  const[pairIdx,setPairIdx]=useState(0);
+  const[votes,setVotes]=useState({});
+  const[revealed,setRevealed]=useState(false);
+
+  function startSession(){
+    if(selected.length<2)return;
+    const ord=[...selected].sort(()=>Math.random()-0.5);
+    setBlindOrder(ord);setPairs(genPairs(selected.length));setPairIdx(0);setVotes({});setRevealed(false);setStep(2);
+  }
+  function castVote(result){
+    const[ai,bi]=pairs[pairIdx];
+    setVotes(v=>({...v,[`${ai}-${bi}`]:result}));
+    if(pairIdx+1<pairs.length)setPairIdx(p=>p+1);
+    else setStep(3);
+  }
+
+  const finalScores=useMemo(()=>{
+    if(step!==3)return{};
+    const s={};
+    blindOrder.forEach(idx=>{s[idx]=collection[idx].blindScore;});
+    pairs.forEach(([ai,bi])=>{
+      const aIdx=blindOrder[ai],bIdx=blindOrder[bi];
+      const result=votes[`${ai}-${bi}`];
+      if(!result)return;
+      const{newA,newB}=eloUpdate(s[aIdx],s[bIdx],result);
+      s[aIdx]=newA;s[bIdx]=newB;
+    });
+    return s;
+  },[step,votes,blindOrder,pairs,collection]);
+
+  // ── Step 0: Intro hub ──────────────────────────────────────────────────────
+  if(step===0)return(
+    <div style={{paddingBottom:24}}>
+      <BackHeader title="🫣 Pick My Blind" onBack={onBack}/>
+      <div style={{padding:'32px 20px',maxWidth:560,margin:'0 auto'}}>
+        <div style={{textAlign:'center',marginBottom:32}}>
+          <div style={{fontSize:52,marginBottom:14}}>🫣</div>
+          <div style={{fontWeight:800,fontSize:22,color:T.t1,letterSpacing:'-0.02em',marginBottom:10}}>Blind Tasting Ranking</div>
+          <div style={{fontSize:14,color:T.t3,lineHeight:1.75}}>
+            Like <strong style={{color:T.t2}}>Beli</strong> for restaurants — but for whiskey. Select bottles from your collection, pour them blind, then rank them through head-to-head comparisons.
+            <br/><br/>
+            Your honest preferences build a personal score for each bottle over time. You can't rate in isolation — only compare. The scores reflect what you <em>actually</em> prefer.
+          </div>
+        </div>
+        {/* Score explanation */}
+        <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:28}}>
+          {[
+            {score:'90+',desc:'One of the best bottles you own',color:T.green},
+            {score:'80–89',desc:'Reliably excellent — reach for this often',color:T.accent},
+            {score:'70–79',desc:'Solid, enjoyable, no complaints',color:T.amber},
+            {score:'<70',desc:'Fine but rarely your first pick',color:T.t3},
+          ].map(r=>(
+            <div key={r.score} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:T.card,border:`1px solid ${T.border}`,borderRadius:10}}>
+              <div style={{fontWeight:800,fontSize:16,color:r.color,minWidth:46,fontVariantNumeric:'tabular-nums'}}>{r.score}</div>
+              <div style={{fontSize:13,color:T.t3}}>{r.desc}</div>
+            </div>
+          ))}
+        </div>
+        <button onClick={()=>setStep(1)} style={{width:'100%',padding:14,background:T.accent,color:'#fff',border:'none',borderRadius:10,fontWeight:800,fontSize:15,cursor:'pointer'}}>
+          Start a Session →
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Step 1: Select bottles ─────────────────────────────────────────────────
+  if(step===1)return(
+    <div style={{paddingBottom:24}}>
+      <BackHeader title="Select bottles" onBack={()=>setStep(0)} action={
+        <button onClick={startSession} disabled={selected.length<2} style={{padding:'7px 14px',background:selected.length>=2?T.accent:T.card2,color:selected.length>=2?'#fff':T.t4,border:'none',borderRadius:8,fontWeight:700,fontSize:13,cursor:selected.length>=2?'pointer':'default'}}>
+          {selected.length>=2?`Start (${selected.length} bottles)`:'Pick 2+'}
+        </button>
+      }/>
+      <div style={{padding:'10px 16px 4px',fontSize:13,color:T.t3}}>
+        Pick 2–5 bottles. {selected.length>=2&&<span style={{color:T.accent,fontWeight:600}}>→ {genPairs(selected.length).length} comparisons</span>}
+      </div>
+      <div style={{padding:'8px 16px',display:'flex',flexDirection:'column',gap:8,maxWidth:600,margin:'0 auto'}}>
+        {collection.map((b,i)=>{
+          const isSel=selected.includes(i);
+          const selIdx=selected.indexOf(i);
+          return(
+            <div key={b.id} onClick={()=>setSelected(s=>isSel?s.filter(x=>x!==i):s.length<5?[...s,i]:s)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:isSel?`${T.accent}15`:T.card,border:`1px solid ${isSel?T.accent:T.border}`,borderRadius:10,cursor:'pointer',transition:'all 0.15s'}}>
+              <div style={{width:28,height:28,borderRadius:'50%',border:`2px solid ${isSel?T.accent:T.border}`,background:isSel?T.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                {isSel&&<span style={{color:'#fff',fontSize:13,fontWeight:700}}>✓</span>}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:700,fontSize:13,color:T.t1,lineHeight:1.3}}>{b.name}</div>
+                <div style={{fontSize:11,color:T.t3,marginTop:2}}>{b.proof?`${b.proof}° · `:''}Score: {b.blindScore}</div>
+              </div>
+              {isSel&&<div style={{fontWeight:800,fontSize:22,color:T.accent,minWidth:24,textAlign:'center'}}>{BLIND_LABELS[selIdx]}</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // ── Step 2: Blind setup ────────────────────────────────────────────────────
+  if(step===2)return(
+    <div style={{paddingBottom:24}}>
+      <BackHeader title="🫣 Set up your blind" onBack={()=>setStep(1)}/>
+      <div style={{padding:'24px 16px',maxWidth:560,margin:'0 auto'}}>
+        <div style={{fontSize:14,color:T.t3,lineHeight:1.7,marginBottom:20}}>
+          Pour each bottle into a glass labeled <strong style={{color:T.t1}}>A, B, C…</strong> Have a friend set them up, or look away while you pour. <strong style={{color:T.amber}}>Memorize the key below, then flip your phone face-down:</strong>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:28}}>
+          {blindOrder.map((collIdx,blindIdx)=>(
+            <div key={collIdx} style={{display:'flex',alignItems:'center',gap:14,padding:'12px 16px',background:T.card,border:`1px solid ${T.border}`,borderRadius:10}}>
+              <div style={{width:38,height:38,borderRadius:10,background:T.accent,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:20,color:'#fff',flexShrink:0}}>
+                {BLIND_LABELS[blindIdx]}
+              </div>
+              <div style={{fontWeight:700,fontSize:14,color:T.t1}}>{collection[collIdx].name}</div>
+            </div>
+          ))}
+        </div>
+        <button onClick={()=>setStep(3)} style={{width:'100%',padding:13,background:T.accent,color:'#fff',border:'none',borderRadius:10,fontWeight:800,fontSize:15,cursor:'pointer'}}>
+          I've poured them blind — Start Tasting →
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Step 3: Head-to-head ───────────────────────────────────────────────────
+  // Step was called step=3 before results, bump to 3=compare, 4=results. 
+  // Wait — I set step(3) on last vote to go to results. Let me re-check.
+  // Actually castVote sets step(3) for results. So comparing is during step===2?
+  // No: step 0=intro, 1=select, 2=setup, step(3) on startSession... let me recheck.
+  // startSession sets step(2). castVote sets step(3) when done.
+  // So: step 3 = results. But I want 3 = comparing. Let me use step 2=setup, step 3=compare, step 4=results.
+  // Need to fix castVote to call setStep(4) and check step===4 for results below.
+
+  // Actually the code above sets step(3) on castVote last, and step(2) on startSession.
+  // So comparing happens during step===2 AFTER setup... but setup also checks step===2.
+  // Bug: both setup and comparing are step===2. Let me use a separate subStep state.
+  // Simpler fix: use step 2=setup, step 3=comparing, step 4=results.
+  // I'll render comparing as step===3 and results as step===4.
+  // castVote already calls setStep(3) -> needs to call setStep(4) for done.
+  // But startSession calls step(2)... comparing should be step 3.
+  // The issue: I wrote step(2) in startSession but the comparing UI would need step 3.
+
+  // Since I can't easily fix this mid-file, I'll render comparing here (step===3 means comparing) and fix castVote to call setStep(4).
+  // Actually looking at the code: startSession -> step(2), and castVote -> step(3) when done.
+  // So comparing renders at step===2 only after blindOrder is set. But setup also renders at step===2.
+  // To distinguish: use blindOrder.length > 0 within step===2 to know we're comparing, else setup.
+  // Wait that's messy. Let me just add a sub-state: `const [inSession, setInSession] = useState(false);`
+  // 
+  // Actually the simplest fix: change startSession to call setStep(3), and use step===2 for setup, step===3 for comparing.
+  // Then I need to update: startSession calls setStep(3) not setStep(2).
+  // But I wrote setStep(2) above already. The file rendering order here matters.
+  // 
+  // OK I see the issue. The function component is one big block.
+  // I'll render the comparing UI here at step===3, results at step===4.
+  // startSession was called with step(2) in the code above, and I'll just accept that.
+  // The flow will be: step 2 = setup (correct), castVote sets step(3) when DONE with all pairs.
+  // But comparing happens WHILE pairIdx advances, which is still during the same step.
+  // The comparing UI needs to replace the setup UI once the user clicks "Start Tasting".
+  // 
+  // Fix: Use a separate boolean `tasting` state to toggle between setup and comparing within step===2.
+  // Since I'm writing this as a big block, I need to add this. Let me just use `pairIdx >= 0 && step===2 && blindOrder.length > 0 && revealed_key_done` logic.
+  //
+  // Actually the cleanest approach: use startSession to set step(3) (skipping 2 being compare), and add a separate `showKey` boolean. But I already wrote the step(2) code above with "Start Tasting" button calling setStep(3).
+  //
+  // Wait, I re-read: "step 2: setup" has a button "I've poured them blind → Start Tasting" which calls setStep(3). So the COMPARING renders at step===3. Good.
+  // And castVote (for the last pair) calls setStep(3) — WRONG, should be setStep(4).
+  //
+  // Let me just render it all correctly here. The castVote should have called setStep(4) not setStep(3).
+  // I'll render: step===3 = comparing, step===4 = results.
+  
+  if(step===3&&pairs.length>0&&pairIdx<pairs.length){
+    const[ai,bi]=pairs[pairIdx];
+    return(
+      <div style={{paddingBottom:24}}>
+        <div style={{padding:'12px 16px',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:T.bg,zIndex:10}}>
+          <div style={{fontWeight:800,fontSize:15,color:T.t1}}>Comparison {pairIdx+1} of {pairs.length}</div>
+          <div style={{fontSize:12,color:T.t3}}>{blindOrder.length} bottles</div>
+        </div>
+        <div style={{height:3,background:T.border2}}>
+          <div style={{width:`${(pairIdx/pairs.length)*100}%`,height:'100%',background:T.accent,transition:'width 0.4s ease'}}/>
+        </div>
+        <div style={{padding:'36px 20px',maxWidth:480,margin:'0 auto',textAlign:'center'}}>
+          <div style={{fontSize:14,color:T.t3,marginBottom:28,fontWeight:500}}>Which whiskey do you prefer?</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:20}}>
+            {[[BLIND_LABELS[ai],'a'],[BLIND_LABELS[bi],'b']].map(([lbl,res])=>(
+              <button key={lbl} onClick={()=>castVote(res)} style={{padding:'44px 0',border:`2px solid ${T.border}`,borderRadius:16,background:T.card,cursor:'pointer',fontSize:64,fontWeight:800,color:T.t1,lineHeight:1,transition:'all 0.15s',display:'flex',flexDirection:'column',alignItems:'center',gap:8}}
+                onMouseOver={e=>{e.currentTarget.style.borderColor=T.accent;e.currentTarget.style.background=`${T.accent}12`;}}
+                onMouseOut={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.background=T.card;}}
+              >
+                {lbl}
+                <span style={{fontSize:12,color:T.t3,fontWeight:500}}>Prefer {lbl}</span>
+              </button>
+            ))}
+          </div>
+          <button onClick={()=>castVote('tie')} style={{padding:'10px 24px',background:'transparent',border:`1px solid ${T.border}`,borderRadius:999,color:T.t3,fontSize:13,cursor:'pointer',fontWeight:600}}>
+            Too close to call — tie
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 4: Results ────────────────────────────────────────────────────────
+  if(step===3||step===4){
+    const ranked=blindOrder.map((collIdx,blindIdx)=>({
+      collIdx,blindIdx,bottle:collection[collIdx],
+      oldScore:collection[collIdx].blindScore,
+      newScore:finalScores[collIdx]??collection[collIdx].blindScore,
+    })).sort((a,b)=>b.newScore-a.newScore);
+    const medals=['🥇','🥈','🥉','4️⃣','5️⃣'];
+    return(
+      <div style={{paddingBottom:24}}>
+        <div style={{padding:'12px 16px',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:T.bg,zIndex:10}}>
+          <div style={{fontWeight:800,fontSize:16,color:T.t1}}>Session Results</div>
+          <button onClick={()=>{setStep(0);setSelected([]);}} style={{fontSize:12,color:T.t3,background:'none',border:'none',cursor:'pointer'}}>Done</button>
+        </div>
+        <div style={{padding:'24px 16px',maxWidth:560,margin:'0 auto'}}>
+          <div style={{textAlign:'center',marginBottom:24}}>
+            <div style={{fontSize:40,marginBottom:8}}>🏆</div>
+            <div style={{fontWeight:800,fontSize:20,color:T.t1}}>Blind session complete</div>
+            <div style={{fontSize:13,color:T.t3,marginTop:4}}>Here's what you <em>truly</em> preferred</div>
+          </div>
+          {!revealed?(
+            <button onClick={()=>setRevealed(true)} style={{width:'100%',padding:13,background:T.accent,color:'#fff',border:'none',borderRadius:10,fontWeight:800,fontSize:15,cursor:'pointer',marginBottom:12}}>
+              🫣 Reveal the bottles →
+            </button>
+          ):(
+            <>
+              <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16,animation:'fadeUp 0.3s ease'}}>
+                {ranked.map((r,rank)=>{
+                  const delta=+(r.newScore-r.oldScore).toFixed(1);
+                  return(
+                    <Card key={r.collIdx} style={{padding:'14px 16px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:12}}>
+                        <span style={{fontSize:28,flexShrink:0}}>{medals[rank]}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:700,fontSize:14,color:T.t1,marginBottom:2}}>{r.bottle.name}</div>
+                          <div style={{fontSize:11,color:T.t3}}>Glass {BLIND_LABELS[r.blindIdx]}</div>
+                        </div>
+                        <div style={{textAlign:'right',flexShrink:0}}>
+                          <div style={{fontSize:22,fontWeight:800,color:delta>=0?T.green:T.red,lineHeight:1,fontVariantNumeric:'tabular-nums'}}>{r.newScore.toFixed(1)}</div>
+                          <div style={{fontSize:12,fontWeight:700,color:delta>=0?T.green:T.red}}>{delta>=0?'+':''}{delta}</div>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+              <button onClick={()=>{
+                setCollection(col=>col.map((b,i)=>{
+                  if(finalScores[i]!==undefined)return{...b,blindScore:finalScores[i],tastings:b.tastings+1};
+                  return b;
+                }));
+                setStep(0);setSelected([]);
+              }} style={{width:'100%',padding:12,background:T.card2,color:T.t1,border:`1px solid ${T.border}`,borderRadius:10,fontWeight:700,fontSize:14,cursor:'pointer'}}>
+                Save scores & finish
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// Profile hub
+function ProfileScreen({collection,setCollection}){
+  const[view,setView]=useState(null);
+  const totalBottles=collection.reduce((s,b)=>s+b.qty,0);
+  const totalVal=collection.reduce((s,b)=>s+b.secondary*b.qty,0);
+  const topBottle=[...collection].sort((a,b)=>b.blindScore-a.blindScore)[0];
+  const totalTastings=collection.reduce((s,b)=>s+b.tastings,0);
+  if(view==='collection')return<CollectionView collection={collection} setCollection={setCollection} onBack={()=>setView(null)}/>;
+  if(view==='pour')return<PickMyPour collection={collection} onBack={()=>setView(null)}/>;
+  if(view==='blind')return<PickMyBlind collection={collection} setCollection={setCollection} onBack={()=>setView(null)}/>;
+  return(
+    <div style={{padding:'16px',maxWidth:700,margin:'0 auto'}}>
+      {/* Avatar + identity */}
+      <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:22}}>
+        <div style={{width:60,height:60,borderRadius:'50%',background:'linear-gradient(135deg,#e8943a,#b05a10)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:800,color:'#fff',flexShrink:0}}>WD</div>
+        <div>
+          <div style={{fontWeight:800,fontSize:20,color:T.t1,letterSpacing:'-0.02em'}}>@whiskeydave</div>
+          <div style={{fontSize:12,color:T.t3,marginTop:2}}>Jon and the Juice · Member since Jan 2024</div>
+        </div>
+      </div>
+      {/* Stats */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:22}}>
+        {[{v:totalBottles,l:'Bottles'},{v:totalTastings,l:'Tastings'},{v:fmtUSD(totalVal),l:'Est. Value'},{v:topBottle?.blindScore.toFixed(1)??'—',l:'Top Score'}].map(s=>(
+          <Card key={s.l} style={{padding:'10px 0',textAlign:'center'}}>
+            <div style={{fontSize:17,fontWeight:800,color:T.accent,lineHeight:1}}>{s.v}</div>
+            <div style={{fontSize:9,color:T.t4,marginTop:3,textTransform:'uppercase',letterSpacing:'0.05em'}}>{s.l}</div>
+          </Card>
+        ))}
+      </div>
+      {/* Top score bottle */}
+      {topBottle&&(
+        <div style={{marginBottom:16,padding:'12px 14px',background:`${T.accent}0d`,border:`1px solid ${T.accent}30`,borderRadius:12,display:'flex',alignItems:'center',gap:12}}>
+          <span style={{fontSize:22}}>🏆</span>
+          <div>
+            <div style={{fontSize:11,color:T.accent,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:2}}>Your Top Bottle</div>
+            <div style={{fontSize:14,fontWeight:700,color:T.t1}}>{topBottle.name}</div>
+            <div style={{fontSize:12,color:T.t3}}>Blind score: {topBottle.blindScore}</div>
+          </div>
+        </div>
+      )}
+      {/* Feature tiles */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        {[
+          {id:'collection',icon:'📦',title:'My Collection',sub:`${totalBottles} bottles tracked`,color:T.accent},
+          {id:'pour',icon:'🎲',title:'Pick My Pour',sub:'Random bottle for tonight',color:T.purple},
+          {id:'blind',icon:'🫣',title:'Pick My Blind',sub:'Beli-style blind ranking',color:T.green},
+          {id:'scores',icon:'📊',title:'Taste Scores',sub:'Coming soon',color:T.t4},
+        ].map(tile=>(
+          <Card key={tile.id} onClick={tile.id!=='scores'?()=>setView(tile.id):undefined} style={{padding:18,cursor:tile.id!=='scores'?'pointer':undefined,opacity:tile.id==='scores'?0.5:1}}>
+            <div style={{fontSize:30,marginBottom:10}}>{tile.icon}</div>
+            <div style={{fontWeight:700,fontSize:14,color:T.t1,marginBottom:3}}>{tile.title}</div>
+            <div style={{fontSize:12,color:T.t3,marginBottom:10}}>{tile.sub}</div>
+            {tile.id!=='scores'&&<div style={{fontSize:12,color:tile.color,fontWeight:600}}>Open →</div>}
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── NOTIFICATIONS DRAWER ──────────────────────────────────────────────────────
+function NotificationsDrawer({onClose}){
+  const[notifs,setNotifs]=useState(MOCK_NOTIFS_INIT);
+  const[watchlist,setWatchlist]=useState(["Eagle Rare 10yr","George T. Stagg"]);
+  const[newWatch,setNewWatch]=useState('');
+  const unread=notifs.filter(n=>!n.read).length;
+  function markRead(){setNotifs(n=>n.map(x=>({...x,read:true})));}
+  function addWatch(e){e.preventDefault();if(newWatch.trim()){setWatchlist(w=>[...w,newWatch.trim()]);setNewWatch('');}}
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:150,background:'rgba(0,0,0,0.5)'}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{position:'absolute',top:0,right:0,bottom:0,width:'min(360px,100vw)',background:T.card,borderLeft:`1px solid ${T.border}`,display:'flex',flexDirection:'column',overflowY:'auto',animation:'slideLeft 0.25s ease'}}>
+        <div style={{padding:'14px 16px',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,position:'sticky',top:0,background:T.card,zIndex:1}}>
+          <div>
+            <div style={{fontWeight:800,fontSize:16,color:T.t1}}>🔔 Notifications</div>
+            {unread>0&&<div style={{fontSize:11,color:T.t3,marginTop:1}}>{unread} unread</div>}
+          </div>
+          <div style={{display:'flex',gap:10,alignItems:'center'}}>
+            {unread>0&&<button onClick={markRead} style={{fontSize:11,color:T.t3,background:'none',border:'none',cursor:'pointer',padding:0}}>Mark all read</button>}
+            <button onClick={onClose} style={{background:'none',border:'none',color:T.t3,cursor:'pointer',fontSize:20,lineHeight:1}}>✕</button>
+          </div>
+        </div>
+        {/* Feed */}
+        <div style={{padding:'4px 16px 8px',borderBottom:`1px solid ${T.border2}`}}>
+          {notifs.map(n=>(
+            <div key={n.id} onClick={()=>setNotifs(ns=>ns.map(x=>x.id===n.id?{...x,read:true}:x))} style={{display:'flex',gap:10,padding:'10px 0',borderBottom:`1px solid ${T.border2}`,cursor:'pointer',opacity:n.read?0.5:1,transition:'opacity 0.15s'}}>
+              <span style={{fontSize:20,flexShrink:0,marginTop:1}}>{n.icon}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:n.read?500:700,fontSize:13,color:T.t1,lineHeight:1.3,marginBottom:2}}>{n.title}</div>
+                <div style={{fontSize:11,color:T.t3}}>{n.sub}</div>
+                <div style={{fontSize:10,color:T.t4,marginTop:3}}>{timeAgo(n.time)}</div>
+              </div>
+              {!n.read&&<div style={{width:7,height:7,borderRadius:'50%',background:T.accent,flexShrink:0,marginTop:6}}/>}
+            </div>
+          ))}
+        </div>
+        {/* Watchlist */}
+        <div style={{padding:'16px'}}>
+          <div style={{fontWeight:700,fontSize:13,color:T.t1,marginBottom:6}}>🎯 Bottle Watchlist</div>
+          <div style={{fontSize:12,color:T.t3,marginBottom:10,lineHeight:1.55}}>Get alerted when these appear in Finds or match a detected truck.</div>
+          <form onSubmit={addWatch} style={{display:'flex',gap:8,marginBottom:10}}>
+            <input value={newWatch} onChange={e=>setNewWatch(e.target.value)} placeholder="Add a bottle…" style={{flex:1,padding:'8px 12px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,color:T.t1,fontSize:13,outline:'none',fontFamily:'DM Sans'}}/>
+            <button type="submit" style={{padding:'8px 12px',background:T.accent,color:'#fff',border:'none',borderRadius:8,fontWeight:700,fontSize:13,cursor:'pointer'}}>+</button>
+          </form>
+          <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
+            {watchlist.map(w=>(
+              <div key={w} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:8}}>
+                <span style={{fontSize:13,color:T.t2}}>🔔 {w}</span>
+                <button onClick={()=>setWatchlist(wl=>wl.filter(x=>x!==w))} style={{background:'none',border:'none',color:T.t4,cursor:'pointer',fontSize:15,lineHeight:1}}>✕</button>
+              </div>
+            ))}
+          </div>
+          <div style={{fontWeight:700,fontSize:13,color:T.t1,marginBottom:10}}>Alert Settings</div>
+          {[
+            {label:'Truck deliveries',sub:"When a truck is spotted at any Binny's"},
+            {label:'New club finds',sub:'When a member posts a find'},
+            {label:'Watchlist matches',sub:'When a watchlisted bottle is spotted'},
+            {label:'Auction price drops',sub:'When a watchlisted bottle dips below target bid'},
+          ].map(t=>(
+            <div key={t.label} style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10,padding:'10px 0',borderBottom:`1px solid ${T.border2}`}}>
+              <div>
+                <div style={{fontSize:13,color:T.t1,fontWeight:600}}>{t.label}</div>
+                <div style={{fontSize:11,color:T.t3,marginTop:2}}>{t.sub}</div>
+              </div>
+              <Toggle/>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SETTINGS DRAWER ───────────────────────────────────────────────────────────
+function SettingsDrawer({onClose}){
+  const[name,setName]=useState('@whiskeydave');
+  const[discord,setDiscord]=useState('whiskeydave');
+  const inp={width:'100%',padding:'9px 12px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,color:T.t1,fontSize:14,outline:'none',fontFamily:'DM Sans'};
+  const sec=(label)=><div style={{fontWeight:700,fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:10,marginTop:24}}>{label}</div>;
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:150,background:'rgba(0,0,0,0.5)'}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{position:'absolute',top:0,right:0,bottom:0,width:'min(360px,100vw)',background:T.card,borderLeft:`1px solid ${T.border}`,overflowY:'auto',animation:'slideLeft 0.25s ease'}}>
+        <div style={{padding:'14px 16px',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:T.card,zIndex:1}}>
+          <div style={{fontWeight:800,fontSize:16,color:T.t1}}>⚙️ Settings</div>
+          <button onClick={onClose} style={{background:'none',border:'none',color:T.t3,cursor:'pointer',fontSize:20,lineHeight:1}}>✕</button>
+        </div>
+        <div style={{padding:'0 16px 32px'}}>
+          {sec('Profile')}
+          <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
+            <div style={{width:52,height:52,borderRadius:'50%',background:'linear-gradient(135deg,#e8943a,#b05a10)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:800,color:'#fff',flexShrink:0}}>WD</div>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:T.t1}}>{name}</div>
+              <button style={{fontSize:11,color:T.accent,background:'none',border:'none',cursor:'pointer',padding:0,marginTop:3}}>Change avatar</button>
+            </div>
+          </div>
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:11,color:T.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>Display Name</div>
+            <input style={inp} value={name} onChange={e=>setName(e.target.value)}/>
+          </div>
+          <div>
+            <div style={{fontSize:11,color:T.t3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>Discord Handle</div>
+            <input style={inp} value={discord} onChange={e=>setDiscord(e.target.value)}/>
+          </div>
+
+          {sec('Club')}
+          <div style={{padding:'12px 14px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:10}}>
+            <div style={{fontWeight:600,fontSize:13,color:T.t1}}>Jon and the Juice</div>
+            <div style={{fontSize:11,color:T.t3,marginTop:2}}>Member · Joined January 2024</div>
+          </div>
+
+          {sec('App Preferences')}
+          {[{l:'Default tab on open',v:'Finds'},{l:'Truck check schedule',v:'6× daily'},{l:'Find expiry',v:'24 hours'},{l:'Finds badge alerts',v:'< 6h fresh'}].map(row=>(
+            <div key={row.l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:`1px solid ${T.border2}`}}>
+              <span style={{fontSize:13,color:T.t1}}>{row.l}</span>
+              <span style={{fontSize:12,color:T.t3,fontWeight:600}}>{row.v}</span>
+            </div>
+          ))}
+
+          {sec('Account')}
+          <button style={{width:'100%',padding:10,background:'transparent',border:`1px solid rgba(248,113,113,0.3)`,borderRadius:8,color:'#f87171',fontSize:13,fontWeight:600,cursor:'pointer'}}>Sign out</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── BOTTOM NAV ────────────────────────────────────────────────────────────────
+const TABS=[
+  {id:'finds',  label:'Finds',   icon:'📍'},
+  {id:'tracker',label:'Tracker', icon:'🚛'},
+  {id:'auctions',label:'Auctions',icon:'🦄'},
+  {id:'profile',label:'Profile', icon:'👤'},
+];
+function BottomNav({active,onSelect,findsBadge}){
+  return(
+    <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:'rgba(15,10,5,0.97)',borderTop:`1px solid ${T.border}`,display:'flex',backdropFilter:'blur(12px)',paddingBottom:'env(safe-area-inset-bottom)'}}>
+      {TABS.map(t=>{
+        const isActive=active===t.id;
+        const badge=t.id==='finds'?findsBadge:0;
+        return(
+          <button key={t.id} onClick={()=>onSelect(t.id)} style={{flex:1,background:'none',border:'none',cursor:'pointer',padding:'10px 0',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+            <span style={{fontSize:20,position:'relative'}}>
+              {t.icon}
+              {badge>0&&<span style={{position:'absolute',top:-4,right:-6,background:T.red,color:'#fff',fontSize:9,fontWeight:700,borderRadius:999,padding:'1px 4px',lineHeight:1.2}}>{badge}</span>}
+            </span>
+            <span style={{fontSize:10,fontWeight:isActive?700:500,color:isActive?T.accent:T.t4,letterSpacing:'0.01em'}}>{t.label}</span>
+            {isActive&&<span style={{width:18,height:2,background:T.accent,borderRadius:1}}/>}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ── TOP BAR ───────────────────────────────────────────────────────────────────
+const TAB_META={
+  finds:  {sub:'Community Finds · Chicagoland'},
+  tracker:{sub:"Chicagoland Binny's · Truck Tracker"},
+  auctions:{sub:'Unicorn Auctions · Live Deals'},
+  profile:{sub:'Your Collection & Tastings'},
+};
+function TopBar({tab,notifCount,onNotif,onSettings}){
+  const{sub}=TAB_META[tab]??TAB_META.finds;
+  return(
+    <header style={{position:'sticky',top:0,zIndex:50,background:'rgba(15,10,5,0.95)',borderBottom:`1px solid ${T.border}`,backdropFilter:'blur(12px)'}}>
+      <div style={{maxWidth:960,margin:'0 auto',padding:'11px 16px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:22}}>🥃</span>
+          <div>
+            <div style={{fontWeight:800,fontSize:15,color:T.t1,lineHeight:1.1}}>Tater Tracker</div>
+            <div style={{fontSize:11,color:T.t3}}>{sub}</div>
+          </div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:4}}>
+          {/* Notification bell */}
+          <button onClick={onNotif} style={{position:'relative',background:'none',border:'none',cursor:'pointer',padding:'6px 8px',borderRadius:8,color:T.t3,fontSize:18,lineHeight:1,display:'flex',alignItems:'center'}}>
+            🔔
+            {notifCount>0&&(
+              <span style={{position:'absolute',top:2,right:2,background:T.red,color:'#fff',fontSize:9,fontWeight:700,borderRadius:999,padding:'1px 4px',lineHeight:1.2,minWidth:16,textAlign:'center'}}>
+                {notifCount}
+              </span>
+            )}
+          </button>
+          {/* Settings gear */}
+          <button onClick={onSettings} style={{background:'none',border:'none',cursor:'pointer',padding:'6px 8px',borderRadius:8,color:T.t3,fontSize:18,lineHeight:1,display:'flex',alignItems:'center'}}>
+            ⚙️
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#e8943a",
+  "showBadges": true
+}/*EDITMODE-END*/;
+
+function App(){
+  const[tab,setTab]=useState('finds');
+  const[notifOpen,setNotifOpen]=useState(false);
+  const[settingsOpen,setSettingsOpen]=useState(false);
+  const[collection,setCollection]=useState(MOCK_COLLECTION_INIT);
+  const[tweaks,setTweak]=useTweaks(TWEAK_DEFAULTS);
+
+  useEffect(()=>{document.documentElement.style.setProperty('--accent',tweaks.accentColor);},[tweaks.accentColor]);
+
+  const unreadNotifs=MOCK_NOTIFS_INIT.filter(n=>!n.read).length;
+  const freshFinds=MOCK_FINDS.filter(f=>(Date.now()-f.timestamp)/3600000<6).length;
+
+  return(
+    <div style={{minHeight:'100vh',background:T.bg}}>
+      <TopBar tab={tab} notifCount={unreadNotifs} onNotif={()=>{setNotifOpen(true);setSettingsOpen(false);}} onSettings={()=>{setSettingsOpen(true);setNotifOpen(false);}}/>
+      <main style={{paddingBottom:80}}>
+        {tab==='finds'   &&<FindsScreen/>}
+        {tab==='tracker' &&<TrackerScreen/>}
+        {tab==='auctions'&&<AuctionsScreen/>}
+        {tab==='profile' &&<ProfileScreen collection={collection} setCollection={setCollection}/>}
+      </main>
+      <BottomNav active={tab} onSelect={setTab} findsBadge={tweaks.showBadges?freshFinds:0}/>
+      {notifOpen&&<NotificationsDrawer onClose={()=>setNotifOpen(false)}/>}
+      {settingsOpen&&<SettingsDrawer onClose={()=>setSettingsOpen(false)}/>}
+
+      <TweaksPanel>
+        <TweakSection label="Appearance">
+          <TweakColor id="accentColor" label="Accent color" value={tweaks.accentColor} onChange={v=>setTweak('accentColor',v)}/>
+        </TweakSection>
+        <TweakSection label="Features">
+          <TweakToggle id="showBadges" label="Finds badge count" value={tweaks.showBadges} onChange={v=>setTweak('showBadges',v)}/>
+        </TweakSection>
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

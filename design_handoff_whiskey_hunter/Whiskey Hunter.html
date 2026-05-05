@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whiskey Hunter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg:       #0f0a05;
+    --card:     #1a1008;
+    --card2:    #1f1308;
+    --border:   #3d2b10;
+    --border2:  #2a1c08;
+    --t1:       #f5e6cc;
+    --t2:       #c9a87a;
+    --t3:       #9a7c55;
+    --t4:       #6b5030;
+    --accent:   #e8943a;
+    --accent2:  #d4832a;
+    --green:    #4ade80;
+    --red:      #f87171;
+    --amber:    #fbbf24;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--t1);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const T = {
+  bg: '#0f0a05', card: '#1a1008', card2: '#1f1308',
+  border: '#3d2b10', border2: '#2a1c08',
+  t1: '#f5e6cc', t2: '#c9a87a', t3: '#9a7c55', t4: '#6b5030',
+  accent: '#e8943a', accent2: '#d4832a',
+  green: '#4ade80', red: '#f87171', amber: '#fbbf24',
+};
+
+const DIST_COLOR = {
+  'Breakthru Beverage': { text: '#e8943a', bg: '#2a1500', border: '#7c3a0a' },
+  "Southern Glazer's":  { text: '#4ade80', bg: '#0f2010', border: '#2d5a2d' },
+  'RNDC':               { text: '#818cf8', bg: '#10102a', border: '#2d2d7c' },
+  'BC Merchants':       { text: '#c084fc', bg: '#1e0f26', border: '#5a2d7c' },
+};
+
+// ─── Shared UI primitives ─────────────────────────────────────────────────────
+function Card({ children, style, onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      background: T.card, border: `1px solid ${T.border}`,
+      borderRadius: 12, overflow: 'hidden',
+      cursor: onClick ? 'pointer' : undefined,
+      transition: 'background 0.15s',
+      ...style,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function Badge({ label, color, bg, border }) {
+  return (
+    <span style={{
+      display: 'inline-block', fontSize: 11, fontWeight: 700,
+      padding: '2px 8px', borderRadius: 999,
+      color: color ?? T.accent, background: bg ?? `${T.accent}18`,
+      border: `1px solid ${border ?? T.accent + '40'}`,
+    }}>{label}</span>
+  );
+}
+
+function SectionHead({ icon, title, sub, action }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 20 }}>{icon}</span>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 16, color: T.t1, letterSpacing: '-0.02em' }}>{title}</div>
+          {sub && <div style={{ fontSize: 12, color: T.t3, marginTop: 1 }}>{sub}</div>}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function Divider() {
+  return <div style={{ height: 1, background: T.border2, margin: '20px 0' }} />;
+}
+
+function timeAgo(iso) {
+  if (!iso) return null;
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function fmtUSD(v) {
+  if (v == null) return '—';
+  return v >= 1000 ? `$${(v/1000).toFixed(1)}k` : `$${v}`;
+}
+
+// ─── MOCK DATA ────────────────────────────────────────────────────────────────
+const MOCK_DEALS = [
+  { id:1, name:"Blanton's Original Single Barrel", category:"Bourbon", section:"General", lot:"4821", bid:95, est_low:120, est_high:150, est_display:"$120–150", discount:29.3, end:"2026-04-27T18:00:00Z", reserve_met:true, url:"#" },
+  { id:2, name:"Old Fitzgerald Bottled in Bond 9yr Spring 2024", category:"Bourbon", section:"Bargain Buys", lot:"4842", bid:72, est_low:105, est_high:130, est_display:"$105–130", discount:36.5, end:"2026-04-27T18:00:00Z", reserve_met:true, url:"#" },
+  { id:3, name:"Eagle Rare 10 Year Kentucky Straight Bourbon", category:"Bourbon", section:"Bargain Buys", lot:"4809", bid:44, est_low:60, est_high:75, est_display:"$60–75", discount:32.3, end:"2026-04-27T18:00:00Z", reserve_met:false, url:"#" },
+  { id:4, name:"Elijah Craig Barrel Proof Batch C924", category:"Bourbon", section:"General", lot:"4815", bid:68, est_low:90, est_high:110, est_display:"$90–110", discount:30.0, end:"2026-04-27T18:00:00Z", reserve_met:true, url:"#" },
+  { id:5, name:"Four Roses Small Batch Select", category:"Bourbon", section:"General", lot:"4833", bid:58, est_low:80, est_high:95, est_display:"$80–95", discount:30.7, end:"2026-04-27T18:00:00Z", reserve_met:false, url:"#" },
+  { id:6, name:"Wild Turkey Rare Breed Barrel Proof", category:"Bourbon", section:"Bargain Buys", lot:"4801", bid:38, est_low:52, est_high:65, est_display:"$52–65", discount:30.5, end:"2026-04-27T18:00:00Z", reserve_met:true, url:"#" },
+  { id:7, name:"Pappy Van Winkle's 15 Year Family Reserve", category:"Bourbon", section:"Horn of Unicorn", lot:"4799", bid:1150, est_low:1600, est_high:2000, est_display:"$1,600–2,000", discount:34.3, end:"2026-04-27T18:00:00Z", reserve_met:true, url:"#" },
+  { id:8, name:"Weller Special Reserve Kentucky Straight", category:"Bourbon", section:"Bargain Buys", lot:"4856", bid:52, est_low:70, est_high:90, est_display:"$70–90", discount:33.3, end:"2026-04-27T18:00:00Z", reserve_met:false, url:"#" },
+  { id:9, name:"High West Double Rye! Whiskey", category:"Rye", section:"General", lot:"4862", bid:35, est_low:48, est_high:60, est_display:"$48–60", discount:30.6, end:"2026-04-27T18:00:00Z", reserve_met:true, url:"#" },
+  { id:10, name:"Nikka From The Barrel Japanese Blended", category:"Japanese", section:"General", lot:"4870", bid:95, est_low:130, est_high:160, est_display:"$130–160", discount:31.0, end:"2026-04-27T18:00:00Z", reserve_met:true, url:"#" },
+];
+
+const now = new Date('2026-04-25T14:30:00Z');
+const MOCK_FINDS = [
+  { id:1, bottleName:"Blanton's Original Single Barrel", store:{ name:"Binny's Wilmette", address:"565 Green Bay Rd, Wilmette, IL" }, notes:"3 bottles, no limit. Grabbed 1 myself.", timestamp: now - 2*3600000, user:"@whiskeydave", lat:42.072, lng:-87.726, hasPhoto:true },
+  { id:2, bottleName:"Eagle Rare 10yr", store:{ name:"Binny's Lincoln Park", address:"1720 N Marcey St, Chicago, IL" }, notes:"2 left when I was there, 1 per person.", timestamp: now - 5*3600000, user:"@bourbonbob", lat:41.914, lng:-87.643, hasPhoto:false },
+  { id:3, bottleName:"Weller Full Proof", store:{ name:"Friar Tuck Homewood", address:"2600 183rd St, Homewood, IL" }, notes:"Spotted on shelf, ~5 bottles. No limit seen.", timestamp: now - 26*3600000, user:"@sipmaster", lat:41.558, lng:-87.667, hasPhoto:true },
+  { id:4, bottleName:"George T. Stagg 2025", store:{ name:"Binny's Orland Park", address:"15820 S 94th Ave, Orland Park, IL" }, notes:"Lottery allocation — already gone.", timestamp: now - 3*24*3600000, user:"@whiskeydave", lat:41.607, lng:-87.854, hasPhoto:false },
+];
+
+const ROADMAP = [
+  {
+    id:1, icon:"🔔", title:"Discord Webhook Alerts",
+    desc:"Ping #truck-alerts the moment a delivery is detected. Include which bottles to check for. This is the highest-value feature — your club probably doesn't check the app often enough.",
+    priority:"HIGH", effort:"Low", tag:"Integrations",
+  },
+  {
+    id:2, icon:"🎯", title:"Personal Watchlist",
+    desc:"Members mark bottles they're hunting. When that bottle appears in Finds or a matching truck is detected, they get a DM. Drives daily engagement.",
+    priority:"HIGH", effort:"Medium", tag:"Member Experience",
+  },
+  {
+    id:3, icon:"⏰", title:"Auto-Expiring Finds",
+    desc:"Automatically archive finds after 12–24h with a 'likely gone' status. Prevents stale data. Lets members know a find is still fresh vs. days old.",
+    priority:"HIGH", effort:"Low", tag:"Data Quality",
+  },
+  {
+    id:4, icon:"📊", title:"Club Analytics Dashboard",
+    desc:"Which stores have the most activity? Which distributors hit most often? Best day of week to check? Trends over the past 30/90 days.",
+    priority:"MED", effort:"Medium", tag:"Insights",
+  },
+  {
+    id:5, icon:"🏆", title:"Leaderboard",
+    desc:"Monthly leaderboard for most finds reported. Gamifies contributing. Add badges: 'First to spot Blanton's this month', etc.",
+    priority:"MED", effort:"Medium", tag:"Member Experience",
+  },
+  {
+    id:6, icon:"💰", title:"Unicorn Price Alerts",
+    desc:"Set a max bid for a specific bottle. Get notified when that bottle hits Unicorn below your threshold. Runs on the existing scraper schedule.",
+    priority:"MED", effort:"Low", tag:"Auctions",
+  },
+  {
+    id:7, icon:"📱", title:"PWA Push Notifications",
+    desc:"Proper push notifications without needing Discord open. Install the app to homescreen and get truck alerts even when the browser is closed.",
+    priority:"MED", effort:"High", tag:"Platform",
+  },
+  {
+    id:8, icon:"🗺️", title:"Store Coverage Heatmap",
+    desc:"Visual map of which stores are being watched by the tracker vs. which are blind spots. Shows the club where manual effort is still needed.",
+    priority:"LOW", effort:"Low", tag:"Insights",
+  },
+  {
+    id:9, icon:"📋", title:"Bottle Request Voting",
+    desc:"Members upvote bottles they want added to the tracker watchlist. Prioritizes the canary/hotline list based on club demand.",
+    priority:"LOW", effort:"Medium", tag:"Community",
+  },
+];
+
+// ─── TRACKER SCREEN ────────────────────────────────────────────────────────────
+const DIST_BOTTLES = {
+  'Breakthru Beverage': [
+    { tier:"Buffalo Trace / Sazerac", names:["Blanton's Original","Blanton's Straight from the Barrel","Weller Antique 107","Weller Special Reserve","Weller Full Proof","Eagle Rare 10yr","E.H. Taylor Small Batch","E.H. Taylor Single Barrel","George T. Stagg","William Larue Weller","Pappy Van Winkle 10yr","Pappy Van Winkle 12yr","Pappy Van Winkle 15yr","Van Winkle Special Reserve 12yr","Pappy 20yr","Pappy 23yr"] },
+    { tier:"Brown-Forman", names:["Woodford Reserve Double Oaked","Old Forester Birthday Bourbon","Old Forester 1920","Old Forester 117 Series"] },
+    { tier:"Bardstown BC", names:["Bardstown Bourbon Co. Fusion Series","Bardstown Discovery Series"] },
+  ],
+  "Southern Glazer's": [
+    { tier:"Heaven Hill", names:["Parker's Heritage Collection","Old Fitzgerald Bottled in Bond","Elijah Craig Barrel Proof","Larceny Barrel Proof"] },
+    { tier:"Beam Suntory", names:["Booker's Bourbon","Knob Creek Single Barrel","Maker's Mark Private Select","Little Book"] },
+    { tier:"Campari / Wild Turkey", names:["Russell's Reserve Single Barrel","Wild Turkey Master's Keep","Wild Turkey Rare Breed Barrel Proof"] },
+    { tier:"Other", names:["Angel's Envy Cask Strength","WhistlePig 15yr","High West Midwinter Night's Dram"] },
+  ],
+  'RNDC': [
+    { tier:"Four Roses (Kirin)", names:["Four Roses Limited Edition Small Batch","Four Roses Limited Edition Single Barrel","Four Roses Al Young 50th Anniversary"] },
+  ],
+  'BC Merchants': [
+    { tier:"Willett / KBD", names:["Willett Pot Still Reserve","Willett Family Estate Rye","Noah's Mill","Rowan's Creek"] },
+    { tier:"Barrell Craft Spirits", names:["Barrell Craft Spirits Batch","Barrell Bourbon Single Barrel","Barrell Dovetail"] },
+  ],
+};
+
+function DistributorColumn({ name }) {
+  const col = DIST_COLOR[name] ?? { text: T.t3, bg: T.card2, border: T.border };
+  const groups = DIST_BOTTLES[name] ?? [];
+  return (
+    <div style={{ background: col.bg, border: `1px solid ${col.border}`, borderRadius: 12, minWidth: 200, flex: 1 }}>
+      <div style={{ padding:'10px 14px', borderBottom:`1px solid ${col.border}`, fontWeight:700, fontSize:13, color:col.text }}>
+        🚛 {name}
+      </div>
+      <div style={{ padding:'12px 14px', display:'flex', flexDirection:'column', gap:12 }}>
+        {groups.map(g => (
+          <div key={g.tier}>
+            <div style={{ fontSize:10, fontWeight:700, color:col.text, opacity:0.65, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5 }}>{g.tier}</div>
+            {g.names.map(n => <div key={n} style={{ fontSize:11.5, color:T.t3, lineHeight:'1.7' }}>· {n}</div>)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TrackerScreen() {
+  const [activeStore, setActiveStore] = useState(null);
+
+  return (
+    <div style={{ padding:'0 0 24px' }}>
+      {/* Empty state hero */}
+      <div style={{ background:'linear-gradient(160deg, #1e1004 0%, #0f0a05 60%)', padding:'32px 16px 24px', borderBottom:`1px solid ${T.border2}` }}>
+        <div style={{ maxWidth:600, margin:'0 auto', textAlign:'center' }}>
+          <div style={{ fontSize:48, marginBottom:12 }}>🚛</div>
+          <div style={{ fontWeight:800, fontSize:22, color:T.t1, letterSpacing:'-0.02em', marginBottom:8 }}>
+            No truck deliveries detected yet
+          </div>
+          <div style={{ fontSize:14, color:T.t3, lineHeight:1.6, marginBottom:20 }}>
+            The tracker checks Binny's inventory 6× daily — at 7, 9, 11 AM and 1, 3, 5 PM CDT.<br/>
+            When a delivery truck is detected at any Chicagoland location, it shows up here.
+          </div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8, justifyContent:'center' }}>
+            {['Next check: 3 PM CDT','All 20+ Binny\'s stores monitored','6× daily cadence'].map(t => (
+              <span key={t} style={{ fontSize:12, color:T.t3, background:T.card, border:`1px solid ${T.border}`, borderRadius:999, padding:'4px 12px' }}>{t}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding:'0 16px', maxWidth:900, margin:'0 auto' }}>
+
+        {/* How it works */}
+        <div style={{ marginTop:24, marginBottom:24 }}>
+          <SectionHead icon="💡" title="How it works" sub="Understanding what you're seeing" />
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:10 }}>
+            {[
+              { step:'1', label:'Canary scan', desc:'Every 6h, the tracker checks if high-volume bottles (Old Forester, Benchmark, etc.) have restocked at each store.' },
+              { step:'2', label:'Truck detected', desc:'A sudden restock of canary bottles means a delivery truck likely just visited. We flag it and log which distributor.' },
+              { step:'3', label:'Check the map', desc:'Use the Distributor Map below to know which allocated bottles may be on that truck — then head to the store.' },
+            ].map(s => (
+              <Card key={s.step} style={{ padding:14 }}>
+                <div style={{ fontWeight:800, fontSize:28, color:T.accent, opacity:0.3, marginBottom:4 }}>{s.step}</div>
+                <div style={{ fontWeight:700, fontSize:13, color:T.t1, marginBottom:4 }}>{s.label}</div>
+                <div style={{ fontSize:12, color:T.t3, lineHeight:1.6 }}>{s.desc}</div>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        <Divider />
+
+        {/* Distributor map */}
+        <SectionHead
+          icon="📋"
+          title="Distributor Map"
+          sub="Which truck brings which allocated bottles — reference this when a delivery is detected"
+        />
+        <div style={{ display:'flex', flexWrap:'wrap', gap:10 }}>
+          {Object.keys(DIST_BOTTLES).map(d => <DistributorColumn key={d} name={d} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── AUCTIONS SCREEN ──────────────────────────────────────────────────────────
+const CAT_COLOR = { Bourbon:'#e8943a', Rye:'#f87171', Scotch:'#60a5fa', Japanese:'#c084fc', American:'#fbbf24', Irish:'#34d399' };
+function catCol(c) { return CAT_COLOR[c] ?? '#9a7c55'; }
+
+function discLabel(pct) {
+  if (pct >= 40) return { color:'#22c55e', glow:true };
+  if (pct >= 30) return { color:'#4ade80', glow:false };
+  if (pct >= 20) return { color:'#a3e635', glow:false };
+  return { color:'#facc15', glow:false };
+}
+
+function DealCard({ deal, rank }) {
+  const disc = discLabel(deal.discount);
+  const isUnicorn = deal.section === 'Horn of Unicorn';
+  const isBargain = deal.section === 'Bargain Buys';
+  return (
+    <Card style={{ borderColor: disc.glow ? '#22c55e55' : undefined, display:'flex', flexDirection:'column' }}>
+      {/* Top */}
+      <div style={{ padding:'10px 14px 8px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:6 }}>
+        <span style={{ fontSize:11, color:T.t4, fontWeight:600 }}>#{rank} · Lot {deal.lot}</span>
+        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+          {isUnicorn && <span style={{ fontSize:10, fontWeight:700, background:'rgba(201,168,76,0.15)', color:'#c9a84c', border:'1px solid rgba(201,168,76,0.3)', borderRadius:999, padding:'1px 7px' }}>🦄 Horn</span>}
+          {isBargain && <span style={{ fontSize:10, fontWeight:700, background:'rgba(58,175,169,0.15)', color:'#3aafa9', border:'1px solid rgba(58,175,169,0.3)', borderRadius:999, padding:'1px 7px' }}>💰 Bargain</span>}
+          <span style={{ fontSize:10, fontWeight:700, background:`${catCol(deal.category)}18`, color:catCol(deal.category), border:`1px solid ${catCol(deal.category)}40`, borderRadius:999, padding:'1px 7px' }}>{deal.category}</span>
+        </div>
+      </div>
+      {/* Name */}
+      <div style={{ padding:'0 14px 10px', borderBottom:`1px solid ${T.border2}` }}>
+        <a href={deal.url} style={{ color:T.t1, fontWeight:700, fontSize:14, lineHeight:1.35, textDecoration:'none', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
+          {deal.name}
+        </a>
+      </div>
+      {/* Pricing */}
+      <div style={{ padding:'10px 14px', display:'flex', alignItems:'flex-end', justifyContent:'space-between' }}>
+        <div>
+          <div style={{ fontSize:11, color:T.t4, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:2 }}>Current Bid</div>
+          <div style={{ fontSize:26, fontWeight:800, color:T.t1, lineHeight:1, fontVariantNumeric:'tabular-nums' }}>{fmtUSD(deal.bid)}</div>
+          <div style={{ fontSize:12, color:T.t3, marginTop:2 }}>est. {deal.est_display}</div>
+        </div>
+        <div style={{ background:`${disc.color}18`, border:`1px solid ${disc.color}44`, borderRadius:10, padding:'6px 12px', textAlign:'center' }}>
+          <div style={{ fontSize:20, fontWeight:800, color:disc.color, lineHeight:1, fontVariantNumeric:'tabular-nums' }}>{deal.discount.toFixed(1)}%</div>
+          <div style={{ fontSize:10, color:disc.color+'aa', marginTop:1 }}>below est.</div>
+        </div>
+      </div>
+      {/* Progress bar */}
+      <div style={{ padding:'0 14px 10px' }}>
+        <div style={{ height:4, background:'#2a1a08', borderRadius:4, overflow:'hidden' }}>
+          <div style={{ width:`${Math.min(deal.discount,100)}%`, height:'100%', background:`linear-gradient(90deg, ${disc.color}88, ${disc.color})`, borderRadius:4 }} />
+        </div>
+      </div>
+      {/* Footer */}
+      <div style={{ padding:'8px 14px', borderTop:`1px solid ${T.border2}`, display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'auto' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:12, color:T.amber, fontWeight:600 }}>⏱ 2d 3h</span>
+          <span style={{ fontSize:11, color: deal.reserve_met ? T.green : T.t4, fontWeight:600 }}>
+            {deal.reserve_met ? '✓ Reserve met' : 'Reserve pending'}
+          </span>
+        </div>
+        <a href={deal.url} style={{ background:T.accent, color:'#fff', fontWeight:700, fontSize:11, borderRadius:7, padding:'5px 12px', textDecoration:'none' }}>
+          Bid →
+        </a>
+      </div>
+    </Card>
+  );
+}
+
+function AuctionsScreen() {
+  const [category, setCategory] = useState('');
+  const [sort, setSort] = useState('discount');
+  const [minBid, setMinBid] = useState(0);
+
+  const filtered = MOCK_DEALS
+    .filter(d => !category || d.category === category)
+    .filter(d => d.bid >= minBid)
+    .sort((a,b) => sort === 'discount' ? b.discount - a.discount : 0);
+
+  const stats = [
+    { label:'Whiskey Lots', value:'847', color:T.t1 },
+    { label:'Below Estimate', value:'312', color:T.green },
+    { label:'Showing', value:`${filtered.length} filtered`, color:T.accent },
+    { label:'Data Age', value:'14m ago', color:T.t3 },
+  ];
+
+  const FChip = ({ label, active, onClick, color }) => (
+    <button onClick={onClick} style={{
+      background: active ? `${color ?? T.accent}22` : 'transparent',
+      color: active ? (color ?? T.accent) : T.t3,
+      border: `1px solid ${active ? (color ?? T.accent)+'60' : T.border}`,
+      borderRadius:999, padding:'4px 12px', fontSize:13, fontWeight:600,
+      cursor:'pointer', transition:'all 0.15s', whiteSpace:'nowrap',
+    }}>{label}</button>
+  );
+
+  return (
+    <div style={{ padding:'16px 16px 24px', maxWidth:900, margin:'0 auto' }}>
+      {/* Header */}
+      <div style={{ borderBottom:`1px solid ${T.border}`, paddingBottom:16, marginBottom:16 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
+          <div>
+            <div style={{ fontWeight:800, fontSize:22, color:T.t1, letterSpacing:'-0.02em' }}>🦄 Unicorn Auctions</div>
+            <div style={{ fontSize:13, color:T.t3, marginTop:2 }}>Bids below UA estimated value — updated every few hours</div>
+          </div>
+          <a href="https://www.unicornauctions.com/auctions" target="_blank" style={{ fontSize:12, color:T.t3, border:`1px solid ${T.border}`, borderRadius:8, padding:'7px 14px', textDecoration:'none' }}>
+            View All Auctions ↗
+          </a>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginBottom:16 }}>
+        {stats.map(s => (
+          <Card key={s.label} style={{ padding:'10px 14px' }}>
+            <div style={{ fontSize:10, color:T.t4, textTransform:'uppercase', letterSpacing:'0.06em' }}>{s.label}</div>
+            <div style={{ fontSize:15, fontWeight:700, color:s.color, marginTop:3 }}>{s.value}</div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Weekend banner */}
+      <div style={{ background:'rgba(232,148,58,0.08)', border:`1px solid rgba(232,148,58,0.25)`, borderRadius:12, padding:'12px 16px', display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
+        <span style={{ fontSize:20 }}>🟡</span>
+        <div>
+          <span style={{ color:T.accent, fontWeight:700, fontSize:14 }}>Auctions close this Sunday</span>
+          <span style={{ color:T.t3, fontSize:13, marginLeft:8 }}>Plenty of time to plan your bids before Sunday close</span>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:12 }}>
+        <span style={{ fontSize:11, color:T.t4, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', alignSelf:'center' }}>Category</span>
+        {['','Bourbon','Rye','Japanese','Scotch'].map(c => (
+          <FChip key={c} label={c || 'All'} active={category===c} onClick={()=>setCategory(c)} color={catCol(c)||undefined} />
+        ))}
+        <span style={{ fontSize:11, color:T.t4, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', alignSelf:'center', marginLeft:8 }}>Min Bid</span>
+        {[0,50,100,250,500].map(v => (
+          <FChip key={v} label={v===0?'Any':`$${v}+`} active={minBid===v} onClick={()=>setMinBid(v)} />
+        ))}
+      </div>
+
+      {/* Grid */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:12 }}>
+        {filtered.map((d,i) => <DealCard key={d.id} deal={d} rank={i+1} />)}
+      </div>
+    </div>
+  );
+}
+
+// ─── FINDS SCREEN ─────────────────────────────────────────────────────────────
+function FindCard({ find, isAdmin }) {
+  const ago = timeAgo(find.timestamp);
+  const hoursOld = (Date.now() - find.timestamp) / 3600000;
+  const isFresh = hoursOld < 6;
+  const isStale = hoursOld > 20;
+
+  return (
+    <Card style={{ padding:0 }}>
+      <div style={{ padding:'12px 14px', borderBottom:`1px solid ${T.border2}` }}>
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, marginBottom:6 }}>
+          <div style={{ fontWeight:700, fontSize:15, color:T.t1, lineHeight:1.3 }}>🥃 {find.bottleName}</div>
+          <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+            {isFresh && <Badge label="🔥 Fresh" color="#4ade80" bg="rgba(74,222,128,0.1)" border="rgba(74,222,128,0.3)" />}
+            {isStale && <Badge label="⏰ Aging" color={T.t4} bg="transparent" border={T.border} />}
+          </div>
+        </div>
+        <div style={{ fontSize:12, color:T.t3, marginBottom:2 }}>📍 {find.store.name}</div>
+        <div style={{ fontSize:11, color:T.t4 }}>{find.store.address}</div>
+      </div>
+      {find.hasPhoto && (
+        <div style={{ height:120, background:'#1a1208', display:'flex', alignItems:'center', justifyContent:'center', borderBottom:`1px solid ${T.border2}` }}>
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize:28, opacity:0.3 }}>📸</div>
+            <div style={{ fontSize:10, color:T.t4, fontFamily:'DM Mono, monospace', marginTop:4 }}>bottle photo</div>
+          </div>
+        </div>
+      )}
+      {find.notes && (
+        <div style={{ padding:'10px 14px', fontSize:12, color:T.t2, fontStyle:'italic', borderBottom:`1px solid ${T.border2}` }}>
+          "{find.notes}"
+        </div>
+      )}
+      <div style={{ padding:'8px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <span style={{ fontSize:11, color:T.t4 }}>{find.user} · {ago}</span>
+        {isAdmin && (
+          <button style={{ background:'none', border:'none', color:T.t4, cursor:'pointer', fontSize:12, padding:0 }}>✕ Remove</button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function FindsMapSVG({ finds }) {
+  // Stylized Chicagoland map — not geographically precise, just illustrative
+  const mapFinds = [
+    { id:1, cx:320, cy:105, label:"Binny's Wilmette" },
+    { id:2, cx:338, cy:165, label:"Binny's Lincoln Park" },
+    { id:3, cx:345, cy:310, label:"Friar Tuck Homewood" },
+    { id:4, cx:210, cy:290, label:"Binny's Orland Park" },
+  ];
+  return (
+    <div style={{ position:'relative', borderRadius:12, overflow:'hidden', border:`1px solid ${T.border}`, background:'#0d0805' }}>
+      <svg viewBox="0 0 460 400" width="100%" style={{ display:'block' }}>
+        {/* Grid lines */}
+        {[0,1,2,3,4,5].map(i=>(
+          <line key={`h${i}`} x1={0} y1={i*80} x2={460} y2={i*80} stroke={T.border} strokeWidth={0.5} opacity={0.4} />
+        ))}
+        {[0,1,2,3,4,5].map(i=>(
+          <line key={`v${i}`} x1={i*92} y1={0} x2={i*92} y2={400} stroke={T.border} strokeWidth={0.5} opacity={0.4} />
+        ))}
+        {/* Lake Michigan — right edge */}
+        <path d="M 380,0 Q 410,100 400,200 Q 390,300 370,400 L 460,400 L 460,0 Z" fill="#0a1520" opacity={0.8} />
+        <text x={415} y={50} fill={T.t4} fontSize={10} opacity={0.5} fontFamily="DM Mono, monospace">Lake</text>
+        <text x={410} y={62} fill={T.t4} fontSize={10} opacity={0.5} fontFamily="DM Mono, monospace">Michigan</text>
+        {/* City outline suggestion */}
+        <path d="M 310,100 L 370,90 Q 380,100 378,180 Q 376,240 360,300 L 300,310 L 260,320 L 240,280 L 200,270 L 160,260 L 140,200 L 180,160 L 240,140 Z"
+          fill="none" stroke={T.border} strokeWidth={1} opacity={0.4} />
+        {/* Markers */}
+        {mapFinds.map((f, i) => {
+          const find = MOCK_FINDS[i];
+          const hoursOld = find ? (Date.now() - find.timestamp) / 3600000 : 0;
+          const isFresh = hoursOld < 6;
+          const col = isFresh ? '#4ade80' : T.accent;
+          return (
+            <g key={f.id}>
+              <circle cx={f.cx} cy={f.cy} r={14} fill={col} opacity={0.12} />
+              <circle cx={f.cx} cy={f.cy} r={7} fill={col} opacity={0.7} />
+              <circle cx={f.cx} cy={f.cy} r={3} fill="#fff" />
+              {/* Label */}
+              <rect x={f.cx+12} y={f.cy-10} width={110} height={16} rx={4} fill="#1a1008" opacity={0.9} />
+              <text x={f.cx+17} y={f.cy+2} fill={T.t2} fontSize={9} fontFamily="DM Sans, sans-serif">{f.label}</text>
+            </g>
+          );
+        })}
+        {/* Legend */}
+        <circle cx={16} cy={382} r={5} fill="#4ade80" opacity={0.7} />
+        <text x={26} y={386} fill={T.t3} fontSize={9} fontFamily="DM Sans">Fresh (&lt;6h)</text>
+        <circle cx={96} cy={382} r={5} fill={T.accent} opacity={0.7} />
+        <text x={106} y={386} fill={T.t3} fontSize={9} fontFamily="DM Sans">Aging</text>
+      </svg>
+    </div>
+  );
+}
+
+function FindsScreen() {
+  const [view, setView] = useState('list');
+  const [bottleName, setBottleName] = useState('');
+  const [storeInput, setStoreInput] = useState('');
+  const [notes, setNotes] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    setSubmitted(true);
+    setTimeout(() => { setSubmitted(false); setBottleName(''); setStoreInput(''); setNotes(''); }, 2500);
+  }
+
+  const inputS = {
+    width:'100%', padding:'9px 12px',
+    background:T.bg, border:`1px solid ${T.border}`,
+    borderRadius:8, color:T.t1, fontSize:14, outline:'none',
+    fontFamily:'DM Sans, sans-serif',
+  };
+  const labelS = { display:'block', fontSize:12, fontWeight:600, color:T.t3, marginBottom:5, marginTop:14, textTransform:'uppercase', letterSpacing:'0.05em' };
+
+  return (
+    <div style={{ padding:'16px', maxWidth:700, margin:'0 auto' }}>
+
+      {/* Submit form */}
+      <Card style={{ padding:'16px', marginBottom:16 }}>
+        <div style={{ fontWeight:800, fontSize:16, color:T.t1, marginBottom:14 }}>📍 Report a Find</div>
+        <form onSubmit={handleSubmit}>
+          <label style={labelS}>Bottle Name *</label>
+          <div style={{ display:'flex', gap:8 }}>
+            <input style={{ ...inputS, flex:1 }} placeholder="e.g. Blanton's Original" value={bottleName} onChange={e=>setBottleName(e.target.value)} required />
+            <button type="button" title="Scan barcode" style={{ padding:'8px 13px', background:T.card2, border:`1px solid ${T.border}`, borderRadius:8, color:T.accent, cursor:'pointer', fontSize:18, flexShrink:0 }}>📷</button>
+          </div>
+
+          <label style={labelS}>Store Location *</label>
+          <input style={inputS} placeholder="Search for a store (e.g. Binny's Wilmette…)" value={storeInput} onChange={e=>setStoreInput(e.target.value)} />
+
+          <label style={labelS}>Notes</label>
+          <textarea style={{ ...inputS, minHeight:64, resize:'vertical' }} placeholder="How many bottles? Price? Purchase limit?" value={notes} onChange={e=>setNotes(e.target.value)} />
+
+          <label style={labelS}>Photo</label>
+          <label style={{ display:'block', background:T.bg, border:`1px dashed ${T.border}`, borderRadius:8, padding:12, cursor:'pointer', textAlign:'center', color:T.t4, fontSize:13 }}>
+            📸 Tap to attach a photo
+            <input type="file" accept="image/*" style={{ display:'none' }} />
+          </label>
+
+          {submitted && <div style={{ fontSize:13, color:T.green, marginTop:10 }}>✓ Find submitted! Thanks for looking out for the club.</div>}
+
+          <button type="submit" style={{ marginTop:14, width:'100%', padding:'11px', background:T.accent, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:15, fontWeight:700 }}>
+            📍 Submit Find
+          </button>
+        </form>
+      </Card>
+
+      {/* Finds display */}
+      <div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+          <div style={{ fontWeight:800, fontSize:16, color:T.t1 }}>Club Finds <span style={{ fontSize:13, color:T.t4, fontWeight:400 }}>({MOCK_FINDS.length})</span></div>
+          <div style={{ display:'flex', gap:6 }}>
+            {['list','map'].map(v => (
+              <button key={v} onClick={()=>setView(v)} style={{ padding:'5px 13px', borderRadius:6, border:'none', cursor:'pointer', background: view===v ? T.accent : T.card2, color: view===v ? '#fff' : T.t3, fontSize:12, fontWeight:600 }}>
+                {v==='map' ? '🗺 Map' : '📋 List'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {view === 'map' && <FindsMapSVG finds={MOCK_FINDS} />}
+
+        {view === 'list' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            {MOCK_FINDS.map(f => <FindCard key={f.id} find={f} isAdmin={true} />)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── ROADMAP SCREEN ───────────────────────────────────────────────────────────
+const PRIORITY_META = {
+  HIGH:{ label:'High Priority', color:'#f87171', bg:'rgba(248,113,113,0.1)', border:'rgba(248,113,113,0.25)' },
+  MED: { label:'Medium',        color:T.amber,   bg:'rgba(251,191,36,0.1)',  border:'rgba(251,191,36,0.25)' },
+  LOW: { label:'Nice to have',  color:T.t3,      bg:'transparent',           border:T.border },
+};
+const EFFORT_META = {
+  Low:   { label:'Easy build', color:'#4ade80' },
+  Medium:{ label:'Medium lift', color:T.amber },
+  High:  { label:'Big build',  color:'#f87171' },
+};
+
+function RoadmapCard({ item }) {
+  const pri = PRIORITY_META[item.priority];
+  const eff = EFFORT_META[item.effort];
+  return (
+    <Card style={{ padding:16 }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:10, marginBottom:10 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:24 }}>{item.icon}</span>
+          <div>
+            <div style={{ fontWeight:700, fontSize:15, color:T.t1, lineHeight:1.25 }}>{item.title}</div>
+            <div style={{ fontSize:11, color:T.t4, marginTop:2 }}>{item.tag}</div>
+          </div>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
+          <span style={{ fontSize:10, fontWeight:700, background:pri.bg, color:pri.color, border:`1px solid ${pri.border}`, borderRadius:999, padding:'2px 8px' }}>{pri.label}</span>
+          <span style={{ fontSize:10, fontWeight:600, color:eff.color }}>⚡ {eff.label}</span>
+        </div>
+      </div>
+      <div style={{ fontSize:13, color:T.t3, lineHeight:1.65 }}>{item.desc}</div>
+    </Card>
+  );
+}
+
+function RoadmapScreen() {
+  const [filter, setFilter] = useState('ALL');
+  const items = filter === 'ALL' ? ROADMAP : ROADMAP.filter(r=>r.priority===filter);
+
+  return (
+    <div style={{ padding:'16px', maxWidth:800, margin:'0 auto' }}>
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontWeight:800, fontSize:22, color:T.t1, letterSpacing:'-0.02em', marginBottom:6 }}>🗺 Roadmap</div>
+        <div style={{ fontSize:14, color:T.t3, lineHeight:1.6 }}>
+          Features worth building next — sorted by value-to-effort ratio. The goal is making every club member check the app every day.
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
+        {['ALL','HIGH','MED','LOW'].map(f => {
+          const p = PRIORITY_META[f] ?? { label:'All features', color:T.t1, bg:`${T.accent}15`, border:T.accent+'40' };
+          const active = filter===f;
+          return (
+            <button key={f} onClick={()=>setFilter(f)} style={{
+              fontSize:13, fontWeight:600, padding:'5px 14px', borderRadius:999, border:'none', cursor:'pointer',
+              background: active ? (f==='ALL' ? T.accent : p.bg) : T.card2,
+              color: active ? (f==='ALL' ? '#fff' : p.color) : T.t3,
+              outline: active && f!=='ALL' ? `1px solid ${p.border}` : 'none',
+            }}>
+              {f==='ALL' ? 'All' : p.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Top picks callout */}
+      {filter==='ALL' && (
+        <div style={{ background:'rgba(232,148,58,0.07)', border:`1px solid rgba(232,148,58,0.2)`, borderRadius:12, padding:'14px 16px', marginBottom:20 }}>
+          <div style={{ fontWeight:700, fontSize:13, color:T.accent, marginBottom:4 }}>💡 Where to start</div>
+          <div style={{ fontSize:13, color:T.t3, lineHeight:1.65 }}>
+            <strong style={{ color:T.t2 }}>Discord Webhook Alerts</strong> has the highest ROI — it's a low-effort build that instantly makes the tracker 10× more useful without requiring members to open the app. Pair it with <strong style={{ color:T.t2 }}>Auto-Expiring Finds</strong> to keep data quality high, then tackle <strong style={{ color:T.t2 }}>Personal Watchlist</strong> for the engagement loop.
+          </div>
+        </div>
+      )}
+
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {items.map(item => <RoadmapCard key={item.id} item={item} />)}
+      </div>
+    </div>
+  );
+}
+
+// ─── NAV ──────────────────────────────────────────────────────────────────────
+const TABS = [
+  { id:'tracker',  label:'Tracker',  icon:'🚛' },
+  { id:'auctions', label:'Auctions', icon:'🦄' },
+  { id:'finds',    label:'Finds',    icon:'📍' },
+  { id:'roadmap',  label:'Roadmap',  icon:'🗺' },
+];
+
+function BottomNav({ active, onSelect, counts }) {
+  return (
+    <nav style={{
+      position:'fixed', bottom:0, left:0, right:0, zIndex:100,
+      background:'rgba(15,10,5,0.97)', borderTop:`1px solid ${T.border}`,
+      display:'flex', backdropFilter:'blur(12px)',
+      paddingBottom:'env(safe-area-inset-bottom)',
+    }}>
+      {TABS.map(t => {
+        const isActive = active===t.id;
+        return (
+          <button key={t.id} onClick={()=>onSelect(t.id)} style={{
+            flex:1, background:'none', border:'none', cursor:'pointer',
+            padding:'10px 0', display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+            transition:'opacity 0.15s',
+          }}>
+            <span style={{ fontSize:20, position:'relative' }}>
+              {t.icon}
+              {counts?.[t.id] > 0 && (
+                <span style={{ position:'absolute', top:-4, right:-6, background:'#f87171', color:'#fff', fontSize:9, fontWeight:700, borderRadius:999, padding:'1px 4px', lineHeight:1.2 }}>{counts[t.id]}</span>
+              )}
+            </span>
+            <span style={{ fontSize:10, fontWeight: isActive ? 700 : 500, color: isActive ? T.accent : T.t4, letterSpacing:'0.01em' }}>{t.label}</span>
+            {isActive && <span style={{ width:18, height:2, background:T.accent, borderRadius:1 }} />}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function TopBar({ tab }) {
+  const meta = {
+    tracker:  { title:'Whiskey Hunter', sub:'Chicagoland Binny\'s · Truck Tracker' },
+    auctions: { title:'Whiskey Hunter', sub:'Unicorn Auctions · Live Deals' },
+    finds:    { title:'Whiskey Hunter', sub:'Community Finds · Chicagoland' },
+    roadmap:  { title:'Whiskey Hunter', sub:'Feature Roadmap · Suggested Builds' },
+  };
+  const { title, sub } = meta[tab] ?? meta.tracker;
+  return (
+    <header style={{
+      position:'sticky', top:0, zIndex:50,
+      background:'rgba(15,10,5,0.95)', borderBottom:`1px solid ${T.border}`,
+      backdropFilter:'blur(12px)',
+    }}>
+      <div style={{ maxWidth:960, margin:'0 auto', padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:22 }}>🥃</span>
+          <div>
+            <div style={{ fontWeight:800, fontSize:15, color:T.t1, lineHeight:1.1 }}>{title}</div>
+            <div style={{ fontSize:11, color:T.t3 }}>{sub}</div>
+          </div>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          {tab === 'tracker' && (
+            <div style={{ fontSize:11, color:T.t3, textAlign:'right' }}>
+              <div>Checked 14m ago</div>
+              <div style={{ color:T.t4 }}>6× daily</div>
+            </div>
+          )}
+          <button style={{ background:T.accent, color:'#fff', border:'none', borderRadius:8, padding:'7px 14px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+            {tab === 'tracker' ? 'Refresh' : tab === 'auctions' ? '↺ Refresh' : tab === 'finds' ? '+ Find' : ''}
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// ─── APP ──────────────────────────────────────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#e8943a",
+  "showRoadmap": true,
+  "density": "comfortable",
+  "showBadges": true
+}/*EDITMODE-END*/;
+
+function App() {
+  const [tab, setTab] = useState('tracker');
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  // Apply accent color override
+  useEffect(() => {
+    document.documentElement.style.setProperty('--accent', tweaks.accentColor);
+  }, [tweaks.accentColor]);
+
+  const tabs = tweaks.showRoadmap ? TABS : TABS.filter(t=>t.id!=='roadmap');
+
+  return (
+    <div style={{ minHeight:'100vh', background:T.bg }}>
+      <TopBar tab={tab} />
+      <main style={{ paddingBottom: 80 }}>
+        {tab==='tracker'  && <TrackerScreen />}
+        {tab==='auctions' && <AuctionsScreen />}
+        {tab==='finds'    && <FindsScreen />}
+        {tab==='roadmap'  && tweaks.showRoadmap && <RoadmapScreen />}
+      </main>
+      <BottomNav active={tab} onSelect={setTab} counts={tweaks.showBadges ? { finds:2 } : {}} />
+
+      <TweaksPanel>
+        <TweakSection label="Appearance">
+          <TweakColor id="accentColor" label="Accent color" value={tweaks.accentColor} onChange={v=>setTweak('accentColor',v)} />
+          <TweakRadio id="density" label="Density" value={tweaks.density} options={['compact','comfortable']} onChange={v=>setTweak('density',v)} />
+        </TweakSection>
+        <TweakSection label="Features">
+          <TweakToggle id="showRoadmap" label="Show Roadmap tab" value={tweaks.showRoadmap} onChange={v=>setTweak('showRoadmap',v)} />
+          <TweakToggle id="showBadges" label="Show notification badges" value={tweaks.showBadges} onChange={v=>setTweak('showBadges',v)} />
+        </TweakSection>
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
