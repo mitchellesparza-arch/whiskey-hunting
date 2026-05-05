@@ -123,6 +123,24 @@ export default function FindsPage() {
   const [learnSuggestions, setLearnSuggestions] = useState([])
   const [learnShowSugg,  setLearnShowSugg]  = useState(false)
   const learnSuggestTimer = useRef(null)
+  const [learnSheetBottom, setLearnSheetBottom] = useState(0)
+
+  // Lift the Scan a Bottle sheet above the virtual keyboard
+  useEffect(() => {
+    if (!scanLearnOpen || typeof window === 'undefined' || !window.visualViewport) return
+    function onVpChange() {
+      const kb = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop
+      setLearnSheetBottom(Math.max(0, kb))
+    }
+    onVpChange()
+    window.visualViewport.addEventListener('resize', onVpChange)
+    window.visualViewport.addEventListener('scroll', onVpChange)
+    return () => {
+      window.visualViewport.removeEventListener('resize', onVpChange)
+      window.visualViewport.removeEventListener('scroll', onVpChange)
+      setLearnSheetBottom(0)
+    }
+  }, [scanLearnOpen])
 
   const storeInputRef   = useRef(null)
   const autocompleteRef = useRef(null)
@@ -919,7 +937,7 @@ export default function FindsPage() {
           />
           <div style={{
             position:      'fixed',
-            bottom:        0,
+            bottom:        learnSheetBottom,
             left:          0,
             right:         0,
             zIndex:        200,
@@ -927,6 +945,8 @@ export default function FindsPage() {
             borderRadius:  '16px 16px 0 0',
             borderTop:     '1px solid #3d2b10',
             padding:       '0 16px calc(28px + env(safe-area-inset-bottom))',
+            maxHeight:     '85vh',
+            overflowY:     'auto',
             animation:     'fadeUp 0.22s ease',
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
