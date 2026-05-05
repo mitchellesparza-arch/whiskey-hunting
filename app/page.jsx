@@ -486,21 +486,14 @@ export default function FindsPage() {
       <AppHeader
         sub="Community Finds · Chicagoland"
         action={
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              onClick={() => { setScanLearnOpen(true); setScanLearnMsg(null); setShowLearnScan(false) }}
-              style={{
-                fontSize: 13, padding: '6px 12px',
-                background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8,
-                color: '#e8943a', cursor: 'pointer', fontWeight: 700,
-              }}
-            >🔍 Scan</button>
-            <button
-              onClick={loadFinds}
-              className="btn-primary"
-              style={{ fontSize: 13, padding: '6px 14px' }}
-            >↺ Refresh</button>
-          </div>
+          <button
+            onClick={() => { setScanLearnOpen(true); setScanLearnMsg(null); setShowLearnScan(false) }}
+            style={{
+              fontSize: 13, padding: '6px 14px',
+              background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8,
+              color: '#e8943a', cursor: 'pointer', fontWeight: 700,
+            }}
+          >🔍 Scan a Bottle</button>
         }
       />
 
