@@ -95,6 +95,16 @@ export default function FindsPage() {
   const [upcLooking,   setUpcLooking]   = useState(false)
   const [upcStatus,    setUpcStatus]    = useState(null)   // 'found' | 'not-found' | null
 
+  // Bottle name autocomplete
+  const [suggestions,     setSuggestions]     = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const suggestTimer = useRef(null)
+  const bottleInputRef = useRef(null)
+
+  // Label scan fallback (when UPC not in DB)
+  const [labelScanning,  setLabelScanning]  = useState(false)
+  const labelScanRef = useRef(null)
+
   // UI
   const [showScanner,    setShowScanner]    = useState(false)
   const [view,           setView]           = useState('map')
@@ -197,6 +207,64 @@ export default function FindsPage() {
     setUpc(code)
     setShowScanner(false)
     lookupUpc(code)
+  }
+
+  // ── Bottle name autocomplete ───────────────────────────────────────────────
+  function handleBottleNameChange(e) {
+    const val = e.target.value
+    setBottleName(val)
+    clearTimeout(suggestTimer.current)
+    if (val.trim().length < 2) { setSuggestions([]); setShowSuggestions(false); return }
+    suggestTimer.current = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/lookup?search=${encodeURIComponent(val.trim())}`)
+        const d = await r.json()
+        const list = (d.results ?? []).map(r => r.name ?? r).filter(Boolean)
+        setSuggestions(list)
+        setShowSuggestions(list.length > 0)
+      } catch { setSuggestions([]); setShowSuggestions(false) }
+    }, 280)
+  }
+
+  function selectSuggestion(name) {
+    setBottleName(name)
+    setSuggestions([])
+    setShowSuggestions(false)
+  }
+
+  // ── Label scan fallback (UPC not found) ────────────────────────────────────
+  async function handleLabelScan(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLabelScanning(true)
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload  = () => resolve(reader.result.split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const r = await fetch('/api/lookup/photo', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ image: base64, mediaType: file.type || 'image/jpeg' }),
+      })
+      const d = await r.json()
+      if (d.found && d.bottle?.name) {
+        setBottleName(d.bottle.name)
+        setUpcStatus('found')
+        // Cache UPC→name so future scans of this barcode resolve instantly
+        if (upc) {
+          fetch('/api/upc', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ code: upc, name: d.bottle.name }),
+          }).catch(() => {})
+        }
+      }
+    } catch {}
+    setLabelScanning(false)
+    e.target.value = ''
   }
 
   // ── Photo ──────────────────────────────────────────────────────────────────
@@ -508,31 +576,76 @@ export default function FindsPage() {
           <form onSubmit={handleSubmit}>
 
             <label style={labelStyle}>Bottle Name *</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                style={{ ...inputStyle, flex: 1 }}
-                placeholder="e.g. Blanton's Original"
-                value={bottleName}
-                onChange={e => setBottleName(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowScanner(s => !s)}
-                title="Scan barcode"
-                style={{
-                  padding:      '8px 13px',
-                  background:   showScanner ? 'var(--accent)' : 'var(--bg-card)',
-                  border:       '1px solid var(--border)',
+            <div style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  ref={bottleInputRef}
+                  style={{ ...inputStyle, flex: 1 }}
+                  placeholder="e.g. Blanton's Original"
+                  value={bottleName}
+                  onChange={handleBottleNameChange}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowScanner(s => !s)}
+                  title="Scan barcode"
+                  style={{
+                    padding:      '8px 13px',
+                    background:   showScanner ? 'var(--accent)' : 'var(--bg-card)',
+                    border:       '1px solid var(--border)',
+                    borderRadius: 8,
+                    color:        showScanner ? '#fff' : 'var(--accent)',
+                    cursor:       'pointer',
+                    fontSize:     18,
+                    flexShrink:   0,
+                  }}
+                >
+                  {showScanner ? '✕' : '📷'}
+                </button>
+              </div>
+
+              {/* Autocomplete dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div style={{
+                  position:   'absolute',
+                  top:        '100%',
+                  left:       0,
+                  right:      44,
+                  zIndex:     50,
+                  background: '#1a1008',
+                  border:     '1px solid #3d2b10',
                   borderRadius: 8,
-                  color:        showScanner ? '#fff' : 'var(--accent)',
-                  cursor:       'pointer',
-                  fontSize:     18,
-                  flexShrink:   0,
-                }}
-              >
-                {showScanner ? '✕' : '📷'}
-              </button>
+                  marginTop:  4,
+                  overflow:   'hidden',
+                  boxShadow:  '0 4px 16px rgba(0,0,0,0.5)',
+                }}>
+                  {suggestions.map((name, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onMouseDown={() => selectSuggestion(name)}
+                      style={{
+                        display:    'block',
+                        width:      '100%',
+                        padding:    '9px 12px',
+                        background: 'none',
+                        border:     'none',
+                        borderBottom: i < suggestions.length - 1 ? '1px solid #2a1c08' : 'none',
+                        color:      '#f5e6cc',
+                        fontSize:   13,
+                        textAlign:  'left',
+                        cursor:     'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      🥃 {name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {upc && (
@@ -540,7 +653,29 @@ export default function FindsPage() {
                 <span style={{ fontSize: 12, color: '#6b5030', fontFamily: "'DM Mono', monospace" }}>UPC: {upc}</span>
                 {upcLooking && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>🔍 Looking up…</span>}
                 {!upcLooking && upcStatus === 'found'     && <span style={{ fontSize: 12, color: 'var(--green)' }}>✓ Name filled from barcode</span>}
-                {!upcLooking && upcStatus === 'not-found' && <span style={{ fontSize: 12, color: '#fb923c' }}>Not in database — enter name above</span>}
+                {!upcLooking && upcStatus === 'not-found' && (
+                  <>
+                    <span style={{ fontSize: 12, color: '#fb923c' }}>Not in database</span>
+                    <label style={{
+                      fontSize:   12,
+                      fontWeight: 700,
+                      color:      '#e8943a',
+                      cursor:     labelScanning ? 'default' : 'pointer',
+                      opacity:    labelScanning ? 0.5 : 1,
+                    }}>
+                      {labelScanning ? '⏳ Reading…' : '📷 Scan Label'}
+                      <input
+                        ref={labelScanRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        style={{ display: 'none' }}
+                        onChange={handleLabelScan}
+                        disabled={labelScanning}
+                      />
+                    </label>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => { setUpc(''); setUpcStatus(null) }}

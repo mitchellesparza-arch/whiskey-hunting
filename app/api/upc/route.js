@@ -83,3 +83,22 @@ export async function GET(request) {
 
   return NextResponse.json({ name: null, imageUrl: null })
 }
+
+/**
+ * POST /api/upc
+ * Body: { code: string, name: string }
+ *
+ * Caches a UPC→name mapping discovered via label scan so future scans
+ * of the same barcode resolve instantly without hitting external APIs.
+ */
+export async function POST(request) {
+  try {
+    const { code, name } = await request.json()
+    const clean = (code ?? '').toString().trim().replace(/\D/g, '')
+    if (!clean || !name) return NextResponse.json({ ok: false }, { status: 400 })
+    await cacheUpc(clean, name.trim(), null)
+    return NextResponse.json({ ok: true })
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 500 })
+  }
+}
