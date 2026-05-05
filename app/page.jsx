@@ -297,6 +297,29 @@ export default function FindsPage() {
     setPhotoPreview(URL.createObjectURL(file))
   }
 
+  // Compress to JPEG ≤ 3 MB so we stay under Vercel's 4.5 MB payload cap.
+  // iPhone HEIC/HEIF files are typically 10-15 MB — this brings them safely in range.
+  async function compressPhoto(file) {
+    return new Promise(resolve => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const MAX = 3 * 1024 * 1024  // 3 MB target
+        if (file.size <= MAX) { resolve(file); return }
+        // Scale down proportionally until the canvas output fits
+        const canvas = document.createElement('canvas')
+        const scale  = Math.sqrt(MAX / file.size)
+        canvas.width  = Math.round(img.width  * scale)
+        canvas.height = Math.round(img.height * scale)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob(blob => resolve(blob ?? file), 'image/jpeg', 0.85)
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+      img.src = url
+    })
+  }
+
   // ── Submit ─────────────────────────────────────────────────────────────────
   async function handleSubmit(e) {
     e.preventDefault()
@@ -310,14 +333,22 @@ export default function FindsPage() {
       let photoUrl = null
       setPhotoError(null)
       if (photoFile) {
-        const fd = new FormData()
-        fd.append('file', photoFile)
-        const upRes  = await fetch('/api/finds/upload', { method: 'POST', body: fd })
-        const upData = await upRes.json()
-        if (upRes.ok) {
-          photoUrl = upData.url ?? null
-        } else {
-          setPhotoError(`Photo upload failed: ${upData.error ?? upRes.status}. Find will be saved without photo.`)
+        try {
+          const compressed = await compressPhoto(photoFile)
+          const fd = new FormData()
+          fd.append('file', compressed, 'photo.jpg')
+          const upRes = await fetch('/api/finds/upload', { method: 'POST', body: fd })
+          if (upRes.ok) {
+            const upData = await upRes.json()
+            photoUrl = upData.url ?? null
+          } else {
+            const msg = upRes.status === 413
+              ? 'Photo still too large after compression — find saved without photo.'
+              : `Photo upload failed (${upRes.status}) — find saved without photo.`
+            setPhotoError(msg)
+          }
+        } catch {
+          setPhotoError('Photo upload failed — find saved without photo.')
         }
       }
 

@@ -3,6 +3,7 @@ import { getToken }              from 'next-auth/jwt'
 import { getFinds, addFind, removeFind, voteFind, getMonthLeaderboard } from '../../../lib/finds.js'
 import { getUserProfile }        from '../../../lib/friends.js'
 import { sendBroadcast }         from '../../../lib/push.js'
+import { postNewFind }           from '../../../lib/discord.js'
 
 /**
  * GET /api/finds
@@ -63,6 +64,9 @@ export async function POST(request) {
       submittedBy:   token.email,
       submitterName,
     })
+
+    // Await Discord before returning so Vercel doesn't kill the function first
+    await postNewFind(entry).catch(() => {})
 
     // Push notification to all subscribed members (fire-and-forget)
     sendBroadcast({
