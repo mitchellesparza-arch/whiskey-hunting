@@ -119,28 +119,6 @@ export default function FindsPage() {
   const [showLearnScan,  setShowLearnScan]  = useState(false)
   const [scanLearning,   setScanLearning]   = useState(false)
   const [scanLearnMsg,   setScanLearnMsg]   = useState(null)
-  const [learnSearch,    setLearnSearch]    = useState('')
-  const [learnSuggestions, setLearnSuggestions] = useState([])
-  const [learnShowSugg,  setLearnShowSugg]  = useState(false)
-  const learnSuggestTimer = useRef(null)
-  const [learnSheetBottom, setLearnSheetBottom] = useState(0)
-
-  // Lift the Scan a Bottle sheet above the virtual keyboard
-  useEffect(() => {
-    if (!scanLearnOpen || typeof window === 'undefined' || !window.visualViewport) return
-    function onVpChange() {
-      const kb = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop
-      setLearnSheetBottom(Math.max(0, kb))
-    }
-    onVpChange()
-    window.visualViewport.addEventListener('resize', onVpChange)
-    window.visualViewport.addEventListener('scroll', onVpChange)
-    return () => {
-      window.visualViewport.removeEventListener('resize', onVpChange)
-      window.visualViewport.removeEventListener('scroll', onVpChange)
-      setLearnSheetBottom(0)
-    }
-  }, [scanLearnOpen])
 
   const storeInputRef   = useRef(null)
   const autocompleteRef = useRef(null)
@@ -239,9 +217,21 @@ export default function FindsPage() {
     if (val.trim().length < 2) { setSuggestions([]); setShowSuggestions(false); return }
     suggestTimer.current = setTimeout(async () => {
       try {
-        const r = await fetch(`/api/lookup?search=${encodeURIComponent(val.trim())}`)
-        const d = await r.json()
-        const list = (d.results ?? []).map(r => r.name ?? r).filter(Boolean)
+        const [algoliaRes, localRes] = await Promise.allSettled([
+          fetch(`/api/algolia-search?q=${encodeURIComponent(val.trim())}`).then(r => r.json()),
+          fetch(`/api/lookup?search=${encodeURIComponent(val.trim())}`).then(r => r.json()),
+        ])
+        const algolia = algoliaRes.status === 'fulfilled' ? (algoliaRes.value.results ?? []) : []
+        const local   = localRes.status   === 'fulfilled'
+          ? (localRes.value.results ?? []).map(r => (typeof r === 'string' ? r : r.name)).filter(Boolean)
+          : []
+        const seen = new Set()
+        const merged = []
+        for (const name of [...algolia, ...local]) {
+          const key = name.toLowerCase()
+          if (!seen.has(key)) { seen.add(key); merged.push(name) }
+        }
+        const list = merged.slice(0, 8)
         setSuggestions(list)
         setShowSuggestions(list.length > 0)
       } catch { setSuggestions([]); setShowSuggestions(false) }
@@ -465,31 +455,6 @@ export default function FindsPage() {
     }
   }
 
-  // ── Scan-to-learn name search ──────────────────────────────────────────────
-  function handleLearnSearchChange(e) {
-    const val = e.target.value
-    setLearnSearch(val)
-    clearTimeout(learnSuggestTimer.current)
-    if (val.trim().length < 2) { setLearnSuggestions([]); setLearnShowSugg(false); return }
-    learnSuggestTimer.current = setTimeout(async () => {
-      try {
-        const r = await fetch(`/api/lookup?search=${encodeURIComponent(val.trim())}`)
-        const d = await r.json()
-        const list = (d.results ?? []).map(r => r.name ?? r).filter(Boolean)
-        setLearnSuggestions(list)
-        setLearnShowSugg(list.length > 0)
-      } catch { setLearnSuggestions([]); setLearnShowSugg(false) }
-    }, 280)
-  }
-
-  function selectLearnSuggestion(name) {
-    setLearnSearch('')
-    setLearnSuggestions([])
-    setLearnShowSugg(false)
-    setScanLearnOpen(false)
-    setShowLearnScan(false)
-    setActiveBottle(name)
-  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   if (status === 'loading') return null
@@ -634,7 +599,7 @@ export default function FindsPage() {
         sub="Community Finds · Chicagoland"
         action={
           <button
-            onClick={() => { setScanLearnOpen(true); setScanLearnMsg(null); setShowLearnScan(false); setLearnSearch(''); setLearnSuggestions([]); setLearnShowSugg(false) }}
+            onClick={() => { setScanLearnOpen(true); setScanLearnMsg(null); setShowLearnScan(false) }}
             style={{
               fontSize: 13, padding: '6px 14px',
               background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8,
@@ -968,7 +933,7 @@ export default function FindsPage() {
           />
           <div style={{
             position:      'fixed',
-            bottom:        learnSheetBottom,
+            bottom:        0,
             left:          0,
             right:         0,
             zIndex:        200,
@@ -994,46 +959,18 @@ export default function FindsPage() {
               Look up pricing and community sightings — without logging a find.
             </div>
 
-            {/* Name search */}
-            <div style={{ position: 'relative', marginBottom: 12 }}>
-              <input
-                style={{
-                  width: '100%', padding: '9px 12px',
-                  background: '#0f0a05', border: '1px solid #3d2b10', borderRadius: 8,
-                  color: '#f5e6cc', fontSize: 14, boxSizing: 'border-box',
-                  fontFamily: 'inherit', outline: 'none',
-                }}
-                placeholder="Search by name…"
-                value={learnSearch}
-                onChange={handleLearnSearchChange}
-                onBlur={() => setTimeout(() => setLearnShowSugg(false), 150)}
-                onFocus={() => learnSuggestions.length > 0 && setLearnShowSugg(true)}
-              />
-              {learnShowSugg && learnSuggestions.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-                  background: '#1a1008', border: '1px solid #3d2b10', borderRadius: 8,
-                  marginTop: 4, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-                }}>
-                  {learnSuggestions.map((name, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onMouseDown={() => selectLearnSuggestion(name)}
-                      style={{
-                        display: 'block', width: '100%', padding: '9px 12px',
-                        background: 'none', border: 'none',
-                        borderBottom: i < learnSuggestions.length - 1 ? '1px solid #2a1c08' : 'none',
-                        color: '#f5e6cc', fontSize: 13, textAlign: 'left',
-                        cursor: 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      🥃 {name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Search by name — full-screen page avoids keyboard crop */}
+            <button
+              onClick={() => { setScanLearnOpen(false); router.push('/search') }}
+              style={{
+                width: '100%', padding: '11px 0', marginBottom: 10,
+                background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8,
+                color: '#c9a87a', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                fontFamily: 'inherit',
+              }}
+            >
+              🔎 Search by Name
+            </button>
 
             <div style={{ fontSize: 10, fontWeight: 700, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
               — or scan —
