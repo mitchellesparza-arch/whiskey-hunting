@@ -168,6 +168,59 @@ export default function BottleDetailSheet({ bottleName, finds = [], archived = [
           )}
         </div>
 
+        {/* Bottle Info */}
+        {price && (price.distillery || price.proof || price.age || price.type) && (
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #2a1c08' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+              Bottle Info
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
+              {price.distillery && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Distillery</div>
+                  <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.distillery}</div>
+                </div>
+              )}
+              {price.type && (
+                <div>
+                  <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Type</div>
+                  <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.type}</div>
+                </div>
+              )}
+              {price.proof && (
+                <div>
+                  <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Proof</div>
+                  <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{typeof price.proof === 'number' ? `${price.proof}°` : price.proof}</div>
+                </div>
+              )}
+              {price.age && (
+                <div>
+                  <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Age</div>
+                  <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.age}</div>
+                </div>
+              )}
+              {price.origin && (
+                <div>
+                  <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Origin</div>
+                  <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.origin}</div>
+                </div>
+              )}
+              {price.region && (
+                <div>
+                  <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Region</div>
+                  <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.region}</div>
+                </div>
+              )}
+              {price.sizes?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Sizes</div>
+                  <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.sizes.join(', ')}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Recent sightings */}
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #2a1c08' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>

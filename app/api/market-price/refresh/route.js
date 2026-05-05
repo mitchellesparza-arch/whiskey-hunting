@@ -195,6 +195,13 @@ async function handleRefresh(request) {
         msrp:        binnysPrice ?? entry.msrp,
         source:      uaData ? 'Unicorn Auctions live estimates' : 'Secondary market estimate',
         lastUpdated: uaData ? now : entry.lastUpdated,
+        distillery:  entry.distillery  ?? null,
+        proof:       entry.proof       ?? null,
+        age:         entry.age         ?? null,
+        sizes:       entry.sizes       ?? null,
+        origin:      entry.origin      ?? null,
+        region:      entry.region      ?? null,
+        type:        entry.type        ?? null,
       }
 
       try {
