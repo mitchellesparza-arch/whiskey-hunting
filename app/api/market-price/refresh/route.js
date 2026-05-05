@@ -55,6 +55,12 @@ async function redisSet(key, value) {
   await redis.set(key, JSON.stringify(value), { ex: TTL })
 }
 
+async function redisHset(key, fields) {
+  const { Redis } = await import('@upstash/redis')
+  const redis     = Redis.fromEnv()
+  await redis.hset(key, fields)
+}
+
 // ─── C1: Unicorn Auctions ─────────────────────────────────────────────────────
 
 const UA_QUERY = `
@@ -196,6 +202,17 @@ async function handleRefresh(request) {
         await redisSet(`wh:market-prices:live:${norm}`, value)
         for (const alias of (entry.aliases ?? []))
           await redisSet(`wh:market-prices:live:${normName(alias)}`, value)
+
+        // Price history — one snapshot per month stored in a hash (field = YYYY-MM)
+        const histKey   = `wh:price-history:${norm}`
+        const histPoint = JSON.stringify({ avg: value.avg, low: value.low, high: value.high })
+        await redisHset(histKey, { [now]: histPoint })
+        // Seed the static-JSON baseline as a separate historical data point the first time
+        if (entry.secondary?.avg && entry.lastUpdated && entry.lastUpdated < now) {
+          const baseline = JSON.stringify({ avg: entry.secondary.avg, low: entry.secondary.low, high: entry.secondary.high })
+          await redisHset(histKey, { [entry.lastUpdated]: baseline })
+        }
+
         written++
       } catch {}
     })

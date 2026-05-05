@@ -4,8 +4,10 @@ import dynamic        from 'next/dynamic'
 import { useSession } from 'next-auth/react'
 import { useRouter }  from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import BarcodeScanner from './finds/BarcodeScanner.jsx'
-import AppHeader      from './components/AppHeader.jsx'
+import BarcodeScanner    from './finds/BarcodeScanner.jsx'
+import AppHeader         from './components/AppHeader.jsx'
+import BottleDetailSheet from './components/BottleDetailSheet.jsx'
+import StoreHistorySheet from './components/StoreHistorySheet.jsx'
 
 // Leaflet map — SSR disabled (window is required)
 const FindsMap = dynamic(() => import('./finds/FindsMap.jsx'), { ssr: false, loading: () => (
@@ -94,9 +96,19 @@ export default function FindsPage() {
   const [upcStatus,    setUpcStatus]    = useState(null)   // 'found' | 'not-found' | null
 
   // UI
-  const [showScanner,  setShowScanner]  = useState(false)
-  const [view,         setView]         = useState('map')
-  const [deletingId,   setDeletingId]   = useState(null)
+  const [showScanner,    setShowScanner]    = useState(false)
+  const [view,           setView]           = useState('map')
+  const [deletingId,     setDeletingId]     = useState(null)
+
+  // Bottle detail + store history sheets (Sprint 1 & 3)
+  const [activeBottle,   setActiveBottle]   = useState(null)  // string | null
+  const [activeStore,    setActiveStore]    = useState(null)  // store object | null
+
+  // Scan-to-learn (Sprint 1) — separate from the find-submission scanner
+  const [scanLearnOpen,  setScanLearnOpen]  = useState(false)
+  const [showLearnScan,  setShowLearnScan]  = useState(false)
+  const [scanLearning,   setScanLearning]   = useState(false)
+  const [scanLearnMsg,   setScanLearnMsg]   = useState(null)
 
   const storeInputRef   = useRef(null)
   const autocompleteRef = useRef(null)
@@ -278,6 +290,60 @@ export default function FindsPage() {
     setDeletingId(null)
   }
 
+  // ── Scan-to-Learn ──────────────────────────────────────────────────────────
+
+  async function handleLearnBarcode(code) {
+    setShowLearnScan(false)
+    setScanLearning(true)
+    setScanLearnMsg(null)
+    try {
+      const r = await fetch(`/api/lookup?upc=${encodeURIComponent(code)}`)
+      const d = await r.json()
+      if (d.found) {
+        setScanLearnOpen(false)
+        setActiveBottle(d.bottle.name)
+      } else {
+        setScanLearnMsg('Barcode not in database — try scanning the label instead')
+      }
+    } catch {
+      setScanLearnMsg('Lookup failed — try again')
+    } finally {
+      setScanLearning(false)
+    }
+  }
+
+  async function handleLearnPhoto(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setScanLearning(true)
+    setScanLearnMsg('Reading label…')
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload  = () => resolve(reader.result.split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const r = await fetch('/api/lookup/photo', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ image: base64, mediaType: file.type || 'image/jpeg' }),
+      })
+      const d = await r.json()
+      if (d.found) {
+        setScanLearnOpen(false)
+        setActiveBottle(d.bottle.name)
+      } else {
+        setScanLearnMsg(d.error ?? 'Could not identify label — try again')
+      }
+    } catch {
+      setScanLearnMsg('Photo lookup failed — try again')
+    } finally {
+      setScanLearning(false)
+      e.target.value = ''
+    }
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
   if (status === 'loading') return null
 
@@ -307,7 +373,7 @@ export default function FindsPage() {
 
   const MEDAL_COLOR = ['#fbbf24', '#94a3b8', '#b45309']
 
-  function FindCard({ find, isArchived = false }) {
+  function FindCard({ find, isArchived = false, onBottleClick, onStoreClick }) {
     const userEmail = session?.user?.email ?? ''
     const votes     = find.votes ?? { up: [], down: [] }
     const upCount   = votes.up.length
@@ -320,9 +386,17 @@ export default function FindsPage() {
       <div className="card" style={{ padding: 0, opacity: isArchived ? 0.6 : 1 }}>
         <div style={{ padding: '12px 14px', borderBottom: '1px solid #2a1c08' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.3, fontStyle: isArchived ? 'italic' : 'normal' }}>
+            <button
+              onClick={() => onBottleClick?.(find.bottleName)}
+              style={{
+                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                textAlign: 'left', fontFamily: 'inherit',
+                fontWeight: 700, fontSize: 15, color: 'var(--text-primary)',
+                lineHeight: 1.3, fontStyle: isArchived ? 'italic' : 'normal',
+              }}
+            >
               🥃 {find.bottleName}
-            </div>
+            </button>
             <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
               {!isArchived && <FreshnessBadge timestamp={find.timestamp} />}
               <button
@@ -335,7 +409,14 @@ export default function FindsPage() {
             </div>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>
-            📍 {find.store?.name ?? '—'}
+            <button
+              onClick={() => find.store?.placeId && onStoreClick?.(find.store)}
+              style={{
+                background: 'none', border: 'none', padding: 0, fontFamily: 'inherit',
+                fontSize: 12, cursor: find.store?.placeId ? 'pointer' : 'default',
+                color: find.store?.placeId ? '#c9a87a' : 'var(--text-muted)',
+              }}
+            >📍 {find.store?.name ?? '—'}</button>
             {find.store?.address && <span style={{ color: '#6b5030' }}> · {find.store.address}</span>}
           </div>
           <div style={{ fontSize: 11, color: '#6b5030', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -405,13 +486,21 @@ export default function FindsPage() {
       <AppHeader
         sub="Community Finds · Chicagoland"
         action={
-          <button
-            onClick={loadFinds}
-            className="btn-primary"
-            style={{ fontSize: 13, padding: '6px 14px' }}
-          >
-            ↺ Refresh
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => { setScanLearnOpen(true); setScanLearnMsg(null); setShowLearnScan(false) }}
+              style={{
+                fontSize: 13, padding: '6px 12px',
+                background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8,
+                color: '#e8943a', cursor: 'pointer', fontWeight: 700,
+              }}
+            >🔍 Scan</button>
+            <button
+              onClick={loadFinds}
+              className="btn-primary"
+              style={{ fontSize: 13, padding: '6px 14px' }}
+            >↺ Refresh</button>
+          </div>
         }
       />
 
@@ -629,7 +718,9 @@ export default function FindsPage() {
                 </p>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {finds.map(find => <FindCard key={find.id} find={find} />)}
+                {finds.map(find => (
+                  <FindCard key={find.id} find={find} onBottleClick={setActiveBottle} onStoreClick={setActiveStore} />
+                ))}
               </div>
 
               {archived.length > 0 && (
@@ -648,7 +739,9 @@ export default function FindsPage() {
                   </button>
                   {showArchived && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
-                      {archived.map(find => <FindCard key={find.id} find={find} isArchived />)}
+                      {archived.map(find => (
+                        <FindCard key={find.id} find={find} isArchived onBottleClick={setActiveBottle} onStoreClick={setActiveStore} />
+                      ))}
                     </div>
                   )}
                 </div>
@@ -658,6 +751,110 @@ export default function FindsPage() {
         </div>
 
       </div>
+
+      {/* ── Scan-to-Learn sheet ─────────────────────────────────────────────── */}
+      {scanLearnOpen && (
+        <>
+          <div
+            onClick={() => { setScanLearnOpen(false); setShowLearnScan(false) }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 199 }}
+          />
+          <div style={{
+            position:      'fixed',
+            bottom:        0,
+            left:          0,
+            right:         0,
+            zIndex:        200,
+            background:    '#1a1008',
+            borderRadius:  '16px 16px 0 0',
+            borderTop:     '1px solid #3d2b10',
+            padding:       '0 16px calc(28px + env(safe-area-inset-bottom))',
+            animation:     'fadeUp 0.22s ease',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: '#3d2b10' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc' }}>🔍 Scan a Bottle</div>
+              <button
+                onClick={() => { setScanLearnOpen(false); setShowLearnScan(false) }}
+                style={{ background: 'none', border: 'none', color: '#6b5030', fontSize: 20, cursor: 'pointer', padding: 0 }}
+              >✕</button>
+            </div>
+            <div style={{ fontSize: 12, color: '#6b5030', marginBottom: 14 }}>
+              Look up pricing and community sightings — without logging a find.
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button
+                onClick={() => setShowLearnScan(s => !s)}
+                disabled={scanLearning}
+                style={{
+                  flex: 1, padding: '10px 0',
+                  background: showLearnScan ? '#e8943a' : '#1f1308',
+                  border: '1px solid #3d2b10', borderRadius: 8,
+                  color: showLearnScan ? '#fff' : '#e8943a',
+                  cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
+                }}
+              >
+                {showLearnScan ? '✕ Close Scanner' : '📷 Scan Barcode'}
+              </button>
+              <label style={{
+                flex: 1, padding: '10px 0',
+                background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8,
+                color: '#c084fc', cursor: scanLearning ? 'not-allowed' : 'pointer',
+                fontWeight: 700, fontSize: 13, textAlign: 'center', display: 'block',
+                opacity: scanLearning ? 0.6 : 1,
+              }}>
+                {scanLearning ? '⏳ Reading…' : '🏷️ Scan Label'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleLearnPhoto}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
+            {showLearnScan && (
+              <div style={{ marginBottom: 12 }}>
+                <BarcodeScanner
+                  onResult={handleLearnBarcode}
+                  onClose={() => setShowLearnScan(false)}
+                  autoCamera
+                />
+              </div>
+            )}
+            {scanLearnMsg && (
+              <div style={{
+                fontSize: 12, color: '#e8943a',
+                padding: '7px 10px', background: '#0f0a05',
+                borderRadius: 6, border: '1px solid #2a1c08',
+              }}>
+                {scanLearnMsg}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── Bottle Detail sheet (Sprint 1) ────────────────────────────────────── */}
+      {activeBottle && (
+        <BottleDetailSheet
+          bottleName={activeBottle}
+          finds={finds}
+          archived={archived}
+          onClose={() => setActiveBottle(null)}
+        />
+      )}
+
+      {/* ── Store History sheet (Sprint 3) ────────────────────────────────────── */}
+      {activeStore && (
+        <StoreHistorySheet
+          store={activeStore}
+          onClose={() => setActiveStore(null)}
+        />
+      )}
+
     </div>
   )
 }
