@@ -8,6 +8,7 @@
     { "path": "/api/cron",        "schedule": "0 22 * * *" },
     { "path": "/api/social-scan", "schedule": "0 16 * * *" },
     { "path": "/api/social-scan", "schedule": "0 22 * * *" },
-    { "path": "/api/market-price/refresh", "schedule": "0 6 * * 1" }
+    { "path": "/api/market-price/refresh", "schedule": "0 6 * * 1" },
+    { "path": "/api/cron/import-upcs",     "schedule": "0 7 1 * *" }
   ]
 }

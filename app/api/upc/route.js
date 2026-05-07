@@ -22,9 +22,11 @@ function getRedis() {
   return _redis
 }
 
-async function cacheUpc(code, name, imageUrl) {
+async function cacheUpc(code, name, imageUrl, source = null) {
   try {
-    await getRedis().set(`wh:upc:${code}`, JSON.stringify({ name, imageUrl: imageUrl ?? null }))
+    const value = { name, imageUrl: imageUrl ?? null }
+    if (source) value.source = source
+    await getRedis().set(`wh:upc:${code}`, JSON.stringify(value))
   } catch {}
 }
 
@@ -96,7 +98,7 @@ export async function POST(request) {
     const { code, name } = await request.json()
     const clean = (code ?? '').toString().trim().replace(/\D/g, '')
     if (!clean || !name) return NextResponse.json({ ok: false }, { status: 400 })
-    await cacheUpc(clean, name.trim(), null)
+    await cacheUpc(clean, name.trim(), null, 'user-scan')
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ ok: false }, { status: 500 })
