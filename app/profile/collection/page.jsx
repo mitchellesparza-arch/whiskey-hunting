@@ -1053,6 +1053,217 @@ function AddBottleSheet({ onClose, onAdd }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+// ── Fill Photos Sheet ─────────────────────────────────────────────────────────
+// Steps through every collection bottle that has no photoUrl and lets the user
+// quickly add one without opening each individual edit sheet.
+
+function FillPhotosSheet({ bottles, onDone }) {
+  const [idx,       setIdx]       = useState(0)
+  const [uploading, setUploading] = useState(false)
+  const [error,     setError]     = useState(null)
+  const inputRef = useRef(null)
+
+  const bottle = bottles[idx]
+
+  // All done — nothing left without photos
+  if (!bottle) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, background: 'var(--bg-base)',
+        zIndex: 400, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32,
+      }}>
+        <div style={{ fontSize: 48 }}>🥃</div>
+        <div style={{ fontWeight: 800, fontSize: 20, color: '#f5e6cc', textAlign: 'center' }}>All done!</div>
+        <div style={{ fontSize: 14, color: '#9a7c55', textAlign: 'center' }}>
+          Every bottle in your collection now has a photo.
+        </div>
+        <button
+          onClick={onDone}
+          style={{
+            marginTop: 8, padding: '11px 32px', background: '#e8943a',
+            border: 'none', borderRadius: 10, color: '#fff',
+            fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          Back to collection
+        </button>
+      </div>
+    )
+  }
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError(null)
+    setUploading(true)
+    try {
+      // 1. Upload photo to Vercel Blob
+      const formData = new FormData()
+      formData.append('file', file)
+      const upRes  = await fetch('/api/collection/upload', { method: 'POST', body: formData })
+      const upData = await upRes.json()
+      if (!upRes.ok) throw new Error(upData.error || 'Upload failed')
+
+      // 2. PATCH the collection entry with the new photoUrl
+      const patchRes  = await fetch('/api/collection', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ id: bottle.id, photoUrl: upData.url }),
+      })
+      const patchData = await patchRes.json()
+      if (!patchRes.ok) throw new Error(patchData.error || 'Save failed')
+
+      // Pass updated bottles up so the collection list stays in sync
+      onDone(patchData.bottles, false)   // false = don't close the sheet
+      setIdx(i => i + 1)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  function skip() {
+    setError(null)
+    setIdx(i => i + 1)
+  }
+
+  const remaining = bottles.length - idx
+
+  return (
+    <div style={{
+      position:      'fixed',
+      inset:         0,
+      background:    'var(--bg-base)',
+      zIndex:        400,
+      display:       'flex',
+      flexDirection: 'column',
+      overflowY:     'auto',
+    }}>
+      {/* Header */}
+      <div style={{
+        display:      'flex',
+        alignItems:   'center',
+        justifyContent: 'space-between',
+        padding:      '14px 16px',
+        paddingTop:   'calc(14px + env(safe-area-inset-top))',
+        background:   '#0f0a05',
+        borderBottom: '1px solid #2a1c08',
+        flexShrink:   0,
+      }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc' }}>Add Missing Photos</div>
+          <div style={{ fontSize: 11, color: '#9a7c55', marginTop: 1 }}>
+            {idx + 1} of {bottles.length} · {remaining} remaining
+          </div>
+        </div>
+        <button
+          onClick={onDone}
+          style={{
+            background: 'none', border: 'none', color: '#6b5030',
+            fontSize: 22, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
+          }}
+          aria-label="Close"
+        >✕</button>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ height: 3, background: '#1f1308', flexShrink: 0 }}>
+        <div style={{
+          height:     '100%',
+          width:      `${((idx) / bottles.length) * 100}%`,
+          background: '#e8943a',
+          transition: 'width 0.3s ease',
+        }} />
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+
+        {/* Bottle identity */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontWeight: 800, fontSize: 20, color: '#f5e6cc', lineHeight: 1.25, marginBottom: 6 }}>
+            {bottle.name}
+          </div>
+          {bottle.distillery && (
+            <div style={{ fontSize: 13, color: '#9a7c55' }}>{bottle.distillery}</div>
+          )}
+          {(bottle.category || bottle.proof) && (
+            <div style={{ fontSize: 12, color: '#6b5030', marginTop: 3 }}>
+              {[bottle.category, bottle.proof ? `${bottle.proof}°` : null].filter(Boolean).join(' · ')}
+            </div>
+          )}
+        </div>
+
+        {/* Photo tap-to-add area */}
+        <label style={{
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          justifyContent: 'center',
+          width:          '100%',
+          maxWidth:       320,
+          aspectRatio:    '4/3',
+          background:     '#0f0a05',
+          border:         `2px dashed ${error ? '#f87' : '#3d2b10'}`,
+          borderRadius:   16,
+          cursor:         uploading ? 'default' : 'pointer',
+          gap:            12,
+          position:       'relative',
+          overflow:       'hidden',
+        }}>
+          {uploading ? (
+            <>
+              <div style={{ fontSize: 32 }}>⏳</div>
+              <div style={{ fontSize: 13, color: '#9a7c55' }}>Uploading…</div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 40, opacity: 0.5 }}>📷</div>
+              <div style={{ fontSize: 14, color: '#9a7c55', fontWeight: 600 }}>Tap to add a photo</div>
+              <div style={{ fontSize: 11, color: '#6b5030' }}>Camera or gallery</div>
+            </>
+          )}
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFile}
+            disabled={uploading}
+            style={{ display: 'none' }}
+          />
+        </label>
+
+        {error && (
+          <p style={{ fontSize: 12, color: '#f87', textAlign: 'center', margin: 0 }}>{error}</p>
+        )}
+
+        {/* Skip */}
+        <button
+          onClick={skip}
+          disabled={uploading}
+          style={{
+            background:   'none',
+            border:       '1px solid #3d2b10',
+            borderRadius: 10,
+            color:        '#9a7c55',
+            fontSize:     13,
+            padding:      '10px 32px',
+            cursor:       uploading ? 'default' : 'pointer',
+            fontFamily:   'inherit',
+            opacity:      uploading ? 0.4 : 1,
+          }}
+        >
+          Skip this bottle →
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function CollectionPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -1061,8 +1272,9 @@ export default function CollectionPage() {
   const [loaded,        setLoaded]        = useState(false)
   const [sort,          setSort]          = useState('score')
   const [showAdd,       setShowAdd]       = useState(false)
-  const [removing,      setRemoving]      = useState(null)
-  const [editingBottle, setEditingBottle] = useState(null) // bottle being edited
+  const [removing,       setRemoving]       = useState(null)
+  const [editingBottle,  setEditingBottle]  = useState(null)
+  const [showFillPhotos, setShowFillPhotos] = useState(false)
   const [unicornDeals,  setUnicornDeals]  = useState([])
   const [marketPrices,  setMarketPrices]  = useState({})
 
@@ -1303,6 +1515,38 @@ export default function CollectionPage() {
             ))}
           </div>
 
+          {/* Missing-photos banner */}
+          {loaded && bottles.filter(b => !b.photoUrl).length > 0 && (
+            <button
+              onClick={() => setShowFillPhotos(true)}
+              style={{
+                width:        '100%',
+                display:      'flex',
+                alignItems:   'center',
+                gap:          10,
+                padding:      '10px 14px',
+                marginBottom: 12,
+                background:   '#0f0a05',
+                border:       '1px solid #3d2b10',
+                borderRadius: 10,
+                cursor:       'pointer',
+                textAlign:    'left',
+                fontFamily:   'inherit',
+              }}
+            >
+              <span style={{ fontSize: 20, flexShrink: 0 }}>📷</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f5e6cc' }}>
+                  {bottles.filter(b => !b.photoUrl).length} bottle{bottles.filter(b => !b.photoUrl).length !== 1 ? 's' : ''} missing photos
+                </div>
+                <div style={{ fontSize: 11, color: '#9a7c55', marginTop: 1 }}>
+                  Tap to add them all in one pass
+                </div>
+              </div>
+              <span style={{ color: '#e8943a', fontSize: 16, flexShrink: 0 }}>›</span>
+            </button>
+          )}
+
           {/* Bottle list */}
           {!loaded ? (
             <p style={{ color: '#9a7c55', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>Loading…</p>
@@ -1341,6 +1585,16 @@ export default function CollectionPage() {
           bottle={editingBottle}
           onClose={() => setEditingBottle(null)}
           onSave={(bottles) => { setBottles(bottles); setEditingBottle(null) }}
+        />
+      )}
+
+      {showFillPhotos && (
+        <FillPhotosSheet
+          bottles={bottles.filter(b => !b.photoUrl)}
+          onDone={(updatedBottles, close = true) => {
+            if (updatedBottles) setBottles(updatedBottles)
+            if (close) setShowFillPhotos(false)
+          }}
         />
       )}
 
