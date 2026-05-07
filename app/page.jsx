@@ -619,37 +619,75 @@ export default function FindsPage() {
 
           <form onSubmit={handleSubmit}>
 
+            {/* Quick-scan buttons — mirror the dual barcode/label flow used in
+                the Add to Collection sheet so members can fill the form by
+                scanning either the UPC or the bottle's label. */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+              <button
+                type="button"
+                onClick={() => { setShowScanner(s => !s); setUpcStatus(null) }}
+                disabled={labelScanning}
+                style={{
+                  flex:         1,
+                  padding:      '9px 0',
+                  background:   showScanner ? 'var(--accent)' : 'var(--bg-card)',
+                  border:       '1px solid var(--border)',
+                  borderRadius: 8,
+                  color:        showScanner ? '#fff' : 'var(--accent)',
+                  cursor:       labelScanning ? 'not-allowed' : 'pointer',
+                  fontSize:     13,
+                  fontWeight:   700,
+                  opacity:      labelScanning ? 0.5 : 1,
+                }}
+              >
+                {showScanner ? '✕ Close Scanner' : '📷 Scan Barcode'}
+              </button>
+              <button
+                type="button"
+                onClick={() => labelScanRef.current?.click()}
+                disabled={labelScanning}
+                style={{
+                  flex:         1,
+                  padding:      '9px 0',
+                  background:   'var(--bg-card)',
+                  border:       '1px solid var(--border)',
+                  borderRadius: 8,
+                  color:        '#c084fc',
+                  cursor:       labelScanning ? 'not-allowed' : 'pointer',
+                  fontSize:     13,
+                  fontWeight:   700,
+                  opacity:      labelScanning ? 0.5 : 1,
+                }}
+              >
+                {labelScanning ? '⏳ Reading…' : '🏷️ Scan Label'}
+              </button>
+            </div>
+
+            {/* Hidden file input — triggered by Scan Label button.  Promoted
+                to top-level so it works as a primary action, not just a
+                post-barcode-miss fallback. */}
+            <input
+              ref={labelScanRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={handleLabelScan}
+              disabled={labelScanning}
+            />
+
             <label style={labelStyle}>Bottle Name *</label>
             <div style={{ position: 'relative' }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  ref={bottleInputRef}
-                  style={{ ...inputStyle, flex: 1 }}
-                  placeholder="e.g. Blanton's Original"
-                  value={bottleName}
-                  onChange={handleBottleNameChange}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowScanner(s => !s)}
-                  title="Scan barcode"
-                  style={{
-                    padding:      '8px 13px',
-                    background:   showScanner ? 'var(--accent)' : 'var(--bg-card)',
-                    border:       '1px solid var(--border)',
-                    borderRadius: 8,
-                    color:        showScanner ? '#fff' : 'var(--accent)',
-                    cursor:       'pointer',
-                    fontSize:     18,
-                    flexShrink:   0,
-                  }}
-                >
-                  {showScanner ? '✕' : '📷'}
-                </button>
-              </div>
+              <input
+                ref={bottleInputRef}
+                style={inputStyle}
+                placeholder="e.g. Blanton's Original"
+                value={bottleName}
+                onChange={handleBottleNameChange}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                required
+              />
 
               {/* Autocomplete dropdown */}
               {showSuggestions && suggestions.length > 0 && (
@@ -657,7 +695,7 @@ export default function FindsPage() {
                   position:   'absolute',
                   top:        '100%',
                   left:       0,
-                  right:      44,
+                  right:      0,
                   zIndex:     50,
                   background: '#1a1008',
                   border:     '1px solid #3d2b10',
@@ -698,27 +736,9 @@ export default function FindsPage() {
                 {upcLooking && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>🔍 Looking up…</span>}
                 {!upcLooking && upcStatus === 'found'     && <span style={{ fontSize: 12, color: 'var(--green)' }}>✓ Name filled from barcode</span>}
                 {!upcLooking && upcStatus === 'not-found' && (
-                  <>
-                    <span style={{ fontSize: 12, color: '#fb923c' }}>Not in database</span>
-                    <label style={{
-                      fontSize:   12,
-                      fontWeight: 700,
-                      color:      '#e8943a',
-                      cursor:     labelScanning ? 'default' : 'pointer',
-                      opacity:    labelScanning ? 0.5 : 1,
-                    }}>
-                      {labelScanning ? '⏳ Reading…' : '📷 Scan Label'}
-                      <input
-                        ref={labelScanRef}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        style={{ display: 'none' }}
-                        onChange={handleLabelScan}
-                        disabled={labelScanning}
-                      />
-                    </label>
-                  </>
+                  <span style={{ fontSize: 12, color: '#fb923c' }}>
+                    Not in database — try Scan Label above
+                  </span>
                 )}
                 <button
                   type="button"

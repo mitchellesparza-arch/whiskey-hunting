@@ -27,6 +27,29 @@ export default function BarcodeScanner({ onResult, onClose }) {
   async function startCamera() {
     firedRef.current = false
     setError(null)
+
+    // Probe the existing permission grant before calling getUserMedia.  When
+    // the origin already has camera access, getUserMedia returns the stream
+    // silently and we can skip the "Starting camera…" flash.  When access has
+    // been hard-denied, surface a clear instruction up front rather than
+    // letting getUserMedia throw a generic NotAllowedError.
+    //
+    // iOS standalone PWAs pre-16.4 don't persist the grant across app launches
+    // — that's a Safari/WebKit limitation, not something we can fix here.  On
+    // 16.4+ this branch returns 'granted' on subsequent opens and the flash
+    // disappears.
+    let permState = 'prompt'
+    try {
+      const result = await navigator.permissions?.query?.({ name: 'camera' })
+      if (result?.state) permState = result.state
+    } catch { /* Permissions API unsupported — proceed with normal flow */ }
+
+    if (permState === 'denied') {
+      setStatus('error')
+      setError('Camera access is blocked. Open Settings → Safari → Camera and set this site to Allow.')
+      return
+    }
+
     setStatus('starting')
     try {
       const { BrowserMultiFormatReader } = await import('@zxing/browser')
