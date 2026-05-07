@@ -1054,16 +1054,37 @@ function AddBottleSheet({ onClose, onAdd }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 // ── Fill Photos Sheet ─────────────────────────────────────────────────────────
-// Steps through every collection bottle that has no photoUrl and lets the user
-// quickly add one without opening each individual edit sheet.
+// Steps through every collection bottle that has no photoUrl. For each bottle
+// it auto-fetches a stock image from Binny's Algolia catalog and surfaces it
+// as a one-tap suggestion. Users can also upload their own photo or skip.
 
 function FillPhotosSheet({ bottles, onDone }) {
-  const [idx,       setIdx]       = useState(0)
-  const [uploading, setUploading] = useState(false)
-  const [error,     setError]     = useState(null)
+  const [idx,        setIdx]        = useState(0)
+  const [saving,     setSaving]     = useState(false)
+  const [autoFilling,setAutoFilling]= useState(false)
+  const [error,      setError]      = useState(null)
+  // Per-bottle Algolia image cache: { [bottleId]: { imageUrl, loading } }
+  const [algoliaImgs, setAlgoliaImgs] = useState({})
   const inputRef = useRef(null)
 
   const bottle = bottles[idx]
+
+  // Fetch Algolia image for current bottle whenever idx changes
+  useEffect(() => {
+    if (!bottle) return
+    if (algoliaImgs[bottle.id] !== undefined) return  // already fetched
+    setAlgoliaImgs(prev => ({ ...prev, [bottle.id]: { imageUrl: null, loading: true } }))
+    fetch(`/api/algolia-image?name=${encodeURIComponent(bottle.name)}`)
+      .then(r => r.json())
+      .then(data => setAlgoliaImgs(prev => ({
+        ...prev,
+        [bottle.id]: { imageUrl: data.imageUrl ?? null, loading: false },
+      })))
+      .catch(() => setAlgoliaImgs(prev => ({
+        ...prev,
+        [bottle.id]: { imageUrl: null, loading: false },
+      })))
+  }, [idx, bottle?.id])
 
   // All done — nothing left without photos
   if (!bottle) {
@@ -1092,36 +1113,84 @@ function FillPhotosSheet({ bottles, onDone }) {
     )
   }
 
+  async function applyPhotoUrl(photoUrl) {
+    setSaving(true)
+    setError(null)
+    try {
+      const res  = await fetch('/api/collection', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ id: bottle.id, photoUrl }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Save failed')
+      onDone(data.bottles, false)
+      setIdx(i => i + 1)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
     setError(null)
-    setUploading(true)
+    setSaving(true)
     try {
-      // 1. Upload photo to Vercel Blob
       const formData = new FormData()
       formData.append('file', file)
       const upRes  = await fetch('/api/collection/upload', { method: 'POST', body: formData })
       const upData = await upRes.json()
       if (!upRes.ok) throw new Error(upData.error || 'Upload failed')
+      await applyPhotoUrl(upData.url)
+    } catch (err) {
+      setError(err.message)
+      setSaving(false)
+    } finally {
+      e.target.value = ''
+    }
+  }
 
-      // 2. PATCH the collection entry with the new photoUrl
-      const patchRes  = await fetch('/api/collection', {
-        method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ id: bottle.id, photoUrl: upData.url }),
-      })
-      const patchData = await patchRes.json()
-      if (!patchRes.ok) throw new Error(patchData.error || 'Save failed')
-
-      // Pass updated bottles up so the collection list stays in sync
-      onDone(patchData.bottles, false)   // false = don't close the sheet
-      setIdx(i => i + 1)
+  // Auto-fill: fetch Algolia images for all remaining bottles and apply matches
+  async function handleAutoFill() {
+    setAutoFilling(true)
+    setError(null)
+    const remaining = bottles.slice(idx)
+    try {
+      const results = await Promise.all(
+        remaining.map(b =>
+          fetch(`/api/algolia-image?name=${encodeURIComponent(b.name)}`)
+            .then(r => r.json())
+            .then(d => ({ id: b.id, imageUrl: d.imageUrl ?? null }))
+            .catch(() => ({ id: b.id, imageUrl: null }))
+        )
+      )
+      const matched = results.filter(r => r.imageUrl)
+      if (!matched.length) {
+        setError('No catalog images found for remaining bottles.')
+        setAutoFilling(false)
+        return
+      }
+      // Apply all matches in sequence
+      let lastBottles = null
+      for (const { id, imageUrl } of matched) {
+        const res  = await fetch('/api/collection', {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ id, photoUrl: imageUrl }),
+        })
+        const data = await res.json()
+        if (res.ok) lastBottles = data.bottles
+      }
+      if (lastBottles) onDone(lastBottles, false)
+      // Skip past everything that was auto-filled
+      setIdx(bottles.length)  // triggers "all done" screen
     } catch (err) {
       setError(err.message)
     } finally {
-      setUploading(false)
-      e.target.value = ''
+      setAutoFilling(false)
     }
   }
 
@@ -1130,7 +1199,10 @@ function FillPhotosSheet({ bottles, onDone }) {
     setIdx(i => i + 1)
   }
 
-  const remaining = bottles.length - idx
+  const algoliaImg = algoliaImgs[bottle.id]
+  const catalogUrl = algoliaImg?.imageUrl ?? null
+  const loadingCatalog = algoliaImg?.loading ?? true
+  const remaining  = bottles.length - idx
 
   return (
     <div style={{
@@ -1144,14 +1216,14 @@ function FillPhotosSheet({ bottles, onDone }) {
     }}>
       {/* Header */}
       <div style={{
-        display:      'flex',
-        alignItems:   'center',
+        display:        'flex',
+        alignItems:     'center',
         justifyContent: 'space-between',
-        padding:      '14px 16px',
-        paddingTop:   'calc(14px + env(safe-area-inset-top))',
-        background:   '#0f0a05',
-        borderBottom: '1px solid #2a1c08',
-        flexShrink:   0,
+        padding:        '14px 16px',
+        paddingTop:     'calc(14px + env(safe-area-inset-top))',
+        background:     '#0f0a05',
+        borderBottom:   '1px solid #2a1c08',
+        flexShrink:     0,
       }}>
         <div>
           <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc' }}>Add Missing Photos</div>
@@ -1161,10 +1233,7 @@ function FillPhotosSheet({ bottles, onDone }) {
         </div>
         <button
           onClick={onDone}
-          style={{
-            background: 'none', border: 'none', color: '#6b5030',
-            fontSize: 22, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
-          }}
+          style={{ background: 'none', border: 'none', color: '#6b5030', fontSize: 22, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
           aria-label="Close"
         >✕</button>
       </div>
@@ -1172,93 +1241,127 @@ function FillPhotosSheet({ bottles, onDone }) {
       {/* Progress bar */}
       <div style={{ height: 3, background: '#1f1308', flexShrink: 0 }}>
         <div style={{
-          height:     '100%',
-          width:      `${((idx) / bottles.length) * 100}%`,
-          background: '#e8943a',
-          transition: 'width 0.3s ease',
+          height: '100%', background: '#e8943a', transition: 'width 0.3s ease',
+          width: `${(idx / bottles.length) * 100}%`,
         }} />
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+      <div style={{ flex: 1, padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
 
         {/* Bottle identity */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontWeight: 800, fontSize: 20, color: '#f5e6cc', lineHeight: 1.25, marginBottom: 6 }}>
+          <div style={{ fontWeight: 800, fontSize: 20, color: '#f5e6cc', lineHeight: 1.25, marginBottom: 5 }}>
             {bottle.name}
           </div>
           {bottle.distillery && (
             <div style={{ fontSize: 13, color: '#9a7c55' }}>{bottle.distillery}</div>
           )}
           {(bottle.category || bottle.proof) && (
-            <div style={{ fontSize: 12, color: '#6b5030', marginTop: 3 }}>
+            <div style={{ fontSize: 12, color: '#6b5030', marginTop: 2 }}>
               {[bottle.category, bottle.proof ? `${bottle.proof}°` : null].filter(Boolean).join(' · ')}
             </div>
           )}
         </div>
 
-        {/* Photo tap-to-add area */}
-        <label style={{
-          display:        'flex',
-          flexDirection:  'column',
-          alignItems:     'center',
-          justifyContent: 'center',
-          width:          '100%',
-          maxWidth:       320,
-          aspectRatio:    '4/3',
-          background:     '#0f0a05',
-          border:         `2px dashed ${error ? '#f87' : '#3d2b10'}`,
-          borderRadius:   16,
-          cursor:         uploading ? 'default' : 'pointer',
-          gap:            12,
-          position:       'relative',
-          overflow:       'hidden',
-        }}>
-          {uploading ? (
-            <>
-              <div style={{ fontSize: 32 }}>⏳</div>
-              <div style={{ fontSize: 13, color: '#9a7c55' }}>Uploading…</div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 40, opacity: 0.5 }}>📷</div>
-              <div style={{ fontSize: 14, color: '#9a7c55', fontWeight: 600 }}>Tap to add a photo</div>
-              <div style={{ fontSize: 11, color: '#6b5030' }}>Camera or gallery</div>
-            </>
-          )}
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFile}
-            disabled={uploading}
-            style={{ display: 'none' }}
-          />
-        </label>
-
-        {error && (
-          <p style={{ fontSize: 12, color: '#f87', textAlign: 'center', margin: 0 }}>{error}</p>
+        {/* Catalog image suggestion */}
+        {loadingCatalog ? (
+          <div style={{
+            width: '100%', maxWidth: 300, aspectRatio: '3/4',
+            background: '#0f0a05', borderRadius: 14,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#3d2b10', fontSize: 13,
+          }}>
+            Checking catalog…
+          </div>
+        ) : catalogUrl ? (
+          <div style={{ width: '100%', maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 11, color: '#9a7c55', textAlign: 'center', letterSpacing: 0.3 }}>
+              Found in Binny's catalog
+            </div>
+            <img
+              src={catalogUrl}
+              alt={bottle.name}
+              style={{
+                width: '100%', aspectRatio: '3/4', objectFit: 'contain',
+                borderRadius: 14, background: '#fff', padding: 12, boxSizing: 'border-box',
+              }}
+            />
+            <button
+              onClick={() => applyPhotoUrl(catalogUrl)}
+              disabled={saving}
+              style={{
+                padding: '12px', background: '#e8943a', border: 'none',
+                borderRadius: 10, color: '#fff', fontWeight: 700,
+                fontSize: 15, cursor: saving ? 'default' : 'pointer',
+                fontFamily: 'inherit', opacity: saving ? 0.6 : 1,
+              }}
+            >
+              {saving ? 'Saving…' : '✓ Use this photo'}
+            </button>
+            <label style={{
+              padding: '10px', background: '#0f0a05', border: '1px solid #3d2b10',
+              borderRadius: 10, color: '#9a7c55', fontWeight: 600,
+              fontSize: 13, cursor: saving ? 'default' : 'pointer',
+              textAlign: 'center', fontFamily: 'inherit',
+            }}>
+              📷 Use my own instead
+              <input type="file" accept="image/*" capture="environment"
+                onChange={handleFile} disabled={saving} style={{ display: 'none' }} />
+            </label>
+          </div>
+        ) : (
+          /* No catalog image found — show upload area */
+          <label style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', width: '100%', maxWidth: 300,
+            aspectRatio: '4/3', background: '#0f0a05',
+            border: `2px dashed ${error ? '#f87' : '#3d2b10'}`,
+            borderRadius: 16, cursor: saving ? 'default' : 'pointer', gap: 12,
+          }}>
+            {saving ? (
+              <><div style={{ fontSize: 32 }}>⏳</div><div style={{ fontSize: 13, color: '#9a7c55' }}>Uploading…</div></>
+            ) : (
+              <><div style={{ fontSize: 40, opacity: 0.5 }}>📷</div>
+                <div style={{ fontSize: 14, color: '#9a7c55', fontWeight: 600 }}>Tap to add a photo</div>
+                <div style={{ fontSize: 11, color: '#6b5030' }}>Not found in catalog · Camera or gallery</div></>
+            )}
+            <input ref={inputRef} type="file" accept="image/*" capture="environment"
+              onChange={handleFile} disabled={saving} style={{ display: 'none' }} />
+          </label>
         )}
 
-        {/* Skip */}
-        <button
-          onClick={skip}
-          disabled={uploading}
-          style={{
-            background:   'none',
-            border:       '1px solid #3d2b10',
-            borderRadius: 10,
-            color:        '#9a7c55',
-            fontSize:     13,
-            padding:      '10px 32px',
-            cursor:       uploading ? 'default' : 'pointer',
-            fontFamily:   'inherit',
-            opacity:      uploading ? 0.4 : 1,
-          }}
-        >
-          Skip this bottle →
-        </button>
+        {error && <p style={{ fontSize: 12, color: '#f87', textAlign: 'center', margin: 0 }}>{error}</p>}
+
+        {/* Skip + auto-fill */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%', maxWidth: 300 }}>
+          <button
+            onClick={skip}
+            disabled={saving || autoFilling}
+            style={{
+              background: 'none', border: '1px solid #3d2b10', borderRadius: 10,
+              color: '#9a7c55', fontSize: 13, padding: '10px 0', width: '100%',
+              cursor: (saving || autoFilling) ? 'default' : 'pointer',
+              fontFamily: 'inherit', opacity: (saving || autoFilling) ? 0.4 : 1,
+            }}
+          >
+            Skip this bottle →
+          </button>
+          {remaining > 1 && (
+            <button
+              onClick={handleAutoFill}
+              disabled={saving || autoFilling}
+              style={{
+                background: 'none', border: 'none', color: '#6b5030', fontSize: 12,
+                cursor: (saving || autoFilling) ? 'default' : 'pointer',
+                fontFamily: 'inherit', padding: '4px 0',
+                opacity: (saving || autoFilling) ? 0.4 : 1,
+              }}
+            >
+              {autoFilling ? '⏳ Filling from catalog…' : `🖼 Auto-fill all ${remaining} from Binny's catalog`}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
