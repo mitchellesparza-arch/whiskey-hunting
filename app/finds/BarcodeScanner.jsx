@@ -29,16 +29,26 @@ export default function BarcodeScanner({ onResult, onClose }) {
     setError(null)
     setStatus('starting')
     try {
-      const { BrowserMultiFormatReader } = await import('@zxing/browser')
-      const reader = new BrowserMultiFormatReader()
+      const { BrowserMultiFormatReader, DecodeHintType } = await import('@zxing/browser')
+
+      // TRY_HARDER makes ZXing spend more time on each frame before giving up
+      const hints = new Map([[DecodeHintType.TRY_HARDER, true]])
+      const reader = new BrowserMultiFormatReader(hints)
       readerRef.current = reader
 
-      const devices = await BrowserMultiFormatReader.listVideoInputDevices()
-      const cam = devices.find(d => /back|rear|environment/i.test(d.label)) ?? devices[0]
-      if (!cam) throw new Error('No camera found')
+      // Request high-res rear camera with continuous autofocus directly via
+      // getUserMedia so constraints aren't capped by ZXing's device picker
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width:      { ideal: 1920 },
+          height:     { ideal: 1080 },
+        },
+        audio: false,
+      })
 
       setStatus('scanning')
-      await reader.decodeFromVideoDevice(cam.deviceId, videoRef.current, (result) => {
+      await reader.decodeFromStream(stream, videoRef.current, (result) => {
         if (result && !firedRef.current) {
           firedRef.current = true
           stopCamera()
