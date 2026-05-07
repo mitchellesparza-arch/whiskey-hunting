@@ -84,37 +84,64 @@ function median(arr) {
 }
 
 // ─── C1: Unicorn Auctions GraphQL ────────────────────────────────────────────
+//
+// Schema (verified against the live API): searchLots takes a SearchLotInput
+// and returns { results: [Lot] }.  For state:'ENDED' lots, currentBid.amount
+// is the final hammer price.  Sort by end_datetime_desc + offset pagination
+// lets us stop early once we cross the 12-month cutoff.
 
 const UA_QUERY = `
-  query SearchLots($first: Int, $after: String, $filter: LotFilterInput) {
-    searchLots(first: $first, after: $after, filter: $filter) {
-      pageInfo { hasNextPage endCursor }
-      edges {
-        node {
-          title
-          lowEstimate
-          highEstimate
-          saleDate
-          status
-        }
+  query SearchLots($input: SearchLotInput!) {
+    searchLots(input: $input) {
+      results {
+        title
+        state
+        currentBid { amount }
+        endDatetime
       }
     }
   }
 `
 
+const UA_PAGE_SIZE     = 1000
+const UA_MAX_PAGES     = 5
+const UA_LOOKBACK_DAYS = 365
+
+// Lots whose titles match these patterns are special editions whose prices
+// would skew aggregate hammer prices for standard releases (Pappy 15 standard
+// = $1k-$2k; private barrels = $15k-$25k).
+const SPECIAL_EDITION_PATTERNS = [
+  /'[^']{2,}'/,
+  /private barrel|private selection|store pick/i,
+  /barrel #?\d/i,
+  /cask\s+[a-z]?\d/i,
+  /local pickup only/i,
+  /decanter/i,
+  /\(1[89]\d{2}\)/,
+  /warehouse [a-z] tornado/i,
+]
+
+function isSpecialEdition(title) {
+  return SPECIAL_EDITION_PATTERNS.some(p => p.test(title))
+}
+
 async function fetchUALots() {
-  const lots = []
-  let cursor = null
-  let page   = 0
-  const maxPages = 20
+  const lots   = []
+  const cutoff = Date.now() - UA_LOOKBACK_DAYS * 86400_000
+  let specialFiltered = 0
 
-  console.log('C1: Fetching Unicorn Auctions lots…')
+  console.log('C1: Fetching Unicorn Auctions ENDED bourbon lots…')
 
-  while (page < maxPages) {
+  for (let page = 0; page < UA_MAX_PAGES; page++) {
+    const offset = page * UA_PAGE_SIZE
     const variables = {
-      first:  100,
-      after:  cursor,
-      filter: { category: 'WHISKEY', status: 'CLOSED' },
+      input: {
+        category: 'Bourbon',
+        state:    'ENDED',
+        sortBy:   'end_datetime_desc',
+        limit:    UA_PAGE_SIZE,
+        offset,
+      },
     }
 
     let res
@@ -129,67 +156,58 @@ async function fetchUALots() {
       break
     }
 
-    if (!res.ok) {
-      console.warn(`  UA returned ${res.status}`)
-      break
+    if (!res.ok) { console.warn(`  UA returned ${res.status}`); break }
+
+    const json = await res.json()
+    if (json.errors?.length) { console.warn(`  UA GraphQL error: ${json.errors[0].message}`); break }
+
+    const results = json?.data?.searchLots?.results
+    if (!Array.isArray(results)) { console.warn('  UA: unexpected response shape'); break }
+    if (results.length === 0) break
+
+    let crossedCutoff = false
+    for (const lot of results) {
+      const ts = lot.endDatetime ? Date.parse(lot.endDatetime) : NaN
+      if (Number.isFinite(ts) && ts < cutoff) { crossedCutoff = true; continue }
+      if (isSpecialEdition(lot.title)) { specialFiltered++; continue }
+      const hammer = Number(lot.currentBid?.amount)
+      if (!hammer || hammer <= 0) continue
+      lots.push({ title: lot.title, hammer, endDatetime: lot.endDatetime })
     }
 
-    const json   = await res.json()
-    const result = json?.data?.searchLots
-    if (!result) { console.warn('  UA: unexpected response shape'); break }
-
-    const edges = result.edges ?? []
-    for (const { node } of edges) {
-      if (node.lowEstimate && node.highEstimate) {
-        lots.push({
-          title: node.title,
-          low:   Number(node.lowEstimate),
-          high:  Number(node.highEstimate),
-          avg:   Math.round((Number(node.lowEstimate) + Number(node.highEstimate)) / 2),
-        })
-      }
-    }
-
-    if (!result.pageInfo.hasNextPage) break
-    cursor = result.pageInfo.endCursor
-    page++
-
-    // polite delay
+    if (results.length < UA_PAGE_SIZE || crossedCutoff) break
     await new Promise(r => setTimeout(r, 300))
   }
 
-  console.log(`  fetched ${lots.length} UA lots across ${page + 1} pages`)
+  console.log(`  kept ${lots.length} hammer-priced lots (last ${UA_LOOKBACK_DAYS}d) · filtered ${specialFiltered} special editions`)
   return lots
 }
 
 function aggregateUA(uaLots, entries) {
-  const matches = new Map() // entry.name → { lows[], highs[], avgs[] }
+  const matches = new Map() // entry.name → { hammers[], entry }
 
   for (const lot of uaLots) {
     const entry = matchEntry(lot.title, entries)
     if (!entry) continue
 
-    if (!matches.has(entry.name)) matches.set(entry.name, { lows: [], highs: [], avgs: [], entry })
-    const m = matches.get(entry.name)
-    m.lows.push(lot.low)
-    m.highs.push(lot.high)
-    m.avgs.push(lot.avg)
+    if (!matches.has(entry.name)) matches.set(entry.name, { hammers: [], entry })
+    matches.get(entry.name).hammers.push(lot.hammer)
   }
 
   const results = new Map()
-  for (const [name, { lows, highs, avgs, entry }] of matches) {
+  for (const [name, { hammers, entry }] of matches) {
     results.set(name, {
-      low:         Math.min(...lows),
-      avg:         median(avgs),
-      high:        Math.max(...highs),
+      low:         Math.min(...hammers),
+      avg:         median(hammers),
+      high:        Math.max(...hammers),
       rarity:      entry.rarity,
       msrp:        entry.msrp,
-      source:      'Unicorn Auctions live estimates',
+      source:      'Unicorn Auctions hammer prices',
       lastUpdated: new Date().toISOString().slice(0, 7),
     })
   }
 
-  console.log(`  matched ${results.size} database entries from UA lots`)
+  console.log(`  matched ${results.size} database entries from UA hammer prices`)
   return results
 }
 
@@ -316,7 +334,7 @@ async function main() {
           high:        entry.secondary.high,
           rarity:      entry.rarity,
           msrp:        entry.msrp,
-          source:      _source === 'unicorn-auctions' ? 'Unicorn Auctions live estimates'
+          source:      _source === 'unicorn-auctions' ? 'Unicorn Auctions hammer prices'
                      : _source?.includes('unicorn')   ? 'Unicorn Auctions + Binny\'s'
                      :                                  'Secondary market estimate',
           lastUpdated: entry.lastUpdated,

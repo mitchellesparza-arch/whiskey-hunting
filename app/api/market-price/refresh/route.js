@@ -62,44 +62,93 @@ async function redisHset(key, fields) {
 }
 
 // ─── C1: Unicorn Auctions ─────────────────────────────────────────────────────
+//
+// Schema (verified against the live API): searchLots takes a SearchLotInput and
+// returns { results: [Lot] }.  For state:'ENDED' lots, currentBid.amount is the
+// final hammer price.  Sort by end_datetime_desc + offset pagination lets us
+// stop early once we cross the 12-month cutoff.
 
 const UA_QUERY = `
-  query SearchLots($first: Int, $after: String, $filter: LotFilterInput) {
-    searchLots(first: $first, after: $after, filter: $filter) {
-      pageInfo { hasNextPage endCursor }
-      edges { node { title lowEstimate highEstimate status } }
+  query SearchLots($input: SearchLotInput!) {
+    searchLots(input: $input) {
+      results {
+        title
+        state
+        currentBid { amount }
+        endDatetime
+      }
     }
   }
 `
 
-async function fetchUALots(maxPages = 10) {
-  const lots = []
-  let cursor = null
+const UA_PAGE_SIZE     = 1000                              // server caps observed at 1000
+const UA_MAX_PAGES     = 5                                  // 5k lots is well past 12 months of bourbon ENDED
+const UA_LOOKBACK_DAYS = 365
 
-  for (let page = 0; page < maxPages; page++) {
+// Lots whose titles match these patterns are special editions whose prices
+// would skew aggregate hammer prices for standard releases (Pappy 15 standard
+// = $1k-$2k; private barrels = $15k-$25k).
+const SPECIAL_EDITION_PATTERNS = [
+  /'[^']{2,}'/,                       // 'Husk', 'Civic Center', 'Sam's Wines'
+  /private barrel|private selection|store pick/i,
+  /barrel #?\d/i,                     // Barrel #11, Barrel 1789B
+  /cask\s+[a-z]?\d/i,                 // Cask 2, Cask C49
+  /local pickup only/i,
+  /decanter/i,
+  /\(1[89]\d{2}\)/,                   // pre-2000 vintage year in parens
+  /warehouse [a-z] tornado/i,         // EH Taylor Warehouse C Tornado limited release
+]
+
+function isSpecialEdition(title) {
+  return SPECIAL_EDITION_PATTERNS.some(p => p.test(title))
+}
+
+async function fetchUALots(diag) {
+  const lots   = []
+  const cutoff = Date.now() - UA_LOOKBACK_DAYS * 86400_000
+
+  for (let page = 0; page < UA_MAX_PAGES; page++) {
+    const offset = page * UA_PAGE_SIZE
+
     const res = await fetch(UA_GQL, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body:    JSON.stringify({
         query:     UA_QUERY,
-        variables: { first: 100, after: cursor, filter: { category: 'WHISKEY', status: 'CLOSED' } },
+        variables: {
+          input: {
+            category: 'Bourbon',
+            state:    'ENDED',
+            sortBy:   'end_datetime_desc',
+            limit:    UA_PAGE_SIZE,
+            offset,
+          },
+        },
       }),
     })
-    if (!res.ok) break
+    if (!res.ok) { diag.errors.push(`UA HTTP ${res.status}`); break }
 
-    const json   = await res.json()
-    const result = json?.data?.searchLots
-    if (!result) break
+    const json = await res.json()
+    if (json.errors?.length) { diag.errors.push(`UA GQL: ${json.errors[0].message}`); break }
 
-    for (const { node } of (result.edges ?? [])) {
-      if (node.lowEstimate && node.highEstimate)
-        lots.push({ title: node.title, low: +node.lowEstimate, high: +node.highEstimate })
+    const results = json?.data?.searchLots?.results
+    if (!Array.isArray(results)) { diag.errors.push('UA: unexpected response shape'); break }
+    if (results.length === 0) break
+
+    let crossedCutoff = false
+    for (const lot of results) {
+      const ts = lot.endDatetime ? Date.parse(lot.endDatetime) : NaN
+      if (Number.isFinite(ts) && ts < cutoff) { crossedCutoff = true; continue }
+      if (isSpecialEdition(lot.title)) { diag.specialFiltered++; continue }
+      const hammer = Number(lot.currentBid?.amount)
+      if (!hammer || hammer <= 0) continue
+      lots.push({ title: lot.title, hammer, endDatetime: lot.endDatetime })
     }
 
-    if (!result.pageInfo.hasNextPage) break
-    cursor = result.pageInfo.endCursor
+    if (results.length < UA_PAGE_SIZE || crossedCutoff) break
   }
 
+  diag.lotsFetched = lots.length
   return lots
 }
 
@@ -154,24 +203,23 @@ async function handleRefresh(request) {
 
   const start   = Date.now()
   const entries = JSON.parse(readFileSync(DATA_PATH, 'utf8'))
+  const diag    = { lotsFetched: 0, specialFiltered: 0, errors: [] }
 
   const [uaLots, binnysMap] = await Promise.allSettled([
-    fetchUALots(),
+    fetchUALots(diag),
     fetchBinnysAlgoliaMsrp(),
   ]).then(([ua, bi]) => [
     ua.status === 'fulfilled' ? ua.value : [],
     bi.status === 'fulfilled' ? bi.value : new Map(),
   ])
 
-  // Build UA match map
+  // Build UA match map — one hammer price per ENDED lot
   const uaMatches = new Map()
   for (const lot of uaLots) {
     const entry = matchEntry(lot.title, entries)
     if (!entry) continue
-    if (!uaMatches.has(entry.name)) uaMatches.set(entry.name, { lows: [], highs: [], entry })
-    const m = uaMatches.get(entry.name)
-    m.lows.push(lot.low)
-    m.highs.push(lot.high)
+    if (!uaMatches.has(entry.name)) uaMatches.set(entry.name, { hammers: [], entry })
+    uaMatches.get(entry.name).hammers.push(lot.hammer)
   }
 
   // Write to Redis
@@ -184,7 +232,7 @@ async function handleRefresh(request) {
       const binnysPrice = binnysMap.get(entry.name)
 
       const secondary = uaData
-        ? { low: Math.min(...uaData.lows), avg: median([...uaData.lows, ...uaData.highs]), high: Math.max(...uaData.highs) }
+        ? { low: Math.min(...uaData.hammers), avg: median(uaData.hammers), high: Math.max(...uaData.hammers) }
         : entry.secondary
 
       const value = {
@@ -193,7 +241,7 @@ async function handleRefresh(request) {
         high:        secondary.high,
         rarity:      entry.rarity,
         msrp:        binnysPrice ?? entry.msrp,
-        source:      uaData ? 'Unicorn Auctions live estimates' : 'Secondary market estimate',
+        source:      uaData ? 'Unicorn Auctions hammer prices' : 'Secondary market estimate',
         lastUpdated: uaData ? now : entry.lastUpdated,
         distillery:  entry.distillery  ?? null,
         proof:       entry.proof       ?? null,
@@ -225,12 +273,22 @@ async function handleRefresh(request) {
     })
   )
 
+  // Surface a clear failure signal when the UA pipeline returns nothing — the
+  // previous schema break went unnoticed for months because the cron's success
+  // path didn't distinguish "0 matches" from "fetch errored silently".
+  const uaHealthy = uaLots.length > 0 && uaMatches.size > 0
+  if (!uaHealthy) {
+    console.warn('[market-price/refresh] UA pipeline produced no matches — possible schema break', diag)
+  }
+
   return NextResponse.json({
-    ok:            true,
+    ok:            uaHealthy,
     entriesTotal:  entries.length,
     written,
     uaLots:        uaLots.length,
     uaMatched:     uaMatches.size,
+    uaSpecialFiltered: diag.specialFiltered,
+    uaErrors:      diag.errors,
     binnysMatched: binnysMap.size,
     ms:            Date.now() - start,
   })
