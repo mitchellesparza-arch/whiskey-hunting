@@ -729,13 +729,10 @@ export default function FindsPage() {
             )}
 
             {showScanner && (
-              <div style={{ marginTop: 10 }}>
-                <BarcodeScanner
-                  onResult={handleBarcodeResult}
-                  onClose={() => setShowScanner(false)}
-                  autoCamera
-                />
-              </div>
+              <BarcodeScanner
+                onResult={handleBarcodeResult}
+                onClose={() => setShowScanner(false)}
+              />
             )}
 
             <label style={labelStyle}>Store Location *</label>
@@ -1007,13 +1004,10 @@ export default function FindsPage() {
               </label>
             </div>
             {showLearnScan && (
-              <div style={{ marginBottom: 12 }}>
-                <BarcodeScanner
-                  onResult={handleLearnBarcode}
-                  onClose={() => setShowLearnScan(false)}
-                  autoCamera
-                />
-              </div>
+              <BarcodeScanner
+                onResult={handleLearnBarcode}
+                onClose={() => setShowLearnScan(false)}
+              />
             )}
             {scanLearnMsg && (
               <div style={{

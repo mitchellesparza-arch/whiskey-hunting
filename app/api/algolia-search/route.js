@@ -33,9 +33,8 @@ export async function GET(request) {
       },
       body: JSON.stringify({
         query:               q,
-        hitsPerPage:         10,
-        attributesToRetrieve: ['productName', 'objectID'],
-        filters:             'productType:Spirits',
+        hitsPerPage:         15,
+        attributesToRetrieve: ['productName', 'objectID', 'productUrl'],
       }),
     })
 
