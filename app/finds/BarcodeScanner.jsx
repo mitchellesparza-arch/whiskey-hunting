@@ -29,7 +29,8 @@ export default function BarcodeScanner({ onResult, onClose }) {
     setError(null)
     setStatus('starting')
     try {
-      const { BrowserMultiFormatReader, DecodeHintType } = await import('@zxing/browser')
+      const { BrowserMultiFormatReader } = await import('@zxing/browser')
+      const { DecodeHintType } = await import('@zxing/library')
 
       // TRY_HARDER makes ZXing spend more time on each frame before giving up
       const hints = new Map([[DecodeHintType.TRY_HARDER, true]])
