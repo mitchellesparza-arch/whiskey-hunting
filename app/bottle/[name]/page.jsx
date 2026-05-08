@@ -3,6 +3,7 @@ import { useSession }     from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState }  from 'react'
 import Sparkline           from '../../components/Sparkline.jsx'
+import PriceHistoryChart   from '../../components/PriceHistoryChart.jsx'
 
 const RARITY_COLOR = {
   'Unicorn':          '#c084fc',
@@ -76,6 +77,9 @@ export default function BottleDetailPage() {
   const [imageUrl, setImageUrl] = useState(null)
   const [finds,    setFinds]    = useState([])
   const [archived, setArchived] = useState([])
+  const [review,   setReview]   = useState(null)     // Breaking Bourbon
+  const [listings, setListings] = useState([])      // matching marketplace listings
+  const [holders,  setHolders]  = useState([])      // friends who own it
   const [loading,  setLoading]  = useState(true)
   const [watched,  setWatched]  = useState(false)
   const [watching, setWatching] = useState(false)
@@ -88,12 +92,20 @@ export default function BottleDetailPage() {
       fetch(`/api/price-history?name=${enc}`).then(r => r.json()).catch(() => ({})),
       fetch(`/api/algolia-image?name=${enc}`).then(r => r.json()).catch(() => ({})),
       fetch(`/api/finds`).then(r => r.json()).catch(() => ({})),
-    ]).then(([priceRes, histRes, imgRes, findsRes]) => {
+      fetch(`/api/reviews/breaking-bourbon?name=${enc}`).then(r => r.json()).catch(() => ({ found: false })),
+      fetch(`/api/marketplace?activeOnly=1`).then(r => r.json()).catch(() => ({ listings: [] })),
+      fetch(`/api/bottles/holders?name=${enc}`).then(r => r.json()).catch(() => ({ holders: [] })),
+    ]).then(([priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes]) => {
       setPrice(priceRes.price ?? null)
       setHistory(histRes.history ?? [])
       setImageUrl(imgRes.imageUrl ?? null)
       setFinds(findsRes.finds ?? [])
       setArchived(findsRes.archived ?? [])
+      setReview(reviewRes?.found ? reviewRes : null)
+      // Filter all marketplace listings down to those mentioning this bottle
+      const all = mktRes?.listings ?? []
+      setListings(all.filter(l => (l.bottles ?? []).some(b => nameMatches(b?.name ?? '', bottleName))))
+      setHolders(holdRes?.holders ?? [])
     }).finally(() => setLoading(false))
   }, [bottleName])
 
@@ -272,7 +284,7 @@ export default function BottleDetailPage() {
                   )}
                 </div>
               )}
-              {history.length >= 2 && (
+              {history.length >= 2 && history.length < 3 && (
                 <div style={{ marginLeft: 'auto', paddingBottom: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
                   <div style={{ fontSize: 9, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     {history.length}mo trend
@@ -281,6 +293,16 @@ export default function BottleDetailPage() {
                 </div>
               )}
             </div>
+            {/* Full-width history chart — replaces the inline sparkline once we
+                have enough data points to be informative on a wider canvas. */}
+            {history.length >= 3 && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 9, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                  {history.length}-month price history
+                </div>
+                <PriceHistoryChart data={history} />
+              </div>
+            )}
             <div style={{ fontSize: 10, color: '#3d2b10', marginTop: 10 }}>
               {price.source} · updated {price.lastUpdated}
             </div>
@@ -342,6 +364,162 @@ export default function BottleDetailPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Reviews — Breaking Bourbon */}
+      {review && (
+        <div style={{ padding: '16px', borderBottom: '1px solid #2a1c08' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            marginBottom: 10,
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Editorial Review
+            </div>
+            <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Breaking Bourbon
+            </div>
+          </div>
+          {review.title && (
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#f5e6cc', marginBottom: 6 }}>
+              {review.title}
+            </div>
+          )}
+          {review.verdict && (
+            <div style={{ fontSize: 13, color: '#c9a87a', lineHeight: 1.5, fontStyle: 'italic', marginBottom: 10 }}>
+              “{review.verdict}”
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: '#6b5030', marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            {review.author && <span>by {review.author}</span>}
+            {review.date && <span>· {review.date}</span>}
+            {review.proof && <span>· {review.proof} proof</span>}
+            {review.msrp && <span>· MSRP {review.msrp}</span>}
+          </div>
+          <a
+            href={review.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display:        'inline-block',
+              padding:        '8px 14px',
+              background:     '#1f1308',
+              border:         '1px solid #3d2b10',
+              borderRadius:   8,
+              color:          '#e8943a',
+              fontSize:       12,
+              fontWeight:     700,
+              textDecoration: 'none',
+            }}
+          >
+            Read full review →
+          </a>
+        </div>
+      )}
+
+      {/* Marketplace listings — current BIN/auction listings for this bottle */}
+      {listings.length > 0 && (
+        <div style={{ padding: '16px', borderBottom: '1px solid #2a1c08' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+            Live in Marketplace · {listings.length}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {listings.slice(0, 5).map(l => (
+              <a
+                key={l.id}
+                href="/marketplace"
+                style={{
+                  display:        'flex',
+                  justifyContent: 'space-between',
+                  alignItems:     'center',
+                  padding:        '10px 12px',
+                  background:     '#1f1308',
+                  border:         '1px solid #2a1c08',
+                  borderRadius:   8,
+                  textDecoration: 'none',
+                  color:          'inherit',
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#f5e6cc', marginBottom: 2 }}>
+                    {l.type === 'iso' ? '🔍 ISO' : l.type === 'trading' ? '🔄 Trade' : '💵 Sale'}
+                    {' · '}
+                    {l.submitterName ?? 'Member'}
+                  </div>
+                  <div style={{
+                    fontSize: 11, color: '#9a7c55',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {(l.bottles ?? []).map(b => b?.name).filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+                <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                  {l.binPrice != null && (
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#4ade80' }}>BIN ${l.binPrice}</div>
+                  )}
+                  {l.askingPrice != null && (
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#e8943a' }}>${l.askingPrice}</div>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+          {listings.length > 5 && (
+            <div style={{ fontSize: 11, color: '#6b5030', textAlign: 'center', marginTop: 8 }}>
+              + {listings.length - 5} more — see Marketplace tab
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Friends who own this */}
+      {holders.length > 0 && (
+        <div style={{ padding: '16px', borderBottom: '1px solid #2a1c08' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+            Friends who have it · {holders.length}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {holders.slice(0, 8).map((h, i) => (
+              <div
+                key={h.email}
+                style={{
+                  padding:      '8px 0',
+                  borderBottom: i < Math.min(holders.length, 8) - 1 ? '1px solid #1f1308' : 'none',
+                  display:      'flex',
+                  alignItems:   'center',
+                  gap:          10,
+                }}
+              >
+                <div style={{
+                  width: 30, height: 30, borderRadius: '50%',
+                  background: '#3d2b10', color: '#e8943a',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 13, fontWeight: 700, flexShrink: 0,
+                }}>
+                  {(h.name ?? '?').charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#f5e6cc' }}>{h.name}</div>
+                  {h.addedAt > 0 && (
+                    <div style={{ fontSize: 11, color: '#6b5030' }}>
+                      added {fmtTimeAgo(h.addedAt)}
+                    </div>
+                  )}
+                </div>
+                {h.qty > 1 && (
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#9a7c55', flexShrink: 0 }}>
+                    ×{h.qty}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {holders.length > 8 && (
+            <div style={{ fontSize: 11, color: '#6b5030', textAlign: 'center', marginTop: 8 }}>
+              + {holders.length - 8} more
+            </div>
+          )}
         </div>
       )}
 
