@@ -36,6 +36,28 @@ export default function SearchPage() {
   const aiTimerRef    = useRef(null)
   const inputRef      = useRef(null)
 
+  // Unified relevance scoring used to merge Algolia + local-lookup hits.  Same
+  // logic regardless of source so a saved AI-confirmed bottle that exactly
+  // matches the query (score 100) outranks a fuzzy Algolia hit on a different
+  // brand that happened to share a token.
+  function scoreResult(query, name) {
+    const norm = s => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    const q = norm(query)
+    const n = norm(name)
+    if (!q || !n) return 0
+    if (n === q)                            return 100
+    if (n.startsWith(q) || q.startsWith(n)) return 80
+    if (n.includes(q) || q.includes(n))     return 60
+    const qWords = new Set(q.split(' ').filter(w => w.length >= 2))
+    const nWords = n.split(' ').filter(w => w.length >= 2)
+    const hits   = nWords.filter(w => qWords.has(w)).length
+    if (hits === 0) return 0
+    // Penalize when the candidate has many extra non-matching tokens —
+    // "Pappy Van Winkle 15" shouldn't outrank "Jack Daniels 10" on a
+    // "Jack Daniels 10 Year" query just because both share length.
+    return Math.round(20 + 10 * hits - Math.max(0, nWords.length - hits) * 2)
+  }
+
   async function doSearch(q) {
     if (q.trim().length < 2) { setResults([]); return }
     setSearching(true)
@@ -50,39 +72,25 @@ export default function SearchPage() {
         ? (localRes.value.results ?? []).map(r => (typeof r === 'string' ? r : r.name)).filter(Boolean)
         : []
 
-      const seen = new Set()
-      const merged = []
+      // Dedupe + re-rank by relevance to the query, source-agnostic
+      const seen = new Map()
       for (const name of [...algolia, ...local]) {
         const key = name.toLowerCase()
-        if (!seen.has(key)) { seen.add(key); merged.push(name) }
+        if (!seen.has(key)) seen.set(key, name)
       }
+      const ranked = [...seen.values()]
+        .map(name => ({ name, score: scoreResult(q, name) }))
+        .filter(r => r.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 20)
+        .map(r => r.name)
 
-      setResults(merged.slice(0, 20))
-
-      // Always auto-fire the AI fallback after a pause on any meaningful query.
-      // The earlier "fire only on weak local results" heuristic was unreliable —
-      // a coincidental token (e.g. Algolia returning a result that happens to
-      // contain "12") would defeat the check and leave the user with no AI hit.
-      // Every unique query is cached in Redis for 30 days so cost stays trivial:
-      // a typed "pappy 15" fires once and every subsequent search of the same
-      // string is a free cache read.
-      if (q.trim().length >= 4) {
-        scheduleAiFallback(q)
-      } else {
-        clearTimeout(aiTimerRef.current)
-        setAiSuggestions([])
-        setAiQuery(null)
-      }
+      setResults(ranked)
     } catch {
       setResults([])
     } finally {
       setSearching(false)
     }
-  }
-
-  function scheduleAiFallback(q) {
-    clearTimeout(aiTimerRef.current)
-    aiTimerRef.current = setTimeout(() => fetchAiSuggestions(q), 600)
   }
 
   async function fetchAiSuggestions(q) {
@@ -122,6 +130,13 @@ export default function SearchPage() {
     clearTimeout(aiTimerRef.current)
     if (val.trim().length < 2) { setResults([]); setAiSuggestions([]); setAiQuery(null); return }
     timerRef.current = setTimeout(() => doSearch(val), 280)
+    // Fire AI fallback in PARALLEL with the local search rather than waiting
+    // for it.  Saves ~1s of perceived latency since Claude takes 1-2s and
+    // local takes 200-500ms — running them concurrently means both surface as
+    // soon as they're ready instead of stacking.
+    if (val.trim().length >= 4) {
+      aiTimerRef.current = setTimeout(() => fetchAiSuggestions(val), 880)
+    }
   }
 
   // ── Barcode scan ───────────────────────────────────────────────────────────
@@ -364,10 +379,12 @@ export default function SearchPage() {
           </button>
         )}
 
-        {/* AI fallback — fires on zero local results.  Suggestions are tagged
-            so members understand they were sourced from Claude rather than
-            the curated local database. */}
-        {(aiLoading || aiSuggestions.length > 0) && (
+        {/* AI fallback — fires automatically (in parallel with local search)
+            on any 4+ char query.  Section stays visible whenever AI was queried
+            for the current query so the "no matches" feedback shows on empty
+            responses; without the aiQuery condition the wrapper would hide
+            silently the moment loading flipped to false with no results. */}
+        {(aiLoading || aiSuggestions.length > 0 || aiQuery === query) && (
           <div style={{ marginTop: 16, marginBottom: 8 }}>
             <div style={{
               display:      'flex',
