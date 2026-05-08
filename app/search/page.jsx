@@ -57,12 +57,14 @@ export default function SearchPage() {
 
       setResults(merged.slice(0, 20))
 
-      // Fire the AI fallback when local sources don't satisfy the query — either
-      // zero results, OR the query contains a distinctive term (a number, year,
-      // or 4+ char word) that no local result actually mentions.  The latter
-      // catches "Eagle Rare 12 Year" matching against "Eagle Rare 10 Year" —
-      // local has hits, but the user's "12" is missing, so they want more.
-      if (q.trim().length >= 4 && (merged.length === 0 || hasUnmatchedTerms(q, merged))) {
+      // Always auto-fire the AI fallback after a pause on any meaningful query.
+      // The earlier "fire only on weak local results" heuristic was unreliable —
+      // a coincidental token (e.g. Algolia returning a result that happens to
+      // contain "12") would defeat the check and leave the user with no AI hit.
+      // Every unique query is cached in Redis for 30 days so cost stays trivial:
+      // a typed "pappy 15" fires once and every subsequent search of the same
+      // string is a free cache read.
+      if (q.trim().length >= 4) {
         scheduleAiFallback(q)
       } else {
         clearTimeout(aiTimerRef.current)
@@ -74,17 +76,6 @@ export default function SearchPage() {
     } finally {
       setSearching(false)
     }
-  }
-
-  // Strong signal that local results miss the user's intent: the query has a
-  // term — a number, a year, or a 4+ char word — that doesn't appear in any
-  // result name.  Common short tokens like "the", "and", "year" are skipped.
-  function hasUnmatchedTerms(q, results) {
-    const stopwords = new Set(['year', 'years', 'bourbon', 'whiskey', 'whisky', 'rye', 'single', 'barrel', 'small', 'batch'])
-    const allText   = results.join(' ').toLowerCase()
-    const terms     = q.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
-    const distinct  = terms.filter(t => /\d/.test(t) || (t.length >= 4 && !stopwords.has(t)))
-    return distinct.some(t => !allText.includes(t))
   }
 
   function scheduleAiFallback(q) {
