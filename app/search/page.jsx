@@ -2,8 +2,11 @@
 import { useSession }  from 'next-auth/react'
 import { useRouter }   from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import BottleDetailSheet from '../components/BottleDetailSheet.jsx'
 import BarcodeScanner    from '../finds/BarcodeScanner.jsx'
+
+function bottleHref(name) {
+  return `/bottle/${encodeURIComponent(name)}`
+}
 
 export default function SearchPage() {
   const { data: session, status } = useSession()
@@ -17,7 +20,6 @@ export default function SearchPage() {
   const [query,        setQuery]        = useState('')
   const [results,      setResults]      = useState([])
   const [searching,    setSearching]    = useState(false)
-  const [activeBottle, setActiveBottle] = useState(null)
 
   // AI fallback (Claude — fires only when local results are empty)
   const [aiSuggestions, setAiSuggestions] = useState([])
@@ -110,7 +112,7 @@ export default function SearchPage() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(suggestion),
     }).catch(() => {})
-    setActiveBottle(suggestion.name)
+    router.push(bottleHref(suggestion.name))
   }
 
   function handleChange(e) {
@@ -132,7 +134,7 @@ export default function SearchPage() {
       const d = await r.json()
       if (d.found && d.bottle?.name) {
         setScanMsg(null)
-        setActiveBottle(d.bottle.name)
+        router.push(bottleHref(d.bottle.name))
       } else {
         setScanMsg('Barcode not in database — try Scan Label instead')
       }
@@ -165,7 +167,7 @@ export default function SearchPage() {
       const d = await r.json()
       if (d.found && d.bottle?.name) {
         setScanMsg(null)
-        setActiveBottle(d.bottle.name)
+        router.push(bottleHref(d.bottle.name))
       } else {
         setScanMsg(d.error ?? 'Could not read label — try a clearer photo')
       }
@@ -432,7 +434,7 @@ export default function SearchPage() {
           {results.map((name, i) => (
             <button
               key={i}
-              onClick={() => setActiveBottle(name)}
+              onClick={() => router.push(bottleHref(name))}
               style={{
                 display:      'flex',
                 alignItems:   'center',
@@ -465,15 +467,6 @@ export default function SearchPage() {
         />
       )}
 
-      {/* Bottle detail sheet — opened by name click, barcode hit, or label hit */}
-      {activeBottle && (
-        <BottleDetailSheet
-          bottleName={activeBottle}
-          finds={[]}
-          archived={[]}
-          onClose={() => setActiveBottle(null)}
-        />
-      )}
     </div>
   )
 }

@@ -33,6 +33,8 @@ export default function BottomNav() {
 
   function isActive(href) {
     if (href === '/') return pathname === '/'
+    // /bottle/[name] is a deep view from Search — keep the Search tab lit
+    if (href === '/search') return pathname.startsWith('/search') || pathname.startsWith('/bottle')
     return pathname.startsWith(href)
   }
 
