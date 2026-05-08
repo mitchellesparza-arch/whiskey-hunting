@@ -67,16 +67,43 @@ function stripTags(s) {
   return decodeHtml((s ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
 }
 
+// Score a candidate slug against the user's bottle name.  Returns 0 to 1 based
+// on how many distinctive query tokens appear in the slug.  Common modifiers
+// (year, bourbon, batch, etc.) are excluded so they don't inflate scores for
+// obvious mismatches.
+function scoreSlug(name, slug) {
+  const stopwords = new Set([
+    'year', 'years', 'bourbon', 'whiskey', 'whisky', 'rye',
+    'barrel', 'single', 'small', 'batch', 'straight', 'kentucky',
+  ])
+  const tokenize = s => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean)
+  const queryTokens = tokenize(name)
+  const slugTokens  = tokenize(slug)
+  const distinctive = queryTokens.filter(t => !stopwords.has(t) && t.length > 1)
+  if (!distinctive.length) return 0
+  const matched = distinctive.filter(t => slugTokens.includes(t))
+  return matched.length / distinctive.length
+}
+
+// Breaking Bourbon's site search ranks by full-text relevance, not title match,
+// so a review that just MENTIONS the search term in its body can show up first
+// (e.g. searching "Pappy" returned a Seelbach's wheated review because it
+// referenced Pappy in the comparison text).  Score every candidate slug and
+// only return one when the match is strong enough to be the right bottle.
 async function findReviewSlug(name) {
   try {
     const url = SEARCH_URL + encodeURIComponent(name)
     const res = await fetch(url, FETCH_OPTS)
     if (!res.ok) return null
     const html = await res.text()
-    // First /review/ link in the search results — Breaking Bourbon's search ranks
-    // by relevance, so the top hit is normally the right bottle.
-    const m = html.match(/href="\/review\/([a-z0-9-]+)"/i)
-    return m ? m[1] : null
+    const slugs = [...new Set(
+      [...html.matchAll(/href="\/review\/([a-z0-9-]+)"/gi)].map(m => m[1])
+    )]
+    if (!slugs.length) return null
+    const scored = slugs
+      .map(s => ({ slug: s, score: scoreSlug(name, s) }))
+      .sort((a, b) => b.score - a.score)
+    return scored[0].score >= 0.5 ? scored[0].slug : null
   } catch { return null }
 }
 
@@ -121,8 +148,9 @@ export async function GET(req) {
   const name = (searchParams.get('name') ?? '').trim()
   if (name.length < 2) return NextResponse.json({ found: false })
 
-  // v2 = response shape now includes the main hero photo URL
-  const cacheKey = `wh:reviews:breaking-bourbon:v2:${normName(name)}`
+  // v3 = slug selection now scored against bottle name to avoid mismatches
+  // where BB's full-text search ranked a content-mention above the actual review
+  const cacheKey = `wh:reviews:breaking-bourbon:v3:${normName(name)}`
 
   try {
     const cached = await getRedis().get(cacheKey)
