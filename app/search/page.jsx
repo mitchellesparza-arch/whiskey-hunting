@@ -57,10 +57,12 @@ export default function SearchPage() {
 
       setResults(merged.slice(0, 20))
 
-      // Fire the AI fallback only when local sources turn up nothing — covers
-      // genuine database gaps (e.g. "Eagle Rare 12 Year") without burning
-      // calls on every transient typing state or successful query.
-      if (merged.length === 0 && q.trim().length >= 4) {
+      // Fire the AI fallback when local sources don't satisfy the query — either
+      // zero results, OR the query contains a distinctive term (a number, year,
+      // or 4+ char word) that no local result actually mentions.  The latter
+      // catches "Eagle Rare 12 Year" matching against "Eagle Rare 10 Year" —
+      // local has hits, but the user's "12" is missing, so they want more.
+      if (q.trim().length >= 4 && (merged.length === 0 || hasUnmatchedTerms(q, merged))) {
         scheduleAiFallback(q)
       } else {
         clearTimeout(aiTimerRef.current)
@@ -72,6 +74,17 @@ export default function SearchPage() {
     } finally {
       setSearching(false)
     }
+  }
+
+  // Strong signal that local results miss the user's intent: the query has a
+  // term — a number, a year, or a 4+ char word — that doesn't appear in any
+  // result name.  Common short tokens like "the", "and", "year" are skipped.
+  function hasUnmatchedTerms(q, results) {
+    const stopwords = new Set(['year', 'years', 'bourbon', 'whiskey', 'whisky', 'rye', 'single', 'barrel', 'small', 'batch'])
+    const allText   = results.join(' ').toLowerCase()
+    const terms     = q.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+    const distinct  = terms.filter(t => /\d/.test(t) || (t.length >= 4 && !stopwords.has(t)))
+    return distinct.some(t => !allText.includes(t))
   }
 
   function scheduleAiFallback(q) {
