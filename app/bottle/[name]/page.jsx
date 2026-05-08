@@ -98,7 +98,10 @@ export default function BottleDetailPage() {
     ]).then(([priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes]) => {
       setPrice(priceRes.price ?? null)
       setHistory(histRes.history ?? [])
-      setImageUrl(imgRes.imageUrl ?? null)
+      // Hero image priority: Binny's Algolia (clean product shot) → Breaking
+      // Bourbon's review hero (covers most popular bottles when Binny's misses)
+      // → 🥃 emoji fallback rendered when imageUrl stays null.
+      setImageUrl(imgRes.imageUrl ?? (reviewRes?.found ? reviewRes.image : null) ?? null)
       setFinds(findsRes.finds ?? [])
       setArchived(findsRes.archived ?? [])
       setReview(reviewRes?.found ? reviewRes : null)

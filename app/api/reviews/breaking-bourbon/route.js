@@ -92,6 +92,11 @@ async function fetchReview(slug) {
     const author   = stripTags(pickFirst(html, /<h1 class="text-block-2">([\s\S]*?)<\/h1>/i))?.replace(/^Written By:\s*/i, '') ?? null
     const date     = stripTags(pickFirst(html, /<div class="text-block-5">([\s\S]*?)<\/div>/i))
 
+    // Main hero photo — sits inside <div class="main-photo-section"> as a CSS
+    // background-image with HTML-encoded quotes.  Used as the bottle-page hero
+    // fallback when Binny's Algolia catalog has no image for this bottle.
+    const image = pickFirst(html, /main-photo-section[\s\S]*?background-image:url\(&quot;([^&]+)&quot;\)/i)
+
     // Bottle-info block uses <strong>Field:</strong> Value patterns — pull the few
     // fields that are useful to display alongside the verdict.
     function infoField(label) {
@@ -104,7 +109,7 @@ async function fetchReview(slug) {
     const msrp       = infoField('MSRP')
 
     if (!title && !verdict) return null
-    return { url, title, verdict, distillery, proof, msrp, author, date }
+    return { url, title, verdict, distillery, proof, msrp, author, date, image }
   } catch { return null }
 }
 
@@ -116,7 +121,8 @@ export async function GET(req) {
   const name = (searchParams.get('name') ?? '').trim()
   if (name.length < 2) return NextResponse.json({ found: false })
 
-  const cacheKey = `wh:reviews:breaking-bourbon:${normName(name)}`
+  // v2 = response shape now includes the main hero photo URL
+  const cacheKey = `wh:reviews:breaking-bourbon:v2:${normName(name)}`
 
   try {
     const cached = await getRedis().get(cacheKey)
