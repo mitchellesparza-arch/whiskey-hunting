@@ -52,7 +52,8 @@ export async function GET(req) {
   const q = (searchParams.get('q') ?? '').trim()
   if (q.length < 3) return NextResponse.json({ suggestions: [] })
 
-  const cacheKey = `wh:ai-suggestions:${normQuery(q)}`
+  // v2 = sonnet-4-6 + revised prompt that respects user's specific bottle naming
+  const cacheKey = `wh:ai-suggestions:v2:${normQuery(q)}`
 
   // Cache hit — return immediately
   try {
@@ -67,17 +68,19 @@ export async function GET(req) {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
     const response = await client.messages.create({
-      model:      'claude-haiku-4-5-20251001',
-      max_tokens: 800,
+      model:      'claude-sonnet-4-6',
+      max_tokens: 1000,
       messages: [{
         role: 'user',
-        content: `You are a whiskey database expert. A user is searching for a bottle in a bourbon-tracking app. Their query: "${q}"
+        content: `You are a whiskey database expert with deep knowledge of US bourbon, rye, scotch, and world whisky — including limited releases, anniversary editions, and store picks.
 
-Identify up to 5 real bottles that best match this query. Focus on US bourbon, rye, and American whiskey, but include other categories if the query suggests them.
+A user is searching for a bottle in a bourbon-tracking app.  Their query: "${q}"
 
-Return ONLY a valid JSON array — no markdown, no explanation. Each entry:
+If the query names a specific bottle (a brand + age + variant, e.g. "Eagle Rare 12 Year" or "Birthday Bourbon 2024"), your FIRST suggestion should be that exact bottle if it is a real product — even if it's a limited or recent release.  Do not substitute the user's specific request with the standard release of the same brand.
+
+Return up to 5 matches as a JSON array — no markdown, no commentary.  Each entry:
 {
-  "name":        full canonical bottle name (string),
+  "name":        canonical bottle name (string),
   "distillery":  producer (string or null),
   "category":    one of "Bourbon" | "Rye" | "Scotch" | "Irish" | "Japanese" | "Canadian" | "American" | "Other",
   "proof":       proof as a number (e.g. 90) or null,
@@ -87,8 +90,9 @@ Return ONLY a valid JSON array — no markdown, no explanation. Each entry:
   "note":        one short sentence describing the bottle (string, under 120 chars)
 }
 
-If you cannot identify any plausible matches, return an empty array [].
-Do NOT invent bottles you are not confident exist. Better to return fewer high-confidence matches than to fill the array with guesses.`,
+Real recent examples to recognize: Eagle Rare 12 Year (Buffalo Trace, 2024 100th anniversary release), Eagle Rare 25 Year (2023), Old Forester Birthday Bourbon by year, Stagg by year, BTAC editions by year, Russell's 13 Year, Knob Creek 18 Year, etc.
+
+If you genuinely cannot identify any real matches, return an empty array [].  Do not fabricate bottles, but do not be over-cautious about real limited releases just because they're recent.`,
       }],
     })
 

@@ -345,6 +345,32 @@ export default function SearchPage() {
           </p>
         )}
 
+        {/* Manual AI trigger — always available when there's a usable query.
+            Belt-and-suspenders backup for the auto-fire heuristic, and the
+            obvious entry point when local results exist but don't quite match
+            (e.g. searching "Eagle Rare 12 Year" against a DB that only has 10). */}
+        {query.trim().length >= 4 && !aiLoading && aiQuery !== query && (
+          <button
+            onClick={() => fetchAiSuggestions(query)}
+            style={{
+              display:      'block',
+              width:        '100%',
+              marginTop:    12,
+              padding:      '10px 0',
+              background:   'rgba(251,191,36,0.08)',
+              border:       '1px dashed rgba(251,191,36,0.4)',
+              borderRadius: 8,
+              color:        '#fbbf24',
+              fontSize:     13,
+              fontWeight:   700,
+              cursor:       'pointer',
+              fontFamily:   'inherit',
+            }}
+          >
+            ✨ {results.length > 0 ? "Don't see it? Search with AI" : 'Search with AI'}
+          </button>
+        )}
+
         {/* AI fallback — fires on zero local results.  Suggestions are tagged
             so members understand they were sourced from Claude rather than
             the curated local database. */}
