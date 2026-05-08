@@ -33,7 +33,6 @@ export default function SearchPage() {
 
   const photoInputRef = useRef(null)
   const timerRef      = useRef(null)
-  const aiTimerRef    = useRef(null)
   const inputRef      = useRef(null)
 
   // Unified relevance scoring used to merge Algolia + local-lookup hits.  Same
@@ -127,16 +126,14 @@ export default function SearchPage() {
     const val = e.target.value
     setQuery(val)
     clearTimeout(timerRef.current)
-    clearTimeout(aiTimerRef.current)
-    if (val.trim().length < 2) { setResults([]); setAiSuggestions([]); setAiQuery(null); return }
+    // Clear any prior AI section as soon as the query changes — saved-bottle
+    // ranking surfaces previously-confirmed picks at the top of normal results,
+    // and members can opt back into the AI fallback via the explicit button
+    // when they want a wider search.
+    setAiSuggestions([])
+    setAiQuery(null)
+    if (val.trim().length < 2) { setResults([]); return }
     timerRef.current = setTimeout(() => doSearch(val), 280)
-    // Fire AI fallback in PARALLEL with the local search rather than waiting
-    // for it.  Saves ~1s of perceived latency since Claude takes 1-2s and
-    // local takes 200-500ms — running them concurrently means both surface as
-    // soon as they're ready instead of stacking.
-    if (val.trim().length >= 4) {
-      aiTimerRef.current = setTimeout(() => fetchAiSuggestions(val), 880)
-    }
   }
 
   // ── Barcode scan ───────────────────────────────────────────────────────────
