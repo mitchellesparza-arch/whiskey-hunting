@@ -19,6 +19,11 @@ export default function SearchPage() {
   const [searching,    setSearching]    = useState(false)
   const [activeBottle, setActiveBottle] = useState(null)
 
+  // AI fallback (Claude — fires only when local results are empty)
+  const [aiSuggestions, setAiSuggestions] = useState([])
+  const [aiLoading,     setAiLoading]     = useState(false)
+  const [aiQuery,       setAiQuery]       = useState(null)   // query AI was last asked about
+
   // Scan state
   const [showScanner,  setShowScanner]  = useState(false)
   const [scanning,     setScanning]     = useState(false)
@@ -26,6 +31,7 @@ export default function SearchPage() {
 
   const photoInputRef = useRef(null)
   const timerRef      = useRef(null)
+  const aiTimerRef    = useRef(null)
   const inputRef      = useRef(null)
 
   async function doSearch(q) {
@@ -50,6 +56,17 @@ export default function SearchPage() {
       }
 
       setResults(merged.slice(0, 20))
+
+      // Fire the AI fallback only when local sources turn up nothing — covers
+      // genuine database gaps (e.g. "Eagle Rare 12 Year") without burning
+      // calls on every transient typing state or successful query.
+      if (merged.length === 0 && q.trim().length >= 4) {
+        scheduleAiFallback(q)
+      } else {
+        clearTimeout(aiTimerRef.current)
+        setAiSuggestions([])
+        setAiQuery(null)
+      }
     } catch {
       setResults([])
     } finally {
@@ -57,11 +74,47 @@ export default function SearchPage() {
     }
   }
 
+  function scheduleAiFallback(q) {
+    clearTimeout(aiTimerRef.current)
+    aiTimerRef.current = setTimeout(() => fetchAiSuggestions(q), 600)
+  }
+
+  async function fetchAiSuggestions(q) {
+    if (q !== query) return   // user kept typing — bail
+    setAiLoading(true)
+    setAiQuery(q)
+    try {
+      const r = await fetch(`/api/search-fallback?q=${encodeURIComponent(q)}`)
+      const d = await r.json()
+      // Only commit if the query is still what the user wants
+      if (q === query) {
+        setAiSuggestions(Array.isArray(d.suggestions) ? d.suggestions : [])
+      }
+    } catch {
+      if (q === query) setAiSuggestions([])
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  async function handlePickAi(suggestion) {
+    // Save first so future searches by anyone surface this bottle without an
+    // AI call.  Open the detail sheet whether or not save succeeded — UX
+    // shouldn't block on the persistence call.
+    fetch('/api/bottles/save', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(suggestion),
+    }).catch(() => {})
+    setActiveBottle(suggestion.name)
+  }
+
   function handleChange(e) {
     const val = e.target.value
     setQuery(val)
     clearTimeout(timerRef.current)
-    if (val.trim().length < 2) { setResults([]); return }
+    clearTimeout(aiTimerRef.current)
+    if (val.trim().length < 2) { setResults([]); setAiSuggestions([]); setAiQuery(null); return }
     timerRef.current = setTimeout(() => doSearch(val), 280)
   }
 
@@ -239,7 +292,7 @@ export default function SearchPage() {
           />
           {query.length > 0 && (
             <button
-              onClick={() => { setQuery(''); setResults([]); inputRef.current?.focus() }}
+              onClick={() => { setQuery(''); setResults([]); setAiSuggestions([]); setAiQuery(null); inputRef.current?.focus() }}
               style={{
                 position:   'absolute',
                 right:      8,
@@ -273,10 +326,76 @@ export default function SearchPage() {
           </p>
         )}
 
-        {!searching && query.trim().length >= 2 && results.length === 0 && (
+        {!searching && query.trim().length >= 2 && results.length === 0 && !aiLoading && aiSuggestions.length === 0 && aiQuery !== query && (
           <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', marginTop: 24 }}>
-            No results for &ldquo;{query}&rdquo;
+            No local results for &ldquo;{query}&rdquo;
           </p>
+        )}
+
+        {/* AI fallback — fires on zero local results.  Suggestions are tagged
+            so members understand they were sourced from Claude rather than
+            the curated local database. */}
+        {(aiLoading || aiSuggestions.length > 0) && (
+          <div style={{ marginTop: 16, marginBottom: 8 }}>
+            <div style={{
+              display:      'flex',
+              alignItems:   'center',
+              gap:          6,
+              fontSize:     10,
+              fontWeight:   700,
+              color:        '#fbbf24',
+              textTransform:'uppercase',
+              letterSpacing:'0.06em',
+              marginBottom: 6,
+            }}>
+              <span>✨ AI-Identified</span>
+              <span style={{ color: '#3d2b10', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
+                — verify before saving
+              </span>
+            </div>
+            {aiLoading && (
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 16 }}>
+                Searching beyond the local database…
+              </p>
+            )}
+            {!aiLoading && aiSuggestions.length === 0 && aiQuery === query && (
+              <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', marginTop: 16 }}>
+                No matches found anywhere for &ldquo;{query}&rdquo;.
+              </p>
+            )}
+            {aiSuggestions.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => handlePickAi(s)}
+                style={{
+                  display:      'block',
+                  width:        '100%',
+                  padding:      '10px 12px',
+                  marginTop:    i === 0 ? 0 : 6,
+                  background:   'rgba(251,191,36,0.06)',
+                  border:       '1px solid rgba(251,191,36,0.25)',
+                  borderRadius: 8,
+                  textAlign:    'left',
+                  cursor:       'pointer',
+                  fontFamily:   'inherit',
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#f5e6cc', marginBottom: 2 }}>
+                  🥃 {s.name}
+                </div>
+                <div style={{ fontSize: 11, color: '#9a7c55' }}>
+                  {[s.distillery, s.category, s.proof ? `${s.proof}°` : null, s.age ? `${s.age}yr` : null]
+                    .filter(Boolean).join(' · ')}
+                  {s.msrp ? ` · $${s.msrp} MSRP` : ''}
+                </div>
+                {s.note && (
+                  <div style={{ fontSize: 11, color: '#6b5030', marginTop: 4, fontStyle: 'italic' }}>
+                    {s.note}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
