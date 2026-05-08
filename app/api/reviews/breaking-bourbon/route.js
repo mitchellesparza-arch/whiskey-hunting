@@ -71,6 +71,12 @@ function stripTags(s) {
 // on how many distinctive query tokens appear in the slug.  Common modifiers
 // (year, bourbon, batch, etc.) are excluded so they don't inflate scores for
 // obvious mismatches.
+//
+// Numeric tokens are treated as load-bearing: when the query names a specific
+// age or year ("Pappy Van Winkle 15 Year"), the slug MUST include that number
+// — otherwise it's a different product (e.g. Van Winkle Family Reserve Rye
+// would otherwise score 0.5 against "Pappy Van Winkle 15 Year" via the
+// shared van/winkle tokens).
 function scoreSlug(name, slug) {
   const stopwords = new Set([
     'year', 'years', 'bourbon', 'whiskey', 'whisky', 'rye',
@@ -81,6 +87,11 @@ function scoreSlug(name, slug) {
   const slugTokens  = tokenize(slug)
   const distinctive = queryTokens.filter(t => !stopwords.has(t) && t.length > 1)
   if (!distinctive.length) return 0
+
+  // Hard reject when the query specifies a number that doesn't appear in the slug
+  const queryNumbers = distinctive.filter(t => /^\d+$/.test(t))
+  if (queryNumbers.length && !queryNumbers.every(n => slugTokens.includes(n))) return 0
+
   const matched = distinctive.filter(t => slugTokens.includes(t))
   return matched.length / distinctive.length
 }
@@ -148,9 +159,8 @@ export async function GET(req) {
   const name = (searchParams.get('name') ?? '').trim()
   if (name.length < 2) return NextResponse.json({ found: false })
 
-  // v3 = slug selection now scored against bottle name to avoid mismatches
-  // where BB's full-text search ranked a content-mention above the actual review
-  const cacheKey = `wh:reviews:breaking-bourbon:v3:${normName(name)}`
+  // v4 = numeric tokens (age statements) are now required to match in the slug
+  const cacheKey = `wh:reviews:breaking-bourbon:v4:${normName(name)}`
 
   try {
     const cached = await getRedis().get(cacheKey)
