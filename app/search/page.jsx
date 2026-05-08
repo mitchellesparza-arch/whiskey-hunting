@@ -3,6 +3,7 @@ import { useSession }  from 'next-auth/react'
 import { useRouter }   from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import BottleDetailSheet from '../components/BottleDetailSheet.jsx'
+import BarcodeScanner    from '../finds/BarcodeScanner.jsx'
 
 export default function SearchPage() {
   const { data: session, status } = useSession()
@@ -13,24 +14,24 @@ export default function SearchPage() {
     if (status === 'authenticated' && session?.user?.approved === false) router.replace('/pending')
   }, [status, session])
 
-  const [query,       setQuery]       = useState('')
-  const [results,     setResults]     = useState([])
-  const [searching,   setSearching]   = useState(false)
+  const [query,        setQuery]        = useState('')
+  const [results,      setResults]      = useState([])
+  const [searching,    setSearching]    = useState(false)
   const [activeBottle, setActiveBottle] = useState(null)
 
-  const timerRef  = useRef(null)
-  const inputRef  = useRef(null)
+  // Scan state
+  const [showScanner,  setShowScanner]  = useState(false)
+  const [scanning,     setScanning]     = useState(false)
+  const [scanMsg,      setScanMsg]      = useState(null)
 
-  // Focus input on mount
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
+  const photoInputRef = useRef(null)
+  const timerRef      = useRef(null)
+  const inputRef      = useRef(null)
 
   async function doSearch(q) {
     if (q.trim().length < 2) { setResults([]); return }
     setSearching(true)
     try {
-      // Hit both sources in parallel; merge + dedupe by name (case-insensitive)
       const [algoliaRes, localRes] = await Promise.allSettled([
         fetch(`/api/algolia-search?q=${encodeURIComponent(q)}`).then(r => r.json()),
         fetch(`/api/lookup?search=${encodeURIComponent(q)}`).then(r => r.json()),
@@ -41,7 +42,6 @@ export default function SearchPage() {
         ? (localRes.value.results ?? []).map(r => (typeof r === 'string' ? r : r.name)).filter(Boolean)
         : []
 
-      // Dedupe: prefer Algolia order, then append local results not already present
       const seen = new Set()
       const merged = []
       for (const name of [...algolia, ...local]) {
@@ -65,45 +65,161 @@ export default function SearchPage() {
     timerRef.current = setTimeout(() => doSearch(val), 280)
   }
 
+  // ── Barcode scan ───────────────────────────────────────────────────────────
+  async function handleBarcode(code) {
+    setShowScanner(false)
+    setScanning(true)
+    setScanMsg('Looking up…')
+    try {
+      const r = await fetch(`/api/lookup?upc=${encodeURIComponent(code)}`)
+      const d = await r.json()
+      if (d.found && d.bottle?.name) {
+        setScanMsg(null)
+        setActiveBottle(d.bottle.name)
+      } else {
+        setScanMsg('Barcode not in database — try Scan Label instead')
+      }
+    } catch {
+      setScanMsg('Lookup failed — try again')
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  // ── Label scan ─────────────────────────────────────────────────────────────
+  async function handlePhoto(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setScanning(true)
+    setScanMsg('Reading label…')
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload  = () => resolve(reader.result.split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const r = await fetch('/api/lookup/photo', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ image: base64, mediaType: file.type || 'image/jpeg' }),
+      })
+      const d = await r.json()
+      if (d.found && d.bottle?.name) {
+        setScanMsg(null)
+        setActiveBottle(d.bottle.name)
+      } else {
+        setScanMsg(d.error ?? 'Could not read label — try a clearer photo')
+      }
+    } catch {
+      setScanMsg('Label lookup failed — try again')
+    } finally {
+      setScanning(false)
+    }
+  }
+
   if (status === 'loading') return null
 
   return (
     <div style={{
-      position:   'fixed',
-      inset:      0,
-      background: 'var(--bg-base)',
-      display:    'flex',
-      flexDirection: 'column',
-      zIndex:     300,
+      minHeight:      '100vh',
+      background:     'var(--bg-base)',
+      display:        'flex',
+      flexDirection:  'column',
+      paddingBottom:  'calc(72px + env(safe-area-inset-bottom))',
     }}>
 
-      {/* Header bar */}
+      {/* Header */}
       <div style={{
-        display:     'flex',
-        alignItems:  'center',
-        gap:         10,
-        padding:     '12px 14px',
-        paddingTop:  'calc(12px + env(safe-area-inset-top))',
-        background:  '#0f0a05',
+        padding:      '14px 16px 10px',
+        paddingTop:   'calc(14px + env(safe-area-inset-top))',
+        background:   '#0f0a05',
         borderBottom: '1px solid #2a1c08',
-        flexShrink:  0,
       }}>
-        <button
-          onClick={() => router.back()}
-          style={{
-            background: 'none', border: 'none', color: '#e8943a',
-            fontSize: 22, cursor: 'pointer', padding: '0 4px',
-            lineHeight: 1, flexShrink: 0,
-          }}
-          aria-label="Back"
-        >‹</button>
+        <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc' }}>Search</div>
+        <div style={{ fontSize: 12, color: '#6b5030', marginTop: 2 }}>
+          Look up pricing and community sightings — type, scan, or photograph the label.
+        </div>
+      </div>
 
-        <div style={{ position: 'relative', flex: 1 }}>
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+        {/* Dual scan buttons — same pattern as Add to Collection / Report a Find */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => { setShowScanner(s => !s); setScanMsg(null) }}
+            disabled={scanning}
+            style={{
+              flex:         1,
+              padding:      '10px 0',
+              background:   showScanner ? 'var(--accent)' : 'var(--bg-card)',
+              border:       '1px solid var(--border)',
+              borderRadius: 8,
+              color:        showScanner ? '#fff' : 'var(--accent)',
+              cursor:       scanning ? 'not-allowed' : 'pointer',
+              fontSize:     13,
+              fontWeight:   700,
+              opacity:      scanning ? 0.6 : 1,
+              fontFamily:   'inherit',
+            }}
+          >
+            {showScanner ? '✕ Close Scanner' : '📷 Scan Barcode'}
+          </button>
+          <button
+            type="button"
+            onClick={() => photoInputRef.current?.click()}
+            disabled={scanning}
+            style={{
+              flex:         1,
+              padding:      '10px 0',
+              background:   'var(--bg-card)',
+              border:       '1px solid var(--border)',
+              borderRadius: 8,
+              color:        '#c084fc',
+              cursor:       scanning ? 'not-allowed' : 'pointer',
+              fontSize:     13,
+              fontWeight:   700,
+              opacity:      scanning ? 0.6 : 1,
+              fontFamily:   'inherit',
+            }}
+          >
+            {scanning ? '⏳ Reading…' : '🏷️ Scan Label'}
+          </button>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handlePhoto}
+            style={{ display: 'none' }}
+          />
+        </div>
+
+        {/* Scan status */}
+        {scanMsg && (
+          <div style={{
+            fontSize:     12,
+            color:        scanMsg.includes('failed') || scanMsg.includes('not in') || scanMsg.includes('Could not')
+                            ? '#fb923c'
+                            : 'var(--text-muted)',
+            padding:      '8px 10px',
+            background:   '#0f0a05',
+            borderRadius: 6,
+            border:       '1px solid #2a1c08',
+          }}>
+            {scanMsg}
+          </div>
+        )}
+
+        {/* Text search input */}
+        <div style={{ position: 'relative', marginTop: 4 }}>
           <input
             ref={inputRef}
             value={query}
             onChange={handleChange}
-            placeholder="Search any bottle…"
+            placeholder="Search any bottle by name…"
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="none"
@@ -142,23 +258,23 @@ export default function SearchPage() {
         </div>
       </div>
 
-      {/* Results list — scrolls independently, not blocked by keyboard */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 14px' }}>
+      {/* Results list */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px' }}>
 
-        {query.trim().length < 2 && (
-          <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', marginTop: 40 }}>
-            Start typing to search bottles…
+        {query.trim().length < 2 && results.length === 0 && !scanMsg && (
+          <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', marginTop: 24 }}>
+            Start typing, scan a barcode, or photograph a label.
           </p>
         )}
 
         {query.trim().length >= 2 && searching && results.length === 0 && (
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 24 }}>
             Searching…
           </p>
         )}
 
         {!searching && query.trim().length >= 2 && results.length === 0 && (
-          <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', marginTop: 40 }}>
+          <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', marginTop: 24 }}>
             No results for &ldquo;{query}&rdquo;
           </p>
         )}
@@ -192,7 +308,15 @@ export default function SearchPage() {
         </div>
       </div>
 
-      {/* Bottle detail sheet */}
+      {/* Live barcode scanner overlay */}
+      {showScanner && (
+        <BarcodeScanner
+          onResult={handleBarcode}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
+      {/* Bottle detail sheet — opened by name click, barcode hit, or label hit */}
       {activeBottle && (
         <BottleDetailSheet
           bottleName={activeBottle}

@@ -114,12 +114,6 @@ export default function FindsPage() {
   const [activeBottle,   setActiveBottle]   = useState(null)  // string | null
   const [activeStore,    setActiveStore]    = useState(null)  // store object | null
 
-  // Scan-to-learn (Sprint 1) — separate from the find-submission scanner
-  const [scanLearnOpen,  setScanLearnOpen]  = useState(false)
-  const [showLearnScan,  setShowLearnScan]  = useState(false)
-  const [scanLearning,   setScanLearning]   = useState(false)
-  const [scanLearnMsg,   setScanLearnMsg]   = useState(null)
-
   const storeInputRef   = useRef(null)
   const autocompleteRef = useRef(null)
 
@@ -401,61 +395,6 @@ export default function FindsPage() {
     setDeletingId(null)
   }
 
-  // ── Scan-to-Learn ──────────────────────────────────────────────────────────
-
-  async function handleLearnBarcode(code) {
-    setShowLearnScan(false)
-    setScanLearning(true)
-    setScanLearnMsg(null)
-    try {
-      const r = await fetch(`/api/lookup?upc=${encodeURIComponent(code)}`)
-      const d = await r.json()
-      if (d.found) {
-        setScanLearnOpen(false)
-        setActiveBottle(d.bottle.name)
-      } else {
-        setScanLearnMsg('Barcode not in database — try scanning the label instead')
-      }
-    } catch {
-      setScanLearnMsg('Lookup failed — try again')
-    } finally {
-      setScanLearning(false)
-    }
-  }
-
-  async function handleLearnPhoto(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setScanLearning(true)
-    setScanLearnMsg('Reading label…')
-    try {
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload  = () => resolve(reader.result.split(',')[1])
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
-      const r = await fetch('/api/lookup/photo', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ image: base64, mediaType: file.type || 'image/jpeg' }),
-      })
-      const d = await r.json()
-      if (d.found) {
-        setScanLearnOpen(false)
-        setActiveBottle(d.bottle.name)
-      } else {
-        setScanLearnMsg(d.error ?? 'Could not identify label — try again')
-      }
-    } catch {
-      setScanLearnMsg('Photo lookup failed — try again')
-    } finally {
-      setScanLearning(false)
-      e.target.value = ''
-    }
-  }
-
-
   // ── Render ─────────────────────────────────────────────────────────────────
   if (status === 'loading') return null
 
@@ -595,19 +534,7 @@ export default function FindsPage() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
 
-      <AppHeader
-        sub="Community Finds · Chicagoland"
-        action={
-          <button
-            onClick={() => { setScanLearnOpen(true); setScanLearnMsg(null); setShowLearnScan(false) }}
-            style={{
-              fontSize: 13, padding: '6px 14px',
-              background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8,
-              color: '#e8943a', cursor: 'pointer', fontWeight: 700,
-            }}
-          >🔍 Scan a Bottle</button>
-        }
-      />
+      <AppHeader sub="Community Finds · Chicagoland" />
 
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 12px' }}>
 
@@ -940,107 +867,6 @@ export default function FindsPage() {
         </div>
 
       </div>
-
-      {/* ── Scan-to-Learn sheet ─────────────────────────────────────────────── */}
-      {scanLearnOpen && (
-        <>
-          <div
-            onClick={() => { setScanLearnOpen(false); setShowLearnScan(false) }}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 199 }}
-          />
-          <div style={{
-            position:      'fixed',
-            bottom:        0,
-            left:          0,
-            right:         0,
-            zIndex:        200,
-            background:    '#1a1008',
-            borderRadius:  '16px 16px 0 0',
-            borderTop:     '1px solid #3d2b10',
-            padding:       '0 16px calc(28px + env(safe-area-inset-bottom))',
-            maxHeight:     '85vh',
-            overflowY:     'auto',
-            animation:     'fadeUp 0.22s ease',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: '#3d2b10' }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-              <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc' }}>🔍 Scan a Bottle</div>
-              <button
-                onClick={() => { setScanLearnOpen(false); setShowLearnScan(false) }}
-                style={{ background: 'none', border: 'none', color: '#6b5030', fontSize: 20, cursor: 'pointer', padding: 0 }}
-              >✕</button>
-            </div>
-            <div style={{ fontSize: 12, color: '#6b5030', marginBottom: 14 }}>
-              Look up pricing and community sightings — without logging a find.
-            </div>
-
-            {/* Search by name — full-screen page avoids keyboard crop */}
-            <button
-              onClick={() => { setScanLearnOpen(false); router.push('/search') }}
-              style={{
-                width: '100%', padding: '11px 0', marginBottom: 10,
-                background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8,
-                color: '#c9a87a', cursor: 'pointer', fontWeight: 700, fontSize: 13,
-                fontFamily: 'inherit',
-              }}
-            >
-              🔎 Search by Name
-            </button>
-
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-              — or scan —
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              <button
-                onClick={() => setShowLearnScan(s => !s)}
-                disabled={scanLearning}
-                style={{
-                  flex: 1, padding: '10px 0',
-                  background: showLearnScan ? '#e8943a' : '#1f1308',
-                  border: '1px solid #3d2b10', borderRadius: 8,
-                  color: showLearnScan ? '#fff' : '#e8943a',
-                  cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
-                }}
-              >
-                {showLearnScan ? '✕ Close Scanner' : '📷 Scan Barcode'}
-              </button>
-              <label style={{
-                flex: 1, padding: '10px 0',
-                background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8,
-                color: '#c084fc', cursor: scanLearning ? 'not-allowed' : 'pointer',
-                fontWeight: 700, fontSize: 13, textAlign: 'center', display: 'block',
-                opacity: scanLearning ? 0.6 : 1,
-              }}>
-                {scanLearning ? '⏳ Reading…' : '🏷️ Scan Label'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleLearnPhoto}
-                  style={{ display: 'none' }}
-                />
-              </label>
-            </div>
-            {showLearnScan && (
-              <BarcodeScanner
-                onResult={handleLearnBarcode}
-                onClose={() => setShowLearnScan(false)}
-              />
-            )}
-            {scanLearnMsg && (
-              <div style={{
-                fontSize: 12, color: '#e8943a',
-                padding: '7px 10px', background: '#0f0a05',
-                borderRadius: 6, border: '1px solid #2a1c08',
-              }}>
-                {scanLearnMsg}
-              </div>
-            )}
-          </div>
-        </>
-      )}
 
       {/* ── Bottle Detail sheet (Sprint 1) ────────────────────────────────────── */}
       {activeBottle && (
