@@ -1,7 +1,7 @@
 import { NextResponse }         from 'next/server'
 import { postTateraAlert }      from '../../../../lib/discord.js'
 import { sendCostcoBroadcast }  from '../../../../lib/push.js'
-import { recordAlert }          from '../../../../lib/costco-history.js'
+import { recordAlert, recordStoreFromAlert } from '../../../../lib/costco-history.js'
 
 /**
  * POST /api/ingest/tatera
@@ -79,6 +79,20 @@ export async function POST(request) {
   console.log(
     `[ingest/tatera] ${alert.status} · ${alert.productName} · ${alert.storeName} (${alert.storeNumber}), ${alert.state} · msg ${alert.discordMessageId}`
   )
+
+  // ── Self-correct store list (idempotent, runs even on duplicates) ─────────
+  try {
+    const action = await recordStoreFromAlert({
+      number: alert.storeNumber,
+      name:   alert.storeName,
+      state:  alert.state,
+    })
+    if (action !== 'noop' && action !== 'touched') {
+      console.log(`[ingest/tatera] store ${action}: ${alert.storeNumber} → ${alert.storeName}, ${alert.state}`)
+    }
+  } catch (err) {
+    console.error('[ingest/tatera] recordStoreFromAlert failed:', err.message)
+  }
 
   // ── Persist (atomic dedup + per-store + global lists) ──────────────────────
   let recorded = false

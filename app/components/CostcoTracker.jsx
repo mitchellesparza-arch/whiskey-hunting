@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { COSTCO_STORES_IL, getCostcoStore } from '../../lib/costco-stores.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -48,9 +47,9 @@ function StoreChip({ store, selected, disabled, onClick }) {
   )
 }
 
-function AlertRow({ alert, dim }) {
+function AlertRow({ alert, dim, storeLookup }) {
   const inStock = alert.status === 'in_stock'
-  const store   = getCostcoStore(alert.storeNumber)
+  const store   = storeLookup?.[alert.storeNumber]
   const label   = store ? store.name : alert.storeName
   return (
     <div
@@ -138,6 +137,7 @@ function FavoriteStoreCard({ store, alerts }) {
 
 export default function CostcoTracker() {
   const [alerts,        setAlerts]        = useState([])
+  const [stores,        setStores]        = useState([])
   const [loaded,        setLoaded]        = useState(false)
   const [refreshing,    setRefreshing]    = useState(false)
   const [favorites,     setFavorites]     = useState([])
@@ -158,6 +158,15 @@ export default function CostcoTracker() {
     }
   }, [])
 
+  const loadStores = useCallback(async () => {
+    try {
+      const r = await fetch('/api/costco/stores')
+      if (!r.ok) return
+      const d = await r.json()
+      setStores(Array.isArray(d.stores) ? d.stores : [])
+    } catch {}
+  }, [])
+
   const loadProfile = useCallback(async () => {
     try {
       const r = await fetch('/api/profile')
@@ -168,13 +177,18 @@ export default function CostcoTracker() {
     } catch {}
   }, [])
 
-  useEffect(() => { loadAlerts(); loadProfile() }, [loadAlerts, loadProfile])
+  useEffect(() => { loadAlerts(); loadStores(); loadProfile() }, [loadAlerts, loadStores, loadProfile])
 
   const refresh = useCallback(async () => {
     setRefreshing(true)
-    await loadAlerts()
+    await Promise.all([loadAlerts(), loadStores()])
     setRefreshing(false)
-  }, [loadAlerts])
+  }, [loadAlerts, loadStores])
+
+  const storeLookup = useMemo(
+    () => Object.fromEntries(stores.map(s => [s.number, s])),
+    [stores]
+  )
 
   // Save favorites to server (debounced via savingFavs state — simple optimistic UI)
   async function toggleFavorite(storeNumber) {
@@ -214,8 +228,8 @@ export default function CostcoTracker() {
   }, [alerts])
 
   const favoriteStoreObjects = useMemo(
-    () => favorites.map(n => getCostcoStore(n)).filter(Boolean),
-    [favorites]
+    () => favorites.map(n => storeLookup[n]).filter(Boolean),
+    [favorites, storeLookup]
   )
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -244,9 +258,13 @@ export default function CostcoTracker() {
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-          {COSTCO_STORES_IL.map(store => {
-            const isFav    = favorites.includes(store.number)
-            const atMax    = !isFav && favorites.length >= 3
+          {stores.length === 0 ? (
+            <div style={{ fontSize: 12, color: '#6b5030', padding: '4px 0' }}>
+              Loading store list…
+            </div>
+          ) : stores.map(store => {
+            const isFav = favorites.includes(store.number)
+            const atMax = !isFav && favorites.length >= 3
             return (
               <StoreChip
                 key={store.number}
@@ -308,7 +326,12 @@ export default function CostcoTracker() {
         ) : (
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             {alerts.map(a => (
-              <AlertRow key={a.discordMessageId} alert={a} dim={a.status === 'out_of_stock'} />
+              <AlertRow
+                key={a.discordMessageId}
+                alert={a}
+                dim={a.status === 'out_of_stock'}
+                storeLookup={storeLookup}
+              />
             ))}
           </div>
         )}
