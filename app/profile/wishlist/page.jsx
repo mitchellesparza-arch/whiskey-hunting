@@ -1,26 +1,32 @@
 'use client'
-import { useSession }              from 'next-auth/react'
-import { useRouter }               from 'next/navigation'
-import { useEffect, useState, useRef } from 'react'
-import AppHeader                   from '../../components/AppHeader.jsx'
-import BarcodeScanner              from '../../finds/BarcodeScanner.jsx'
+import { useSession }                   from 'next-auth/react'
+import { useRouter }                    from 'next/navigation'
+import { useEffect, useState }          from 'react'
+import { Camera, X, Check, MapPin, BarChart2, Search, Pause } from 'lucide-react'
+import AppHeader                        from '../../components/AppHeader.jsx'
+import BarcodeScanner                   from '../../finds/BarcodeScanner.jsx'
+import Button                           from '../../components/ui/Button.jsx'
+import Card                             from '../../components/ui/Card.jsx'
+import Chip                             from '../../components/ui/Chip.jsx'
+import EmptyState                       from '../../components/ui/EmptyState.jsx'
+import SectionHeader                    from '../../components/ui/SectionHeader.jsx'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const RARITY_META = {
-  Common:    { color: '#9a7c55', bg: 'rgba(154,124,85,0.15)',   label: 'Common'    },
-  Allocated: { color: '#e8943a', bg: 'rgba(232,148,58,0.15)',   label: 'Allocated' },
-  Unicorn:   { color: '#c084fc', bg: 'rgba(192,132,252,0.15)',  label: '🦄 Unicorn' },
+  Common:    { tone: 'amber',  label: 'Common'     },
+  Allocated: { tone: 'copper', label: 'Allocated'  },
+  Unicorn:   { tone: 'violet', label: '🦄 Unicorn' },
 }
 
 const STATUS_META = {
-  Hunting: { color: '#e8943a', bg: 'rgba(232,148,58,0.12)', label: '🔍 Hunting' },
-  Found:   { color: '#4ade80', bg: 'rgba(74,222,128,0.12)', label: '✓ Found'    },
-  Paused:  { color: '#6b5030', bg: 'rgba(107,80,48,0.12)',  label: '⏸ Paused'  },
+  Hunting: { tone: 'copper', label: 'Hunting', icon: <Search  size={10} strokeWidth={2} /> },
+  Found:   { tone: 'green',  label: 'Found',   icon: <Check   size={10} strokeWidth={2} /> },
+  Paused:  { tone: 'neutral',label: 'Paused',  icon: <Pause   size={10} strokeWidth={2} /> },
 }
 
-const RARITY_OPTIONS   = ['Common', 'Allocated', 'Unicorn']
-const STATUS_OPTIONS   = ['Hunting', 'Found', 'Paused']
+const RARITY_OPTIONS = ['Common', 'Allocated', 'Unicorn']
+const STATUS_OPTIONS = ['Hunting', 'Found', 'Paused']
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -31,39 +37,87 @@ function fmt$(n) {
 
 function RarityBadge({ rarity }) {
   const m = RARITY_META[rarity] ?? RARITY_META.Allocated
-  return (
-    <span style={{
-      fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
-      color: m.color, background: m.bg, border: `1px solid ${m.color}40`,
-      letterSpacing: '0.03em',
-    }}>
-      {m.label}
-    </span>
-  )
+  return <Chip tone={m.tone} size="sm">{m.label}</Chip>
 }
 
 function StatusBadge({ status }) {
   const m = STATUS_META[status] ?? STATUS_META.Hunting
   return (
-    <span style={{
-      fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
-      color: m.color, background: m.bg, border: `1px solid ${m.color}40`,
-    }}>
-      {m.label}
-    </span>
+    <Chip tone={m.tone} size="sm" style={{ gap: 4 }}>
+      {m.icon}{m.label}
+    </Chip>
   )
 }
 
 function MarketPriceChip({ price }) {
   if (!price) return null
   return (
-    <span style={{
-      fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 999,
-      color: '#60a5fa', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)',
-      whiteSpace: 'nowrap',
-    }}>
-      📊 ${price.low}–${price.high}
-    </span>
+    <Chip tone="blue" size="sm">
+      <BarChart2 size={10} strokeWidth={2} /> ${price.low}–${price.high}
+    </Chip>
+  )
+}
+
+// ── Shared sub-component styles ────────────────────────────────────────────────
+
+const inputStyle = {
+  width: '100%',
+  padding: 'var(--sp-2) var(--sp-3)',
+  background: 'var(--bg-elev-1)',
+  border: '1px solid var(--hairline-2)',
+  borderRadius: 'var(--r-md)',
+  color: 'var(--text-primary)',
+  fontSize: 'var(--fs-body)',
+  boxSizing: 'border-box',
+  fontFamily: 'inherit',
+}
+
+const labelStyle = {
+  display: 'block',
+  color: 'var(--text-muted)',
+  fontSize: 'var(--fs-overline)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  marginBottom: 'var(--sp-1)',
+  fontWeight: 700,
+}
+
+// ── Segmented picker helper ────────────────────────────────────────────────────
+
+function SegmentPicker({ options, value, onChange, meta }) {
+  return (
+    <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+      {options.map(opt => {
+        const m   = meta[opt]
+        const sel = value === opt
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(opt)}
+            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
+            onMouseUp={e   => (e.currentTarget.style.transform = 'scale(1)')}
+            onTouchStart={e => (e.currentTarget.style.transform = 'scale(0.97)')}
+            onTouchEnd={e   => (e.currentTarget.style.transform = 'scale(1)')}
+            style={{
+              flex: 1,
+              padding: 'var(--sp-2) var(--sp-2)',
+              background: sel ? 'var(--bg-elev-3)' : 'transparent',
+              border: sel ? '1px solid var(--hairline-3)' : '1px solid var(--hairline)',
+              borderRadius: 'var(--r-md)',
+              color: sel ? 'var(--text-primary)' : 'var(--text-dim)',
+              fontWeight: 700,
+              fontSize: 'var(--fs-meta)',
+              cursor: 'pointer',
+              transition: `background var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out)`,
+              fontFamily: 'inherit',
+            }}
+          >
+            {opt === 'Unicorn' ? '🦄 ' : ''}{m?.label ?? opt}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -87,11 +141,11 @@ function AddBottleModal({ onClose, onAdded }) {
       const d = await r.json()
       if (d.found) {
         setName(d.bottle?.name ?? name)
-        setLookupMsg('✓ Barcode matched')
+        setLookupMsg('matched')
       } else {
-        setLookupMsg('Barcode not in database — fill in manually')
+        setLookupMsg('miss')
       }
-    } catch { setLookupMsg('Lookup failed') }
+    } catch { setLookupMsg('error') }
     finally { setLookingUp(false); setScanning(false) }
   }
 
@@ -111,53 +165,73 @@ function AddBottleModal({ onClose, onAdded }) {
     finally { setSubmitting(false) }
   }
 
-  const inputStyle = {
-    width: '100%', padding: '9px 12px', background: '#1f1308',
-    border: '1px solid #3d2b10', borderRadius: 8, color: '#f5e6cc',
-    fontSize: 14, boxSizing: 'border-box',
-  }
-  const labelStyle = {
-    display: 'block', color: '#9a7c55', fontSize: '0.72rem',
-    textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6,
-  }
-
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#0f0a05', borderRadius: '18px 18px 0 0', border: '1px solid #3d2b10', borderBottom: 'none', width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', padding: '24px 20px 40px' }}>
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{
+        background: 'var(--bg-base)',
+        borderRadius: 'var(--r-2xl) var(--r-2xl) 0 0',
+        border: '1px solid var(--hairline-2)',
+        borderBottom: 'none',
+        width: '100%',
+        maxWidth: 520,
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        padding: 'var(--sp-6) var(--sp-5) var(--sp-10)',
+      }}>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ color: '#f5e6cc', fontWeight: 800, fontSize: '1.1rem', margin: 0 }}>Add to Wishlist</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#6b5030', fontSize: 22, cursor: 'pointer' }}>✕</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-5)' }}>
+          <h2 style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: 'var(--fs-h2)', margin: 0 }}>Add to Wishlist</h2>
+          <button
+            onClick={onClose}
+            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.9)')}
+            onMouseUp={e   => (e.currentTarget.style.transform = 'scale(1)')}
+            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', lineHeight: 1, padding: 'var(--sp-1)' }}
+          >
+            <X size={20} strokeWidth={1.75} />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
 
           {/* Bottle name + barcode */}
           <div>
             <label style={labelStyle}>Bottle Name *</label>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
               <input
                 value={name} onChange={e => setName(e.target.value)}
                 placeholder="e.g. Blanton's Original"
                 style={{ ...inputStyle, flex: 1 }}
               />
-              <button type="button" onClick={() => setScanning(true)} style={{
-                padding: '9px 14px', background: 'rgba(232,148,58,0.15)',
-                border: '1px solid rgba(232,148,58,0.4)', borderRadius: 8,
-                color: '#e8943a', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-              }}>
-                {lookingUp ? '…' : '📷'}
-              </button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setScanning(true)}
+                icon={lookingUp ? null : <Camera size={16} strokeWidth={1.75} />}
+                style={{ flexShrink: 0, paddingLeft: 'var(--sp-3)', paddingRight: 'var(--sp-3)' }}
+              >
+                {lookingUp ? '…' : null}
+              </Button>
             </div>
             {scanning && (
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: 'var(--sp-2)' }}>
                 <BarcodeScanner onCode={handleBarcode} onClose={() => setScanning(false)} />
               </div>
             )}
             {lookupMsg && (
-              <div style={{ marginTop: 6, fontSize: 11, color: lookupMsg.startsWith('✓') ? '#4ade80' : '#9a7c55' }}>
-                {lookupMsg}
+              <div style={{
+                marginTop: 'var(--sp-2)',
+                fontSize: 'var(--fs-meta)',
+                color: lookupMsg === 'matched' ? 'var(--green)' : 'var(--text-muted)',
+              }}>
+                {lookupMsg === 'matched'
+                  ? '✓ Barcode matched'
+                  : lookupMsg === 'miss'
+                    ? 'Barcode not in database — fill in manually'
+                    : 'Lookup failed'}
               </div>
             )}
           </div>
@@ -165,22 +239,7 @@ function AddBottleModal({ onClose, onAdded }) {
           {/* Rarity tier */}
           <div>
             <label style={labelStyle}>Rarity Tier</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {RARITY_OPTIONS.map(r => {
-                const m = RARITY_META[r]
-                return (
-                  <button key={r} type="button" onClick={() => setRarity(r)} style={{
-                    flex: 1, padding: '9px 6px',
-                    background: rarity === r ? m.bg : 'transparent',
-                    border: `1px solid ${rarity === r ? m.color + '80' : '#3d2b10'}`,
-                    borderRadius: 8, color: rarity === r ? m.color : '#6b5030',
-                    fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                  }}>
-                    {r === 'Unicorn' ? '🦄 ' : ''}{r}
-                  </button>
-                )
-              })}
-            </div>
+            <SegmentPicker options={RARITY_OPTIONS} value={rarity} onChange={setRarity} meta={RARITY_META} />
           </div>
 
           {/* Target price */}
@@ -205,18 +264,21 @@ function AddBottleModal({ onClose, onAdded }) {
           </div>
 
           {error && (
-            <div style={{ fontSize: 12, color: '#f87171', padding: '8px 12px', background: 'rgba(248,113,113,0.1)', borderRadius: 8, border: '1px solid rgba(248,113,113,0.25)' }}>
+            <div style={{
+              fontSize: 'var(--fs-meta)',
+              color: 'var(--red)',
+              padding: 'var(--sp-2) var(--sp-3)',
+              background: 'rgba(248,113,113,0.08)',
+              borderRadius: 'var(--r-md)',
+              border: '1px solid rgba(248,113,113,0.25)',
+            }}>
               {error}
             </div>
           )}
 
-          <button type="submit" disabled={submitting} style={{
-            padding: '12px 0', background: '#e8943a', border: 'none', borderRadius: 10,
-            color: '#fff', fontWeight: 800, fontSize: 14, cursor: submitting ? 'not-allowed' : 'pointer',
-            opacity: submitting ? 0.6 : 1, marginTop: 4,
-          }}>
+          <Button type="submit" fullWidth disabled={submitting} style={{ marginTop: 'var(--sp-1)' }}>
             {submitting ? 'Adding…' : 'Add to Wishlist'}
-          </button>
+          </Button>
 
         </form>
       </div>
@@ -246,92 +308,86 @@ function EditEntryModal({ entry, onClose, onSaved, onMoveToCollection }) {
     } catch {} finally { setSaving(false) }
   }
 
-  const inputStyle = { width: '100%', padding: '9px 12px', background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8, color: '#f5e6cc', fontSize: 14, boxSizing: 'border-box' }
-  const labelStyle = { display: 'block', color: '#9a7c55', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }
-
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#0f0a05', borderRadius: '18px 18px 0 0', border: '1px solid #3d2b10', borderBottom: 'none', width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', padding: '24px 20px 40px' }}>
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{
+        background: 'var(--bg-base)',
+        borderRadius: 'var(--r-2xl) var(--r-2xl) 0 0',
+        border: '1px solid var(--hairline-2)',
+        borderBottom: 'none',
+        width: '100%',
+        maxWidth: 520,
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        padding: 'var(--sp-6) var(--sp-5) var(--sp-10)',
+      }}>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <h2 style={{ color: '#f5e6cc', fontWeight: 800, fontSize: '1.1rem', margin: 0 }}>{entry.name}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#6b5030', fontSize: 22, cursor: 'pointer' }}>✕</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-1)' }}>
+          <h2 style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: 'var(--fs-h2)', margin: 0 }}>{entry.name}</h2>
+          <button
+            onClick={onClose}
+            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.9)')}
+            onMouseUp={e   => (e.currentTarget.style.transform = 'scale(1)')}
+            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', lineHeight: 1, padding: 'var(--sp-1)' }}
+          >
+            <X size={20} strokeWidth={1.75} />
+          </button>
         </div>
-        <div style={{ fontSize: 11, color: '#6b5030', marginBottom: 20 }}>
+        <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', marginBottom: 'var(--sp-5)' }}>
           Added {new Date(entry.addedAt).toLocaleDateString()}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
 
           {/* Status */}
           <div>
             <label style={labelStyle}>Status</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {STATUS_OPTIONS.map(s => {
-                const m = STATUS_META[s]
-                return (
-                  <button key={s} type="button" onClick={() => setStatus(s)} style={{
-                    flex: 1, padding: '9px 6px',
-                    background: status === s ? m.bg : 'transparent',
-                    border: `1px solid ${status === s ? m.color + '80' : '#3d2b10'}`,
-                    borderRadius: 8, color: status === s ? m.color : '#6b5030',
-                    fontWeight: 700, fontSize: 11, cursor: 'pointer',
-                  }}>
-                    {m.label}
-                  </button>
-                )
-              })}
-            </div>
+            <SegmentPicker options={STATUS_OPTIONS} value={status} onChange={setStatus} meta={STATUS_META} />
           </div>
 
           {/* Rarity */}
           <div>
             <label style={labelStyle}>Rarity Tier</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {RARITY_OPTIONS.map(r => {
-                const m = RARITY_META[r]
-                return (
-                  <button key={r} type="button" onClick={() => setRarity(r)} style={{
-                    flex: 1, padding: '9px 6px',
-                    background: rarity === r ? m.bg : 'transparent',
-                    border: `1px solid ${rarity === r ? m.color + '80' : '#3d2b10'}`,
-                    borderRadius: 8, color: rarity === r ? m.color : '#6b5030',
-                    fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                  }}>
-                    {r === 'Unicorn' ? '🦄 ' : ''}{r}
-                  </button>
-                )
-              })}
-            </div>
+            <SegmentPicker options={RARITY_OPTIONS} value={rarity} onChange={setRarity} meta={RARITY_META} />
           </div>
 
           {/* Target price */}
           <div>
             <label style={labelStyle}>Target Price ($)</label>
-            <input type="number" min="0" step="1" value={targetPrice} onChange={e => setTargetPrice(e.target.value)} placeholder="e.g. 65" style={inputStyle} />
+            <input
+              type="number" min="0" step="1"
+              value={targetPrice} onChange={e => setTargetPrice(e.target.value)}
+              placeholder="e.g. 65"
+              style={inputStyle}
+            />
           </div>
 
           {/* Store notes */}
           <div>
             <label style={labelStyle}>Store Notes</label>
-            <input value={storeNotes} onChange={e => setStoreNotes(e.target.value)} placeholder="Store tips…" style={inputStyle} />
+            <input
+              value={storeNotes} onChange={e => setStoreNotes(e.target.value)}
+              placeholder="Store tips…"
+              style={inputStyle}
+            />
           </div>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <button onClick={handleSave} disabled={saving} style={{
-              flex: 2, padding: '11px 0', background: '#e8943a', border: 'none', borderRadius: 10,
-              color: '#fff', fontWeight: 800, fontSize: 14, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1,
-            }}>
+          <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-1)' }}>
+            <Button onClick={handleSave} disabled={saving} style={{ flex: 2 }}>
               {saving ? 'Saving…' : 'Save Changes'}
-            </button>
+            </Button>
             {status !== 'Found' && (
-              <button onClick={() => onMoveToCollection(entry)} style={{
-                flex: 1, padding: '11px 0', background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.4)', borderRadius: 10,
-                color: '#4ade80', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-              }}>
-                ✓ Found it
-              </button>
+              <Button
+                variant="secondary"
+                onClick={() => onMoveToCollection(entry)}
+                icon={<Check size={16} strokeWidth={2} />}
+                style={{ flex: 1 }}
+              >
+                Found it
+              </Button>
             )}
           </div>
         </div>
@@ -343,35 +399,37 @@ function EditEntryModal({ entry, onClose, onSaved, onMoveToCollection }) {
 // ── Wishlist Card ──────────────────────────────────────────────────────────────
 
 function WishlistCard({ entry, marketPrice, onEdit, onDelete }) {
-  const rarityMeta = RARITY_META[entry.rarity] ?? RARITY_META.Allocated
-  const statusMeta = STATUS_META[entry.status]  ?? STATUS_META.Hunting
-
   return (
-    <div style={{
-      background: '#1a1008', border: `1px solid ${entry.status === 'Found' ? 'rgba(74,222,128,0.25)' : '#3d2b10'}`,
-      borderRadius: 12, padding: '14px 16px',
-      opacity: entry.status === 'Paused' ? 0.6 : 1,
-      transition: 'border-color 0.15s',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+    <Card
+      hover={false}
+      style={{
+        background: 'var(--bg-elev-2)',
+        border: entry.status === 'Found'
+          ? '1px solid rgba(93,211,158,0.25)'
+          : '1px solid var(--hairline-2)',
+        borderRadius: 'var(--r-lg)',
+        padding: 'var(--sp-4)',
+        opacity: entry.status === 'Paused' ? 0.6 : 1,
+        transition: `border-color var(--t-base) var(--ease-out)`,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
 
         {/* Left: name + badges */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#f5e6cc', marginBottom: 6, lineHeight: 1.3 }}>
+          <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)', marginBottom: 'var(--sp-2)', lineHeight: 1.3 }}>
             {entry.name}
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: entry.storeNotes ? 8 : 0 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-1)', marginBottom: entry.storeNotes ? 'var(--sp-2)' : 0 }}>
             <RarityBadge rarity={entry.rarity} />
             <StatusBadge status={entry.status} />
             {entry.targetPrice != null && (
-              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 999, color: '#c9a87a', background: 'rgba(201,168,122,0.12)', border: '1px solid rgba(201,168,122,0.25)' }}>
-                Target {fmt$(entry.targetPrice)}
-              </span>
+              <Chip tone="amber" size="sm">Target {fmt$(entry.targetPrice)}</Chip>
             )}
             {marketPrice && <MarketPriceChip price={marketPrice} />}
           </div>
           {marketPrice && entry.targetPrice != null && (
-            <div style={{ fontSize: 10, color: '#6b5030', marginBottom: 6 }}>
+            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', marginBottom: 'var(--sp-2)' }}>
               {entry.targetPrice < marketPrice.low
                 ? '⚠ Target below market range'
                 : entry.targetPrice <= marketPrice.high
@@ -381,36 +439,66 @@ function WishlistCard({ entry, marketPrice, onEdit, onDelete }) {
             </div>
           )}
           {entry.storeNotes && (
-            <div style={{ fontSize: 11, color: '#9a7c55', fontStyle: 'italic', lineHeight: 1.4 }}>
-              📍 {entry.storeNotes}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--sp-1)', fontSize: 'var(--fs-meta)', color: 'var(--text-2)', fontStyle: 'italic', lineHeight: 1.4 }}>
+              <MapPin size={12} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 1 }} />
+              {entry.storeNotes}
             </div>
           )}
           {marketPrice && (
-            <div style={{ fontSize: 10, color: '#4b5563', marginTop: 4 }}>
+            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', marginTop: 'var(--sp-1)' }}>
               Market data: {marketPrice.source} · Updated {marketPrice.lastUpdated}
             </div>
           )}
         </div>
 
         {/* Right: actions */}
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-          <button onClick={() => onEdit(entry)} style={{
-            padding: '6px 12px', background: 'rgba(232,148,58,0.15)',
-            border: '1px solid rgba(232,148,58,0.3)', borderRadius: 7,
-            color: '#e8943a', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-          }}>
-            Edit
-          </button>
-          <button onClick={() => onDelete(entry.id)} style={{
-            padding: '6px 10px', background: 'none',
-            border: '1px solid #2a1c08', borderRadius: 7,
-            color: '#6b5030', fontSize: 12, cursor: 'pointer',
-          }}>
-            ✕
-          </button>
+        <div style={{ display: 'flex', gap: 'var(--sp-2)', flexShrink: 0 }}>
+          <Button variant="secondary" size="sm" onClick={() => onEdit(entry)}>Edit</Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete(entry.id)}
+            style={{ padding: 'var(--sp-2)', color: 'var(--text-dim)' }}
+          >
+            <X size={14} strokeWidth={1.75} />
+          </Button>
         </div>
       </div>
-    </div>
+    </Card>
+  )
+}
+
+// ── Filter tab button ──────────────────────────────────────────────────────────
+
+function FilterTab({ label, active, count, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.96)')}
+      onMouseUp={e   => (e.currentTarget.style.transform = 'scale(1)')}
+      onTouchStart={e => (e.currentTarget.style.transform = 'scale(0.96)')}
+      onTouchEnd={e   => (e.currentTarget.style.transform = 'scale(1)')}
+      style={{
+        padding: 'var(--sp-1) var(--sp-3)',
+        borderRadius: 'var(--r-pill)',
+        fontSize: 'var(--fs-meta)',
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+        cursor: 'pointer',
+        background:   active ? 'rgba(217,126,44,0.15)' : 'transparent',
+        color:        active ? 'var(--copper-400)'     : 'var(--text-muted)',
+        border:       active ? '1px solid rgba(217,126,44,0.4)' : '1px solid var(--hairline)',
+        transition: `background var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out)`,
+        fontFamily: 'inherit',
+      }}
+    >
+      {label}
+      {count !== undefined && (
+        <span style={{ marginLeft: 'var(--sp-1)', opacity: 0.65, fontSize: 'var(--fs-meta)' }}>
+          {count}
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -418,9 +506,9 @@ function WishlistCard({ entry, marketPrice, onEdit, onDelete }) {
 
 const FILTER_TABS = [
   { key: 'all',     label: 'All'     },
-  { key: 'Hunting', label: '🔍 Hunting' },
-  { key: 'Found',   label: '✓ Found'   },
-  { key: 'Paused',  label: '⏸ Paused'  },
+  { key: 'Hunting', label: 'Hunting' },
+  { key: 'Found',   label: 'Found'   },
+  { key: 'Paused',  label: 'Paused'  },
 ]
 
 export default function WishlistPage() {
@@ -488,7 +576,7 @@ export default function WishlistPage() {
     router.push('/profile/collection')
   }
 
-  const filtered = wishlist.filter(e => filterTab === 'all' || e.status === filterTab)
+  const filtered     = wishlist.filter(e => filterTab === 'all' || e.status === filterTab)
   const huntingCount = wishlist.filter(e => e.status === 'Hunting').length
   const foundCount   = wishlist.filter(e => e.status === 'Found').length
 
@@ -498,67 +586,54 @@ export default function WishlistPage() {
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
       <AppHeader sub="Your Hunt List" />
 
-      <div style={{ maxWidth: 700, margin: '0 auto', padding: '20px 16px 100px' }}>
+      <div style={{ maxWidth: 700, margin: '0 auto', padding: 'var(--sp-5) var(--sp-4) var(--sp-12)' }}>
 
         {/* Header row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc' }}>Wishlist</div>
-            <div style={{ fontSize: 12, color: '#9a7c55', marginTop: 2 }}>
-              {huntingCount} hunting · {foundCount} found
-            </div>
-          </div>
-          <button onClick={() => setShowAdd(true)} style={{
-            padding: '9px 18px', background: '#e8943a', border: 'none', borderRadius: 10,
-            color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer',
-          }}>
-            + Add Bottle
-          </button>
-        </div>
+        <SectionHeader
+          overline={`${huntingCount} hunting · ${foundCount} found`}
+          title="Wishlist"
+          action={
+            <Button onClick={() => setShowAdd(true)} size="sm">
+              + Add Bottle
+            </Button>
+          }
+          style={{ marginBottom: 'var(--sp-4)' }}
+        />
 
         {/* Filter tabs */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto', paddingBottom: 2 }}>
+        <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-4)', overflowX: 'auto', paddingBottom: 'var(--sp-1)' }}>
           {FILTER_TABS.map(t => (
-            <button key={t.key} onClick={() => setFilterTab(t.key)} style={{
-              padding: '5px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-              whiteSpace: 'nowrap', cursor: 'pointer',
-              background:   filterTab === t.key ? 'rgba(232,148,58,0.2)' : 'transparent',
-              color:        filterTab === t.key ? '#e8943a' : '#9a7c55',
-              border:       `1px solid ${filterTab === t.key ? 'rgba(232,148,58,0.5)' : '#3d2b10'}`,
-            }}>
-              {t.label}
-              {t.key !== 'all' && (
-                <span style={{ marginLeft: 5, opacity: 0.65, fontSize: 11 }}>
-                  {wishlist.filter(e => e.status === t.key).length}
-                </span>
-              )}
-            </button>
+            <FilterTab
+              key={t.key}
+              label={t.label}
+              active={filterTab === t.key}
+              count={t.key !== 'all' ? wishlist.filter(e => e.status === t.key).length : undefined}
+              onClick={() => setFilterTab(t.key)}
+            />
           ))}
         </div>
 
         {/* List */}
         {!loaded ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#6b5030' }}>Loading…</div>
+          <div style={{ textAlign: 'center', padding: 'var(--sp-12) 0', color: 'var(--text-dim)' }}>Loading…</div>
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🎯</div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#f5e6cc', marginBottom: 6 }}>
-              {filterTab === 'all' ? 'Your wishlist is empty' : `No ${filterTab.toLowerCase()} bottles`}
-            </div>
-            <div style={{ fontSize: 13, color: '#9a7c55', marginBottom: 20 }}>
-              {filterTab === 'all' ? 'Add bottles you\'re actively hunting' : 'Switch tabs or add a new bottle'}
-            </div>
-            {filterTab === 'all' && (
-              <button onClick={() => setShowAdd(true)} style={{
-                padding: '10px 24px', background: '#e8943a', border: 'none', borderRadius: 10,
-                color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer',
-              }}>
-                + Add Your First Bottle
-              </button>
-            )}
-          </div>
+          filterTab === 'all' ? (
+            <EmptyState
+              icon="Bookmark"
+              title="Your wishlist is empty"
+              body="Add bottles you're hunting for"
+              ctaLabel="+ Add Your First Bottle"
+              onCta={() => setShowAdd(true)}
+            />
+          ) : (
+            <EmptyState
+              icon="Search"
+              title={`No ${filterTab.toLowerCase()} bottles`}
+              body="Switch tabs or add a new bottle"
+            />
+          )
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
             {filtered.map(entry => (
               <WishlistCard
                 key={entry.id}
@@ -573,9 +648,16 @@ export default function WishlistPage() {
 
         {/* Market price attribution */}
         {loaded && wishlist.length > 0 && Object.values(marketPrices).some(p => p) && (
-          <div style={{ marginTop: 20, padding: '10px 14px', background: '#1a1008', border: '1px solid #2a1c08', borderRadius: 10 }}>
-            <div style={{ fontSize: 10, color: '#6b5030' }}>
-              📊 Market price ranges are secondary market estimates and may not reflect current trading conditions.
+          <div style={{
+            marginTop: 'var(--sp-5)',
+            padding: 'var(--sp-3) var(--sp-4)',
+            background: 'var(--bg-elev-1)',
+            border: '1px solid var(--hairline)',
+            borderRadius: 'var(--r-md)',
+          }}>
+            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', display: 'flex', alignItems: 'flex-start', gap: 'var(--sp-2)' }}>
+              <BarChart2 size={12} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 1 }} />
+              Market price ranges are secondary market estimates and may not reflect current trading conditions.
               Data is updated periodically.
             </div>
           </div>

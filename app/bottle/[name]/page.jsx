@@ -2,16 +2,30 @@
 import { useSession }     from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState }  from 'react'
+import { ChevronLeft, Eye, Check, Plus, MapPin, Search, ArrowLeftRight, DollarSign } from 'lucide-react'
 import Sparkline           from '../../components/Sparkline.jsx'
 import PriceHistoryChart   from '../../components/PriceHistoryChart.jsx'
+import Button              from '../../components/ui/Button.jsx'
+import SectionHeader       from '../../components/ui/SectionHeader.jsx'
+import EmptyState          from '../../components/ui/EmptyState.jsx'
+import Chip                from '../../components/ui/Chip.jsx'
 
 const RARITY_COLOR = {
-  'Unicorn':          '#c084fc',
-  'Tier 1':           '#f87171',
-  'Tier 1 Allocated': '#f87171',
-  'Allocated':        '#f87171',
-  'Tier 2':           '#fb923c',
-  'Worth Watching':   '#fbbf24',
+  'Unicorn':          'var(--violet)',
+  'Tier 1':           'var(--red)',
+  'Tier 1 Allocated': 'var(--red)',
+  'Allocated':        'var(--red)',
+  'Tier 2':           'var(--amber)',
+  'Worth Watching':   'var(--amber)',
+}
+
+const RARITY_TONE = {
+  'Unicorn':          'violet',
+  'Tier 1':           'red',
+  'Tier 1 Allocated': 'red',
+  'Allocated':        'red',
+  'Tier 2':           'amber',
+  'Worth Watching':   'amber',
 }
 
 function fmtTimeAgo(ts) {
@@ -34,9 +48,6 @@ function nameMatches(a, b) {
   return al.includes(bl) || bl.includes(al)
 }
 
-// Derived view: which stores have stocked this bottle, ordered by most-recent
-// sighting, with sighting count + median price per store.  Pulled from the
-// existing /api/finds payload — no new endpoint needed.
 function deriveStoreHistory(allFinds, bottleName) {
   const byStore = new Map()
   for (const f of allFinds) {
@@ -61,6 +72,12 @@ function deriveStoreHistory(allFinds, bottleName) {
     .sort((a, b) => b.lastSeen - a.lastSeen)
 }
 
+const divider = { borderBottom: '1px solid var(--hairline)', padding: 'var(--sp-4) var(--sp-4)' }
+const overlineStyle = {
+  fontSize: 'var(--fs-overline)', fontWeight: 700, color: 'var(--text-dim)',
+  textTransform: 'uppercase', letterSpacing: 'var(--tracking-overline)', marginBottom: 'var(--sp-3)',
+}
+
 export default function BottleDetailPage() {
   const { data: session, status } = useSession()
   const router    = useRouter()
@@ -77,9 +94,9 @@ export default function BottleDetailPage() {
   const [imageUrl, setImageUrl] = useState(null)
   const [finds,    setFinds]    = useState([])
   const [archived, setArchived] = useState([])
-  const [review,   setReview]   = useState(null)     // Breaking Bourbon
-  const [listings, setListings] = useState([])      // matching marketplace listings
-  const [holders,  setHolders]  = useState([])      // friends who own it
+  const [review,   setReview]   = useState(null)
+  const [listings, setListings] = useState([])
+  const [holders,  setHolders]  = useState([])
   const [loading,  setLoading]  = useState(true)
   const [watched,  setWatched]  = useState(false)
   const [watching, setWatching] = useState(false)
@@ -98,14 +115,10 @@ export default function BottleDetailPage() {
     ]).then(([priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes]) => {
       setPrice(priceRes.price ?? null)
       setHistory(histRes.history ?? [])
-      // Hero image priority: Binny's Algolia (clean product shot) → Breaking
-      // Bourbon's review hero (covers most popular bottles when Binny's misses)
-      // → 🥃 emoji fallback rendered when imageUrl stays null.
       setImageUrl(imgRes.imageUrl ?? (reviewRes?.found ? reviewRes.image : null) ?? null)
       setFinds(findsRes.finds ?? [])
       setArchived(findsRes.archived ?? [])
       setReview(reviewRes?.found ? reviewRes : null)
-      // Filter all marketplace listings down to those mentioning this bottle
       const all = mktRes?.listings ?? []
       setListings(all.filter(l => (l.bottles ?? []).some(b => nameMatches(b?.name ?? '', bottleName))))
       setHolders(holdRes?.holders ?? [])
@@ -118,7 +131,6 @@ export default function BottleDetailPage() {
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 10)
   const storeHist  = deriveStoreHistory(allFinds, bottleName).slice(0, 5)
-  const rarityColor = price?.rarity ? (RARITY_COLOR[price.rarity] ?? '#9a7c55') : null
 
   async function handleWatch() {
     setWatching(true)
@@ -137,39 +149,54 @@ export default function BottleDetailPage() {
 
   return (
     <div style={{
-      minHeight:     '100vh',
+      minHeight:     '100dvh',
       background:    'var(--bg-base)',
-      paddingBottom: 'calc(72px + env(safe-area-inset-bottom))',
+      paddingBottom: 'calc(var(--tab-h) + env(safe-area-inset-bottom))',
     }}>
 
-      {/* Header — back arrow + truncated bottle name */}
+      {/* Sticky header */}
       <div style={{
         position:     'sticky',
         top:          0,
         zIndex:       50,
-        background:   '#0f0a05',
-        borderBottom: '1px solid #2a1c08',
-        padding:      '10px 14px',
-        paddingTop:   'calc(10px + env(safe-area-inset-top))',
+        background:   'rgba(12,8,5,0.96)',
+        borderBottom: '1px solid var(--hairline-2)',
+        backdropFilter:       'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        padding:      'var(--sp-3) var(--sp-4)',
+        paddingTop:   'calc(var(--sp-3) + env(safe-area-inset-top))',
         display:      'flex',
         alignItems:   'center',
-        gap:          10,
+        gap:          'var(--sp-3)',
+        height:       'var(--header-h)',
       }}>
         <button
           onClick={() => router.back()}
           aria-label="Back"
+          onMouseDown={e => e.currentTarget.style.transform = 'scale(0.94)'}
+          onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
           style={{
-            background: 'none', border: 'none', color: '#e8943a',
-            fontSize: 24, cursor: 'pointer', padding: '0 4px',
-            lineHeight: 1, flexShrink: 0,
+            background:   'none',
+            border:       'none',
+            color:        'var(--copper-400)',
+            cursor:       'pointer',
+            padding:      'var(--sp-1)',
+            lineHeight:   1,
+            flexShrink:   0,
+            display:      'grid',
+            placeItems:   'center',
+            borderRadius: 'var(--r-sm)',
+            transition:   'transform var(--t-fast) var(--ease-out)',
           }}
-        >‹</button>
+        >
+          <ChevronLeft size={22} strokeWidth={2} />
+        </button>
         <div style={{
           flex:         1,
           minWidth:     0,
-          fontSize:     14,
+          fontSize:     'var(--fs-body)',
           fontWeight:   700,
-          color:        '#f5e6cc',
+          color:        'var(--text-primary)',
           overflow:     'hidden',
           textOverflow: 'ellipsis',
           whiteSpace:   'nowrap',
@@ -178,19 +205,19 @@ export default function BottleDetailPage() {
         </div>
       </div>
 
-      {/* Hero — image + name + rarity */}
+      {/* Hero */}
       <div style={{
-        padding:    '20px 16px 16px',
+        ...divider,
         textAlign:  'center',
-        borderBottom: '1px solid #2a1c08',
+        padding:    'var(--sp-5) var(--sp-4) var(--sp-4)',
       }}>
         <div style={{
           width:          imageUrl ? 140 : 80,
           height:         imageUrl ? 200 : 80,
-          margin:         '0 auto 14px',
-          background:     '#0f0a05',
-          borderRadius:   12,
-          border:         '1px solid #2a1c08',
+          margin:         `0 auto var(--sp-4)`,
+          background:     'var(--bg-elev-1)',
+          borderRadius:   'var(--r-lg)',
+          border:         '1px solid var(--hairline-2)',
           display:        'flex',
           alignItems:     'center',
           justifyContent: 'center',
@@ -201,117 +228,94 @@ export default function BottleDetailPage() {
             : <span style={{ fontSize: 36 }}>🥃</span>
           }
         </div>
-        <div style={{ fontWeight: 800, fontSize: 19, color: '#f5e6cc', lineHeight: 1.25, marginBottom: 8 }}>
+        <div style={{
+          fontWeight:    800,
+          fontSize:      'var(--fs-h2)',
+          color:         'var(--text-primary)',
+          lineHeight:    1.25,
+          marginBottom:  'var(--sp-3)',
+        }}>
           {bottleName}
         </div>
-        {rarityColor && (
-          <span style={{
-            display:      'inline-block',
-            fontSize:     11,
-            fontWeight:   700,
-            padding:      '3px 10px',
-            borderRadius: 999,
-            color:        rarityColor,
-            background:   `${rarityColor}22`,
-            border:       `1px solid ${rarityColor}44`,
-          }}>
+        {price?.rarity && (
+          <Chip tone={RARITY_TONE[price.rarity] ?? 'neutral'}>
             {price.rarity}
-          </span>
+          </Chip>
         )}
       </div>
 
       {/* Quick actions */}
-      <div style={{ padding: '14px 16px', display: 'flex', gap: 10, borderBottom: '1px solid #2a1c08' }}>
-        <button
+      <div style={{
+        ...divider,
+        display: 'flex',
+        gap:     'var(--sp-3)',
+      }}>
+        <Button
+          variant={watched ? 'secondary' : 'ghost'}
+          fullWidth
           onClick={handleWatch}
           disabled={watched || watching}
-          style={{
-            flex:         1,
-            padding:      '10px 0',
-            background:   watched ? 'rgba(96,165,250,0.12)' : '#1f1308',
-            border:       `1px solid ${watched ? '#3b82f6' : '#3d2b10'}`,
-            borderRadius: 8,
-            cursor:       watched ? 'default' : 'pointer',
-            color:        watched ? '#60a5fa' : '#9a7c55',
-            fontWeight:   700,
-            fontSize:     13,
-            fontFamily:   'inherit',
-          }}
+          style={watched ? { color: 'var(--blue)', borderColor: 'rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.08)' } : {}}
         >
-          {watched ? '✓ Watching' : watching ? '⏳' : '👀 Watch'}
-        </button>
-        <a
-          href="/profile/collection"
-          style={{
-            flex:           1,
-            padding:        '10px 0',
-            background:     '#1f1308',
-            border:         '1px solid #3d2b10',
-            borderRadius:   8,
-            color:          '#e8943a',
-            fontWeight:     700,
-            fontSize:       13,
-            textDecoration: 'none',
-            textAlign:      'center',
-            display:        'block',
-          }}
+          {watched ? <><Check size={16} /> Watching</> : watching ? 'Adding…' : <><Eye size={16} /> Watch</>}
+        </Button>
+        <Button
+          variant="ghost"
+          fullWidth
+          onClick={() => router.push('/profile/collection')}
         >
-          ＋ Collection
-        </a>
+          <Plus size={16} /> Collection
+        </Button>
       </div>
 
       {/* Pricing */}
-      <div style={{ padding: '16px', borderBottom: '1px solid #2a1c08' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-          Pricing
-        </div>
+      <div style={divider}>
+        <div style={overlineStyle}>Pricing</div>
         {loading ? (
-          <div style={{ fontSize: 13, color: '#6b5030' }}>Loading price data…</div>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' }}>Loading price data…</div>
         ) : price ? (
           <>
-            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 'var(--sp-5)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
               {price.msrp != null && (
                 <div>
-                  <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>MSRP</div>
-                  <div style={{ fontWeight: 700, fontSize: 22, color: '#c9a87a', lineHeight: 1 }}>${price.msrp}</div>
+                  <div style={overlineStyle}>MSRP</div>
+                  <div style={{ fontWeight: 700, fontSize: 'var(--fs-h2)', color: 'var(--copper-400)', lineHeight: 1 }}>
+                    ${price.msrp}
+                  </div>
                 </div>
               )}
               {price.low != null && price.high != null && (
                 <div>
-                  <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Secondary</div>
-                  <div style={{ fontWeight: 700, fontSize: 22, color: '#4ade80', lineHeight: 1 }}>
+                  <div style={overlineStyle}>Secondary</div>
+                  <div style={{ fontWeight: 700, fontSize: 'var(--fs-h2)', color: 'var(--green)', lineHeight: 1 }}>
                     ${price.low}–${price.high}
                   </div>
                   {price.avg != null && (
-                    <div style={{ fontSize: 11, color: '#9a7c55', marginTop: 2 }}>avg ${price.avg}</div>
+                    <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginTop: 'var(--sp-1)' }}>
+                      avg ${price.avg}
+                    </div>
                   )}
                 </div>
               )}
               {history.length >= 2 && history.length < 3 && (
-                <div style={{ marginLeft: 'auto', paddingBottom: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-                  <div style={{ fontSize: 9, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    {history.length}mo trend
-                  </div>
+                <div style={{ marginLeft: 'auto', paddingBottom: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--sp-1)' }}>
+                  <div style={overlineStyle}>{history.length}mo trend</div>
                   <Sparkline data={history} width={90} height={30} />
                 </div>
               )}
             </div>
-            {/* Full-width history chart — replaces the inline sparkline once we
-                have enough data points to be informative on a wider canvas. */}
             {history.length >= 3 && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 9, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                  {history.length}-month price history
-                </div>
+              <div style={{ marginTop: 'var(--sp-4)' }}>
+                <div style={{ ...overlineStyle, marginBottom: 'var(--sp-2)' }}>{history.length}-month price history</div>
                 <PriceHistoryChart data={history} />
               </div>
             )}
-            <div style={{ fontSize: 10, color: '#3d2b10', marginTop: 10 }}>
+            <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', marginTop: 'var(--sp-3)' }}>
               {price.source} · updated {price.lastUpdated}
             </div>
           </>
         ) : (
-          <div style={{ fontSize: 13, color: '#6b5030', fontStyle: 'italic' }}>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', fontStyle: 'italic' }}>
             No secondary market data yet for this bottle.
           </div>
         )}
@@ -319,157 +323,121 @@ export default function BottleDetailPage() {
 
       {/* Bottle Info */}
       {price && (price.distillery || price.proof || price.age || price.type) && (
-        <div style={{ padding: '16px', borderBottom: '1px solid #2a1c08' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            Bottle Info
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
+        <div style={divider}>
+          <div style={overlineStyle}>Bottle Info</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-2) var(--sp-4)' }}>
             {price.distillery && (
               <div style={{ gridColumn: '1 / -1' }}>
-                <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Distillery</div>
-                <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.distillery}</div>
+                <div style={overlineStyle}>Distillery</div>
+                <div style={{ fontSize: 'var(--fs-body)', color: 'var(--copper-400)', fontWeight: 600 }}>{price.distillery}</div>
               </div>
             )}
-            {price.type && (
-              <div>
-                <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Type</div>
-                <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.type}</div>
+            {[
+              { label: 'Type',   val: price.type },
+              { label: 'Proof',  val: price.proof ? (typeof price.proof === 'number' ? `${price.proof}°` : price.proof) : null },
+              { label: 'Age',    val: price.age },
+              { label: 'Origin', val: price.origin },
+              { label: 'Region', val: price.region },
+              { label: 'Sizes',  val: price.sizes?.length > 0 ? price.sizes.join(', ') : null },
+            ].filter(x => x.val).map(({ label, val }) => (
+              <div key={label}>
+                <div style={overlineStyle}>{label}</div>
+                <div style={{ fontSize: 'var(--fs-body)', color: 'var(--copper-400)', fontWeight: 600 }}>{val}</div>
               </div>
-            )}
-            {price.proof && (
-              <div>
-                <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Proof</div>
-                <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{typeof price.proof === 'number' ? `${price.proof}°` : price.proof}</div>
-              </div>
-            )}
-            {price.age && (
-              <div>
-                <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Age</div>
-                <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.age}</div>
-              </div>
-            )}
-            {price.origin && (
-              <div>
-                <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Origin</div>
-                <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.origin}</div>
-              </div>
-            )}
-            {price.region && (
-              <div>
-                <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Region</div>
-                <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.region}</div>
-              </div>
-            )}
-            {price.sizes?.length > 0 && (
-              <div>
-                <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Sizes</div>
-                <div style={{ fontSize: 13, color: '#c9a87a', fontWeight: 600 }}>{price.sizes.join(', ')}</div>
-              </div>
-            )}
+            ))}
           </div>
         </div>
       )}
 
-      {/* Reviews — Breaking Bourbon */}
+      {/* Editorial Review */}
       {review && (
-        <div style={{ padding: '16px', borderBottom: '1px solid #2a1c08' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            marginBottom: 10,
-          }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Editorial Review
-            </div>
-            <div style={{ fontSize: 9, color: '#3d2b10', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <div style={divider}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
+            <div style={overlineStyle}>Editorial Review</div>
+            <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-overline)' }}>
               Breaking Bourbon
             </div>
           </div>
           {review.title && (
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#f5e6cc', marginBottom: 6 }}>
+            <div style={{ fontSize: 'var(--fs-body)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--sp-2)' }}>
               {review.title}
             </div>
           )}
           {review.verdict && (
-            <div style={{ fontSize: 13, color: '#c9a87a', lineHeight: 1.5, fontStyle: 'italic', marginBottom: 10 }}>
-              “{review.verdict}”
+            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', lineHeight: 1.6, fontStyle: 'italic', marginBottom: 'var(--sp-3)' }}>
+              "{review.verdict}"
             </div>
           )}
-          <div style={{ fontSize: 11, color: '#6b5030', marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', marginBottom: 'var(--sp-3)', display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-3)' }}>
             {review.author && <span>by {review.author}</span>}
             {review.date && <span>· {review.date}</span>}
             {review.proof && <span>· {review.proof} proof</span>}
             {review.msrp && <span>· MSRP {review.msrp}</span>}
           </div>
-          <a
-            href={review.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display:        'inline-block',
-              padding:        '8px 14px',
-              background:     '#1f1308',
-              border:         '1px solid #3d2b10',
-              borderRadius:   8,
-              color:          '#e8943a',
-              fontSize:       12,
-              fontWeight:     700,
-              textDecoration: 'none',
-            }}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => window.open(review.url, '_blank', 'noopener,noreferrer')}
           >
             Read full review →
-          </a>
+          </Button>
         </div>
       )}
 
-      {/* Marketplace listings — current BIN/auction listings for this bottle */}
+      {/* Marketplace listings */}
       {listings.length > 0 && (
-        <div style={{ padding: '16px', borderBottom: '1px solid #2a1c08' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            Live in Marketplace · {listings.length}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {listings.slice(0, 5).map(l => (
-              <a
-                key={l.id}
-                href="/marketplace"
-                style={{
-                  display:        'flex',
-                  justifyContent: 'space-between',
-                  alignItems:     'center',
-                  padding:        '10px 12px',
-                  background:     '#1f1308',
-                  border:         '1px solid #2a1c08',
-                  borderRadius:   8,
-                  textDecoration: 'none',
-                  color:          'inherit',
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#f5e6cc', marginBottom: 2 }}>
-                    {l.type === 'iso' ? '🔍 ISO' : l.type === 'trading' ? '🔄 Trade' : '💵 Sale'}
-                    {' · '}
-                    {l.submitterName ?? 'Member'}
+        <div style={divider}>
+          <div style={overlineStyle}>Live in Marketplace · {listings.length}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+            {listings.slice(0, 5).map(l => {
+              const TypeIcon = l.type === 'iso' ? Search : l.type === 'trading' ? ArrowLeftRight : DollarSign
+              return (
+                <a
+                  key={l.id}
+                  href="/marketplace"
+                  style={{
+                    display:        'flex',
+                    justifyContent: 'space-between',
+                    alignItems:     'center',
+                    padding:        'var(--sp-3)',
+                    background:     'var(--bg-elev-2)',
+                    border:         '1px solid var(--hairline)',
+                    borderRadius:   'var(--r-md)',
+                    textDecoration: 'none',
+                    color:          'inherit',
+                    transition:     'background var(--t-fast) var(--ease-out)',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elev-3)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-elev-2)'}
+                >
+                  <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                    <TypeIcon size={14} strokeWidth={1.75} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 'var(--fs-meta)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
+                        {l.submitterName ?? 'Member'}
+                      </div>
+                      <div style={{
+                        fontSize: 'var(--fs-overline)', color: 'var(--text-muted)',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {(l.bottles ?? []).map(b => b?.name).filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{
-                    fontSize: 11, color: '#9a7c55',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
-                    {(l.bottles ?? []).map(b => b?.name).filter(Boolean).join(' · ')}
+                  <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                    {l.binPrice != null && (
+                      <div style={{ fontSize: 'var(--fs-meta)', fontWeight: 700, color: 'var(--green)' }}>BIN ${l.binPrice}</div>
+                    )}
+                    {l.askingPrice != null && (
+                      <div style={{ fontSize: 'var(--fs-meta)', fontWeight: 700, color: 'var(--copper-500)' }}>${l.askingPrice}</div>
+                    )}
                   </div>
-                </div>
-                <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                  {l.binPrice != null && (
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#4ade80' }}>BIN ${l.binPrice}</div>
-                  )}
-                  {l.askingPrice != null && (
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#e8943a' }}>${l.askingPrice}</div>
-                  )}
-                </div>
-              </a>
-            ))}
+                </a>
+              )
+            })}
           </div>
           {listings.length > 5 && (
-            <div style={{ fontSize: 11, color: '#6b5030', textAlign: 'center', marginTop: 8 }}>
+            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', textAlign: 'center', marginTop: 'var(--sp-2)' }}>
               + {listings.length - 5} more — see Marketplace tab
             </div>
           )}
@@ -478,40 +446,45 @@ export default function BottleDetailPage() {
 
       {/* Friends who own this */}
       {holders.length > 0 && (
-        <div style={{ padding: '16px', borderBottom: '1px solid #2a1c08' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            Friends who have it · {holders.length}
-          </div>
+        <div style={divider}>
+          <div style={overlineStyle}>Friends who have it · {holders.length}</div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {holders.slice(0, 8).map((h, i) => (
               <div
                 key={h.email}
                 style={{
-                  padding:      '8px 0',
-                  borderBottom: i < Math.min(holders.length, 8) - 1 ? '1px solid #1f1308' : 'none',
+                  padding:      'var(--sp-2) 0',
+                  borderBottom: i < Math.min(holders.length, 8) - 1 ? '1px solid var(--hairline)' : 'none',
                   display:      'flex',
                   alignItems:   'center',
-                  gap:          10,
+                  gap:          'var(--sp-3)',
                 }}
               >
                 <div style={{
-                  width: 30, height: 30, borderRadius: '50%',
-                  background: '#3d2b10', color: '#e8943a',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontWeight: 700, flexShrink: 0,
+                  width:          30,
+                  height:         30,
+                  borderRadius:   '50%',
+                  background:     'var(--grad-copper)',
+                  color:          'var(--text-inverse)',
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  fontSize:       'var(--fs-meta)',
+                  fontWeight:     700,
+                  flexShrink:     0,
                 }}>
                   {(h.name ?? '?').charAt(0).toUpperCase()}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#f5e6cc' }}>{h.name}</div>
+                  <div style={{ fontSize: 'var(--fs-meta)', fontWeight: 600, color: 'var(--text-primary)' }}>{h.name}</div>
                   {h.addedAt > 0 && (
-                    <div style={{ fontSize: 11, color: '#6b5030' }}>
+                    <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>
                       added {fmtTimeAgo(h.addedAt)}
                     </div>
                   )}
                 </div>
                 {h.qty > 1 && (
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#9a7c55', flexShrink: 0 }}>
+                  <div style={{ fontSize: 'var(--fs-meta)', fontWeight: 700, color: 'var(--text-muted)', flexShrink: 0 }}>
                     ×{h.qty}
                   </div>
                 )}
@@ -519,51 +492,54 @@ export default function BottleDetailPage() {
             ))}
           </div>
           {holders.length > 8 && (
-            <div style={{ fontSize: 11, color: '#6b5030', textAlign: 'center', marginTop: 8 }}>
+            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', textAlign: 'center', marginTop: 'var(--sp-2)' }}>
               + {holders.length - 8} more
             </div>
           )}
         </div>
       )}
 
-      {/* Store History — derived from finds */}
-      <div style={{ padding: '16px', borderBottom: '1px solid #2a1c08' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-          Where it's been spotted
-        </div>
+      {/* Store History */}
+      <div style={divider}>
+        <div style={overlineStyle}>Where it's been spotted</div>
         {loading ? (
-          <div style={{ fontSize: 13, color: '#6b5030' }}>Loading…</div>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' }}>Loading…</div>
         ) : storeHist.length === 0 ? (
-          <div style={{ fontSize: 13, color: '#6b5030', fontStyle: 'italic' }}>
-            No community sightings recorded yet.
-          </div>
+          <EmptyState
+            icon="MapPin"
+            title="No sightings yet"
+            body="No community sightings recorded for this bottle."
+          />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {storeHist.map((s, i) => (
               <div
                 key={i}
                 style={{
-                  padding:      '10px 0',
-                  borderBottom: i < storeHist.length - 1 ? '1px solid #1f1308' : 'none',
-                  display:      'flex',
+                  padding:        'var(--sp-3) 0',
+                  borderBottom:   i < storeHist.length - 1 ? '1px solid var(--hairline)' : 'none',
+                  display:        'flex',
                   justifyContent: 'space-between',
-                  alignItems:   'center',
-                  gap:          8,
+                  alignItems:     'center',
+                  gap:            'var(--sp-2)',
                 }}
               >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{
-                    fontSize: 13, color: '#f5e6cc', fontWeight: 600,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
-                    📍 {s.store?.name ?? 'Unknown store'}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#6b5030', marginTop: 2 }}>
-                    {s.count} sighting{s.count !== 1 ? 's' : ''} · last {fmtTimeAgo(s.lastSeen)}
+                <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                  <MapPin size={14} strokeWidth={1.75} color="var(--text-dim)" style={{ flexShrink: 0 }} />
+                  <div>
+                    <div style={{
+                      fontSize: 'var(--fs-body)', color: 'var(--text-primary)', fontWeight: 600,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {s.store?.name ?? 'Unknown store'}
+                    </div>
+                    <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', marginTop: 2 }}>
+                      {s.count} sighting{s.count !== 1 ? 's' : ''} · last {fmtTimeAgo(s.lastSeen)}
+                    </div>
                   </div>
                 </div>
                 {s.medianPrice != null && (
-                  <div style={{ fontWeight: 700, fontSize: 14, color: '#e8943a', flexShrink: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--copper-500)', flexShrink: 0 }}>
                     ${s.medianPrice}
                   </div>
                 )}
@@ -573,47 +549,47 @@ export default function BottleDetailPage() {
         )}
       </div>
 
-      {/* Recent Sightings (flat list) */}
-      <div style={{ padding: '16px', borderBottom: '1px solid #2a1c08' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-          Recent Sightings
-        </div>
+      {/* Recent Sightings */}
+      <div style={divider}>
+        <div style={overlineStyle}>Recent Sightings</div>
         {loading ? (
-          <div style={{ fontSize: 13, color: '#6b5030' }}>Loading…</div>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' }}>Loading…</div>
         ) : sightings.length === 0 ? (
-          <div style={{ fontSize: 13, color: '#6b5030', fontStyle: 'italic' }}>
-            No recent community finds for this bottle.
-          </div>
+          <EmptyState
+            icon="MapPin"
+            title="No recent finds"
+            body="No community finds for this bottle yet."
+          />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {sightings.map((f, i) => (
               <div
                 key={f.id ?? i}
                 style={{
-                  padding:      '8px 0',
-                  borderBottom: i < sightings.length - 1 ? '1px solid #1f1308' : 'none',
-                  display:      'flex',
+                  padding:        'var(--sp-2) 0',
+                  borderBottom:   i < sightings.length - 1 ? '1px solid var(--hairline)' : 'none',
+                  display:        'flex',
                   justifyContent: 'space-between',
-                  alignItems:   'center',
-                  gap:          8,
+                  alignItems:     'center',
+                  gap:            'var(--sp-2)',
                 }}
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{
-                    fontSize: 13, color: '#f5e6cc', fontWeight: 600,
+                    fontSize: 'var(--fs-meta)', color: 'var(--text-primary)', fontWeight: 600,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
                     {f.store?.name ?? 'Unknown store'}
                   </div>
-                  <div style={{ fontSize: 11, color: '#6b5030', marginTop: 2 }}>
+                  <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', marginTop: 2 }}>
                     by {f.submitterName} · {fmtTimeAgo(f.timestamp)}
                     {f.status === 'archived' && (
-                      <span style={{ color: '#3d2b10', marginLeft: 4 }}>· archived</span>
+                      <span style={{ color: 'var(--text-dim)', marginLeft: 'var(--sp-1)' }}>· archived</span>
                     )}
                   </div>
                 </div>
                 {f.price != null && (
-                  <div style={{ fontWeight: 700, fontSize: 14, color: '#e8943a', flexShrink: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--copper-500)', flexShrink: 0 }}>
                     ${Number(f.price).toFixed(2)}
                   </div>
                 )}
@@ -622,6 +598,7 @@ export default function BottleDetailPage() {
           </div>
         )}
       </div>
+
     </div>
   )
 }

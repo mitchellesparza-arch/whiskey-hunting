@@ -3,6 +3,8 @@
 import { useSession, signOut } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Clock } from 'lucide-react'
+import Button from '../components/ui/Button.jsx'
 
 export default function PendingPage() {
   const { data: session, update } = useSession()
@@ -10,55 +12,104 @@ export default function PendingPage() {
   const [checking, setChecking] = useState(false)
   const [checked,  setChecked]  = useState(false)
 
-  // If already approved (e.g., owner who was auto-approved), send home.
   useEffect(() => {
     if (session?.user?.approved) router.replace('/')
   }, [session, router])
 
   async function checkApproval() {
     setChecking(true)
-    // update() with trigger data causes the jwt callback to re-check Redis.
     await update({ checkApproval: true })
     setChecked(true)
     setChecking(false)
-    // Redirect to home — middleware will let them through if now approved,
-    // or send them back here if still pending.
     router.replace('/')
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4"
-         style={{ background: 'var(--bg-base)' }}>
-      <div className="card p-8 text-center max-w-sm w-full">
+    <div style={{
+      minHeight:      '100dvh',
+      display:        'flex',
+      alignItems:     'center',
+      justifyContent: 'center',
+      padding:        'var(--sp-4)',
+      background:     'var(--bg-base)',
+    }}>
+      <div style={{
+        width:        '100%',
+        maxWidth:     360,
+        background:   'var(--bg-elev-2)',
+        border:       '1px solid var(--hairline-2)',
+        borderRadius: 'var(--r-2xl)',
+        padding:      'var(--sp-8) var(--sp-6)',
+        boxShadow:    'var(--shadow-3)',
+        textAlign:    'center',
+      }}>
 
-        <div className="text-5xl mb-4">⏳</div>
-        <h1 className="text-xl font-bold text-[#f5e6cc] mb-2">Access Pending</h1>
+        {/* Icon */}
+        <div style={{
+          width:          64,
+          height:         64,
+          borderRadius:   'var(--r-xl)',
+          background:     'var(--bg-elev-3)',
+          border:         '1px solid var(--hairline-2)',
+          display:        'grid',
+          placeItems:     'center',
+          margin:         '0 auto var(--sp-5)',
+        }}>
+          <Clock size={28} strokeWidth={1.75} color="var(--text-muted)" />
+        </div>
 
-        <p className="text-sm text-[#9a7c55] mb-1">Signed in as</p>
-        <p className="text-sm font-semibold text-[#e8943a] mb-6 break-all">
+        <h1 style={{
+          margin:        0,
+          fontSize:      'var(--fs-h1)',
+          fontWeight:    800,
+          color:         'var(--text-primary)',
+          letterSpacing: 'var(--tracking-head)',
+          marginBottom:  'var(--sp-2)',
+        }}>
+          Access Pending
+        </h1>
+
+        <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', margin: 0 }}>
+          Signed in as
+        </p>
+        <p style={{
+          fontSize:      'var(--fs-body)',
+          fontWeight:    600,
+          color:         'var(--copper-400)',
+          wordBreak:     'break-all',
+          marginBottom:  'var(--sp-5)',
+          marginTop:     'var(--sp-1)',
+        }}>
           {session?.user?.email ?? '…'}
         </p>
 
-        <p className="text-xs text-[#6b5030] mb-8 leading-relaxed">
+        <p style={{
+          fontSize:     'var(--fs-meta)',
+          color:        'var(--text-dim)',
+          marginBottom: 'var(--sp-6)',
+          lineHeight:   1.6,
+        }}>
           Your request has been submitted. Once the owner approves your
           account you'll have full access to the truck tracker. Use the
           button below after you've been notified.
         </p>
 
-        <div className="space-y-3">
-          <button
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+          <Button
+            variant="primary"
+            fullWidth
             onClick={checkApproval}
             disabled={checking}
-            className="btn-primary w-full"
           >
             {checking ? 'Checking…' : checked ? 'Still pending — try again later' : 'Check approval status'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            fullWidth
             onClick={() => signOut({ callbackUrl: '/login' })}
-            className="w-full text-xs text-[#6b5030] hover:text-[#9a7c55] transition-colors py-1"
           >
             Sign out
-          </button>
+          </Button>
         </div>
 
       </div>

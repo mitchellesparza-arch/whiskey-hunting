@@ -14,9 +14,21 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter }  from 'next/navigation'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
+import {
+  ChevronLeft, Check, RefreshCw, Trophy,
+  Shuffle, Eye, Flame, Award, Handshake,
+  Lightbulb, ArrowRight, Loader,
+} from 'lucide-react'
+
+import Button       from '../../components/ui/Button'
+import Card         from '../../components/ui/Card'
+import EmptyState   from '../../components/ui/EmptyState'
+import StatTile     from '../../components/ui/StatTile'
+import SectionHeader from '../../components/ui/SectionHeader'
 
 // ── ELO ──────────────────────────────────────────────────────────────────────
+// CRITICAL: do not touch any of the ELO / matchmaking logic below
 
 function eloUpdate(aScore, bScore, result) {
   const K = 12
@@ -45,76 +57,124 @@ function shuffle(arr) {
   return a
 }
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
 const POS_LABELS = ['A', 'B', 'C', 'D', 'E']
-const MEDALS     = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣']
 
-// ── Shared styles ─────────────────────────────────────────────────────────────
+// rank medal emoji — pure content, not UI icon
+const MEDALS = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣']
 
-const accentBtn = {
-  width: '100%', padding: '13px',
-  background: '#e8943a', border: 'none', borderRadius: 10,
-  color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer',
-}
+// ── Press-state helpers ───────────────────────────────────────────────────────
 
-const grayBtn = {
-  width: '100%', padding: '13px',
-  background: '#1f1308', border: 'none', borderRadius: 10,
-  color: '#6b5030', fontWeight: 800, fontSize: 15, cursor: 'not-allowed',
+function pressHandlers(scale = 0.97) {
+  return {
+    onMouseDown:  e => { e.currentTarget.style.transform = `scale(${scale})` },
+    onMouseUp:    e => { e.currentTarget.style.transform = 'scale(1)' },
+    onMouseLeave: e => { e.currentTarget.style.transform = 'scale(1)' },
+    onTouchStart: e => { e.currentTarget.style.transform = `scale(${scale})` },
+    onTouchEnd:   e => { e.currentTarget.style.transform = 'scale(1)' },
+  }
 }
 
 // ── Step 0 — Intro ────────────────────────────────────────────────────────────
 
 function StepIntro({ onStart }) {
   const steps = [
-    { n: '1', t: 'Mark your glens', d: 'Write 1–5 on the bottoms of your glasses with a dry-erase marker.' },
-    { n: '2', t: 'Pour blind',      d: 'The app tells you which bottle goes in which glen. Pour each.' },
-    { n: '3', t: 'Shuffle',         d: 'Slide the glasses around until you can\'t remember which is which.' },
-    { n: '4', t: 'Taste & compare', d: 'The app presents position matchups. Pick your favorite, blind.' },
-    { n: '5', t: 'Reveal',          d: 'Flip each glass, enter the glen number you see. The app decodes the results.' },
+    { n: '1', t: 'Mark your glens',   d: 'Write 1–5 on the bottoms of your glasses with a dry-erase marker.' },
+    { n: '2', t: 'Pour blind',         d: 'The app tells you which bottle goes in which glen. Pour each.' },
+    { n: '3', t: 'Shuffle',            d: "Slide the glasses around until you can't remember which is which." },
+    { n: '4', t: 'Taste & compare',    d: 'The app presents position matchups. Pick your favorite, blind.' },
+    { n: '5', t: 'Reveal',             d: 'Flip each glass, enter the glen number you see. The app decodes the results.' },
   ]
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: '32px 16px', animation: 'fadeUp 0.3s ease' }}>
-      <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <div style={{ fontSize: 52, marginBottom: 12 }}>🙈</div>
-        <div style={{ fontWeight: 800, fontSize: 22, color: '#f5e6cc', marginBottom: 8 }}>
+    <div style={{ maxWidth: 480, margin: '0 auto', padding: 'var(--sp-8) var(--sp-4)', animation: 'fadeUp 0.3s var(--ease-out)' }}>
+      {/* Hero */}
+      <div style={{ textAlign: 'center', marginBottom: 'var(--sp-7)' }}>
+        <div style={{ fontSize: 52, marginBottom: 'var(--sp-3)', lineHeight: 1 }}>🙈</div>
+        <h1 style={{
+          margin: 0,
+          fontSize: 'var(--fs-h1)',
+          fontWeight: 800,
+          color: 'var(--text-primary)',
+          marginBottom: 'var(--sp-2)',
+        }}>
           Battle of the Blinds
-        </div>
-        <div style={{ fontSize: 14, color: '#9a7c55', lineHeight: 1.6 }}>
+        </h1>
+        <p style={{ margin: 0, fontSize: 'var(--fs-body)', color: 'var(--text-muted)', lineHeight: 'var(--lh-body)' }}>
           A whiskey matchmaking system that rates your bottles without any tater influence.
-        </div>
+        </p>
       </div>
 
-      <div className="card" style={{ padding: '16px', marginBottom: 20 }}>
+      {/* Steps card */}
+      <Card hover={false} style={{ marginBottom: 'var(--sp-5)' }}>
         {steps.map(({ n, t, d }, i) => (
-          <div key={n} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: i < steps.length - 1 ? '1px solid #1f1308' : 'none' }}>
+          <div key={n} style={{
+            display: 'flex',
+            gap: 'var(--sp-3)',
+            padding: 'var(--sp-3) 0',
+            borderBottom: i < steps.length - 1 ? '1px solid var(--hairline)' : 'none',
+          }}>
             <div style={{
-              width: 26, height: 26, borderRadius: '50%',
-              background: '#e8943a', color: '#fff',
+              width: 26, height: 26, borderRadius: 'var(--r-pill)',
+              background: 'var(--copper-500)',
+              color: 'var(--text-inverse)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 800, fontSize: 12, flexShrink: 0,
+              fontWeight: 800, fontSize: 'var(--fs-overline)', flexShrink: 0,
             }}>{n}</div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', marginBottom: 2 }}>{t}</div>
-              <div style={{ fontSize: 12, color: '#9a7c55', lineHeight: 1.5 }}>{d}</div>
+              <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)', marginBottom: 'var(--sp-1)' }}>{t}</div>
+              <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', lineHeight: 'var(--lh-body)' }}>{d}</div>
             </div>
           </div>
         ))}
-      </div>
+      </Card>
 
-      <div style={{ background: '#1a1008', border: '1px solid #3d2b10', borderRadius: 10, padding: '12px 14px', marginBottom: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#9a7c55', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-          ELO Score Guide
-        </div>
-        {[['90+','One of the best bottles you own'],['80–89','Reliably excellent'],['70–79','Solid, enjoyable'],['< 70','Fine, rarely your first pick']].map(([r, d]) => (
-          <div key={r} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #1f1308', gap: 12 }}>
-            <span style={{ fontWeight: 700, fontSize: 12, color: '#e8943a', flexShrink: 0 }}>{r}</span>
-            <span style={{ fontSize: 12, color: '#9a7c55' }}>{d}</span>
+      {/* ELO guide */}
+      <div style={{
+        background: 'var(--bg-elev-1)',
+        border: '1px solid var(--hairline-2)',
+        borderRadius: 'var(--r-md)',
+        padding: 'var(--sp-3) var(--sp-4)',
+        marginBottom: 'var(--sp-5)',
+      }}>
+        <p style={{
+          margin: '0 0 var(--sp-2)',
+          fontSize: 'var(--fs-overline)',
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: 'var(--tracking-overline)',
+          color: 'var(--text-muted)',
+        }}>ELO Score Guide</p>
+        {[
+          ['90+',   'One of the best bottles you own'],
+          ['80–89', 'Reliably excellent'],
+          ['70–79', 'Solid, enjoyable'],
+          ['< 70',  'Fine, rarely your first pick'],
+        ].map(([r, d]) => (
+          <div key={r} style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            padding: 'var(--sp-1) 0',
+            borderBottom: '1px solid var(--hairline)',
+            gap: 'var(--sp-3)',
+          }}>
+            <span style={{ fontWeight: 700, fontSize: 'var(--fs-meta)', color: 'var(--copper-500)', flexShrink: 0 }}>{r}</span>
+            <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', textAlign: 'right' }}>{d}</span>
           </div>
         ))}
       </div>
 
-      <button onClick={onStart} style={accentBtn}>Set Up a Session →</button>
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
+        iconRight={<ArrowRight size={18} strokeWidth={1.75} />}
+        onClick={onStart}
+      >
+        Set Up a Session
+      </Button>
     </div>
   )
 }
@@ -123,22 +183,36 @@ function StepIntro({ onStart }) {
 
 function StepSelect({ bottles, selected, onToggle, onNext }) {
   const eligible = bottles.filter(b => (b.qty ?? 1) > 0)
+  const comparisons = selected.length >= 2 ? selected.length * (selected.length - 1) / 2 : 0
+
+  if (!eligible.length) {
+    return (
+      <div style={{ padding: 'var(--sp-8) var(--sp-4)' }}>
+        <EmptyState
+          icon="Shuffle"
+          title="Add bottles to your collection first"
+          body="You need at least 2 bottles with quantity > 0 to run a blind tasting."
+          ctaLabel="Go to Collection"
+          ctaHref="/profile"
+        />
+      </div>
+    )
+  }
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: '16px', animation: 'fadeUp 0.2s ease' }}>
-      <div style={{ marginBottom: 16, textAlign: 'center' }}>
-        <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc' }}>Select Bottles</div>
-        <div style={{ fontSize: 12, color: '#9a7c55', marginTop: 4 }}>
-          Pick 2–5 · {selected.length >= 2 ? `${selected.length * (selected.length - 1) / 2} comparisons` : 'Need at least 2'}
-        </div>
-      </div>
+    <div style={{ maxWidth: 480, margin: '0 auto', padding: 'var(--sp-4)', animation: 'fadeUp 0.2s var(--ease-out)' }}>
+      <SectionHeader
+        overline={selected.length >= 2 ? `${comparisons} comparison${comparisons !== 1 ? 's' : ''}` : 'Need at least 2'}
+        title="Select Bottles"
+        style={{ marginBottom: 'var(--sp-4)' }}
+      />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', marginBottom: 'var(--sp-4)' }}>
         {eligible.map((bottle, i) => {
-          const selIdx    = selected.indexOf(i)
+          const selIdx     = selected.indexOf(i)
           const isSelected = selIdx !== -1
-          const glenNum   = isSelected ? selIdx + 1 : null
-          const disabled  = !isSelected && selected.length >= 5
+          const glenNum    = isSelected ? selIdx + 1 : null
+          const disabled   = !isSelected && selected.length >= 5
 
           return (
             <button
@@ -146,91 +220,104 @@ function StepSelect({ bottles, selected, onToggle, onNext }) {
               onClick={() => !disabled && onToggle(i)}
               disabled={disabled}
               style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '12px 14px',
-                background: isSelected ? 'rgba(232,148,58,0.1)' : '#1a1008',
-                border: `1px solid ${isSelected ? '#e8943a' : '#3d2b10'}`,
-                borderRadius: 10,
+                display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
+                padding: 'var(--sp-3) var(--sp-4)',
+                background: isSelected ? 'rgba(217,126,44,0.10)' : 'var(--bg-elev-2)',
+                border: `1px solid ${isSelected ? 'var(--copper-500)' : 'var(--hairline-2)'}`,
+                borderRadius: 'var(--r-md)',
                 cursor: disabled ? 'not-allowed' : 'pointer',
                 opacity: disabled ? 0.4 : 1,
                 textAlign: 'left', width: '100%',
+                transition: `background var(--t-base) var(--ease-out), border-color var(--t-base) var(--ease-out), transform var(--t-fast) var(--ease-spring)`,
               }}
+              {...(!disabled ? pressHandlers(0.98) : {})}
             >
               <div style={{
-                width: 36, height: 36, borderRadius: 8,
-                background: isSelected ? '#e8943a' : '#1f1308',
-                border: `1px solid ${isSelected ? '#e8943a' : '#2a1c08'}`,
+                width: 36, height: 36, borderRadius: 'var(--r-sm)',
+                background: isSelected ? 'var(--copper-500)' : 'var(--bg-elev-3)',
+                border: `1px solid ${isSelected ? 'var(--copper-500)' : 'var(--hairline-2)'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 800, fontSize: 14,
-                color: isSelected ? '#fff' : '#6b5030', flexShrink: 0,
+                fontWeight: 800, fontSize: 'var(--fs-meta)',
+                color: isSelected ? 'var(--text-inverse)' : 'var(--text-dim)', flexShrink: 0,
+                transition: 'background var(--t-base) var(--ease-out)',
               }}>
                 {isSelected ? `G${glenNum}` : '○'}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', marginBottom: 2, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                <div style={{
+                  fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)',
+                  marginBottom: 2, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap',
+                }}>
                   {bottle.name}
                 </div>
-                <div style={{ fontSize: 11, color: '#9a7c55' }}>
-                  {bottle.blindScore != null ? `ELO ${bottle.blindScore.toFixed(1)}` : 'Unscored'}
+                <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
+                  {bottle.blindScore != null
+                    ? <span style={{ color: 'var(--copper-500)', fontWeight: 700 }}>ELO {bottle.blindScore.toFixed(1)}</span>
+                    : <span>Unscored</span>}
                 </div>
               </div>
+              {isSelected && <Check size={18} strokeWidth={1.75} color="var(--copper-500)" />}
             </button>
           )
         })}
       </div>
 
-      <button
-        onClick={onNext}
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
         disabled={selected.length < 2}
-        style={selected.length >= 2 ? accentBtn : grayBtn}
+        iconRight={<ArrowRight size={18} strokeWidth={1.75} />}
+        onClick={onNext}
       >
-        Start with {selected.length} bottle{selected.length !== 1 ? 's' : ''} →
-      </button>
+        Start with {selected.length} bottle{selected.length !== 1 ? 's' : ''}
+      </Button>
     </div>
   )
 }
 
 // ── Step 2 — Glen Assignment ──────────────────────────────────────────────────
-// glenAssignment: array of bottleIdxs (index in eligible[]), glenAssignment[0] = glen 1, etc.
 
 function StepGlenAssign({ bottles, glenAssignment, onReady }) {
   const n = glenAssignment.length
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: '32px 16px', animation: 'fadeUp 0.2s ease' }}>
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <div style={{ fontWeight: 800, fontSize: 20, color: '#f5e6cc', marginBottom: 6 }}>
-          🥃 Pour into Glens
-        </div>
-        <div style={{ fontSize: 13, color: '#9a7c55', lineHeight: 1.6 }}>
+    <div style={{ maxWidth: 480, margin: '0 auto', padding: 'var(--sp-8) var(--sp-4)', animation: 'fadeUp 0.2s var(--ease-out)' }}>
+      <div style={{ textAlign: 'center', marginBottom: 'var(--sp-5)' }}>
+        <div style={{ fontSize: 52, marginBottom: 'var(--sp-3)', lineHeight: 1 }}>🥃</div>
+        <h2 style={{ margin: 0, fontSize: 'var(--fs-h2)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 'var(--sp-2)' }}>
+          Pour into Glens
+        </h2>
+        <p style={{ margin: 0, fontSize: 'var(--fs-body)', color: 'var(--text-muted)', lineHeight: 'var(--lh-body)' }}>
           Pour each bottle into the numbered glen below.<br />
-          Do <strong style={{ color: '#f5e6cc' }}>not</strong> memorise the pairings — let the shuffle hide them.
-        </div>
+          Do <strong style={{ color: 'var(--text-primary)' }}>not</strong> memorise the pairings — let the shuffle hide them.
+        </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', marginBottom: 'var(--sp-6)' }}>
         {glenAssignment.map((bottleIdx, i) => (
           <div key={i} style={{
-            display: 'flex', alignItems: 'center', gap: 14,
-            padding: '12px 14px',
-            background: 'rgba(232,148,58,0.06)',
-            border: '1px solid rgba(232,148,58,0.2)',
-            borderRadius: 10,
+            display: 'flex', alignItems: 'center', gap: 'var(--sp-4)',
+            padding: 'var(--sp-3) var(--sp-4)',
+            background: 'rgba(217,126,44,0.06)',
+            border: '1px solid rgba(217,126,44,0.2)',
+            borderRadius: 'var(--r-md)',
           }}>
             <div style={{
-              width: 44, height: 44, borderRadius: 10,
-              background: '#e8943a', color: '#fff',
+              width: 48, height: 48, borderRadius: 'var(--r-md)',
+              background: 'var(--copper-500)',
+              color: 'var(--text-inverse)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               fontWeight: 800, lineHeight: 1, flexShrink: 0,
             }}>
-              <div style={{ fontSize: 9, opacity: 0.8, letterSpacing: '0.05em' }}>GLEN</div>
-              <div style={{ fontSize: 22 }}>{i + 1}</div>
+              <span style={{ fontSize: 'var(--fs-overline)', opacity: 0.8, letterSpacing: '0.05em' }}>GLEN</span>
+              <span style={{ fontSize: 'var(--fs-h2)', lineHeight: 1.1 }}>{i + 1}</span>
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: '#f5e6cc' }}>
+              <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>
                 {bottles[bottleIdx]?.name}
               </div>
-              <div style={{ fontSize: 11, color: '#9a7c55', marginTop: 2 }}>
+              <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginTop: 'var(--sp-1)' }}>
                 Pour this bottle into Glen {i + 1}
               </div>
             </div>
@@ -239,15 +326,28 @@ function StepGlenAssign({ bottles, glenAssignment, onReady }) {
       </div>
 
       <div style={{
-        background: '#1a0e04', border: '1px solid #4a3010', borderRadius: 10,
-        padding: '12px 14px', marginBottom: 20, fontSize: 13, color: '#c9a87a', lineHeight: 1.5,
+        display: 'flex', gap: 'var(--sp-3)', alignItems: 'flex-start',
+        background: 'var(--bg-elev-1)',
+        border: '1px solid var(--hairline-2)',
+        borderRadius: 'var(--r-md)',
+        padding: 'var(--sp-3) var(--sp-4)',
+        marginBottom: 'var(--sp-5)',
       }}>
-        💡 Tip: Pour all {n} glasses, then slide them around until you can&apos;t remember which is which.
+        <Lightbulb size={18} strokeWidth={1.75} color="var(--amber)" style={{ flexShrink: 0, marginTop: 2 }} />
+        <p style={{ margin: 0, fontSize: 'var(--fs-body)', color: 'var(--text-2)', lineHeight: 'var(--lh-body)' }}>
+          Pour all {n} glasses, then slide them around until you can&apos;t remember which is which.
+        </p>
       </div>
 
-      <button onClick={onReady} style={accentBtn}>
-        ✓ I&apos;ve poured all {n} bottles →
-      </button>
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
+        icon={<Check size={18} strokeWidth={1.75} />}
+        onClick={onReady}
+      >
+        I&apos;ve poured all {n} bottles
+      </Button>
     </div>
   )
 }
@@ -258,100 +358,174 @@ function StepShuffle({ n, onDone }) {
   const posLabels = POS_LABELS.slice(0, n)
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: '32px 16px', animation: 'fadeUp 0.2s ease' }}>
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <div style={{ fontSize: 52, marginBottom: 12 }}>🔀</div>
-        <div style={{ fontWeight: 800, fontSize: 20, color: '#f5e6cc', marginBottom: 8 }}>
+    <div style={{ maxWidth: 480, margin: '0 auto', padding: 'var(--sp-8) var(--sp-4)', animation: 'fadeUp 0.2s var(--ease-out)' }}>
+      <div style={{ textAlign: 'center', marginBottom: 'var(--sp-6)' }}>
+        <div style={{
+          width: 72, height: 72,
+          borderRadius: 'var(--r-xl)',
+          background: 'var(--bg-elev-3)',
+          border: '1px solid var(--hairline-2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto var(--sp-4)',
+          boxShadow: 'var(--shadow-2)',
+        }}>
+          <Shuffle size={32} strokeWidth={1.75} color="var(--copper-400)" />
+        </div>
+        <h2 style={{ margin: 0, fontSize: 'var(--fs-h2)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 'var(--sp-2)' }}>
           Shuffle Your Glens
-        </div>
-        <div style={{ fontSize: 13, color: '#9a7c55', lineHeight: 1.7 }}>
+        </h2>
+        <p style={{ margin: 0, fontSize: 'var(--fs-body)', color: 'var(--text-muted)', lineHeight: 'var(--lh-body)' }}>
           Slide the {n} glasses around until you can&apos;t remember which is which.
-          Once they&apos;re shuffled, the glasses are now in positions:
-        </div>
+          Once shuffled, the glasses are in positions:
+        </p>
       </div>
 
       {/* Position labels visual */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-6)' }}>
         {posLabels.map(p => (
           <div key={p} style={{
-            width: 48, height: 48, borderRadius: 10,
-            background: '#1f1308', border: '1px solid #3d2b10',
+            width: 52, height: 52, borderRadius: 'var(--r-md)',
+            background: 'var(--bg-elev-3)',
+            border: '1px solid var(--hairline-2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 800, fontSize: 22, color: '#e8943a',
+            fontWeight: 800, fontSize: 'var(--fs-h2)', color: 'var(--copper-500)',
+            boxShadow: 'var(--shadow-1)',
           }}>{p}</div>
         ))}
       </div>
 
       <div style={{
-        background: '#1a0e04', border: '1px solid #4a3010', borderRadius: 10,
-        padding: '12px 14px', marginBottom: 24, fontSize: 13, color: '#c9a87a', lineHeight: 1.6,
+        display: 'flex', gap: 'var(--sp-3)', alignItems: 'flex-start',
+        background: 'var(--bg-elev-1)',
+        border: '1px solid var(--hairline-2)',
+        borderRadius: 'var(--r-md)',
+        padding: 'var(--sp-3) var(--sp-4)',
+        marginBottom: 'var(--sp-5)',
       }}>
-        👈 Left is A · Right is {posLabels[posLabels.length - 1]}<br />
-        The glen numbers are now hidden on the bottom of each glass. You will not know which bottle is which until the reveal.
+        <Lightbulb size={18} strokeWidth={1.75} color="var(--amber)" style={{ flexShrink: 0, marginTop: 2 }} />
+        <p style={{ margin: 0, fontSize: 'var(--fs-body)', color: 'var(--text-2)', lineHeight: 'var(--lh-body)' }}>
+          Left is A · Right is {posLabels[posLabels.length - 1]}.
+          The glen numbers are now hidden on the bottom of each glass.
+        </p>
       </div>
 
-      <button onClick={onDone} style={accentBtn}>
-        ✓ I&apos;ve shuffled — Start Tasting →
-      </button>
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
+        icon={<Check size={18} strokeWidth={1.75} />}
+        onClick={onDone}
+      >
+        I&apos;ve shuffled — Start Tasting
+      </Button>
     </div>
   )
 }
 
 // ── Step 4 — Compare Positions ────────────────────────────────────────────────
 
-function StepCompare({ n, pairs, pairIdx, onVote }) {
-  const [ai, bi]  = pairs[pairIdx]
-  const posA      = POS_LABELS[ai]
-  const posB      = POS_LABELS[bi]
-  const progress  = pairIdx / pairs.length
+function StepCompare({ pairs, pairIdx, onVote }) {
+  const [ai, bi] = pairs[pairIdx]
+  const posA     = POS_LABELS[ai]
+  const posB     = POS_LABELS[bi]
+  const progress = pairIdx / pairs.length
 
-  const tapStyle = {
-    flex: 1, display: 'flex', flexDirection: 'column',
-    alignItems: 'center', gap: 8, padding: '28px 12px',
-    background: '#1f1308', border: '2px solid #2a1c08',
-    borderRadius: 12, cursor: 'pointer', outline: 'none',
-    transition: 'all 0.12s',
-  }
-
-  function hover(e, on) {
-    e.currentTarget.style.borderColor = on ? '#e8943a' : '#2a1c08'
-    e.currentTarget.style.background  = on ? 'rgba(232,148,58,0.08)' : '#1f1308'
+  function ChoiceCard({ pos, side }) {
+    return (
+      <button
+        onClick={() => onVote(side)}
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 'var(--sp-2)',
+          padding: 'var(--sp-7) var(--sp-3)',
+          background: 'var(--bg-elev-3)',
+          border: '2px solid var(--hairline-2)',
+          borderRadius: 'var(--r-xl)',
+          cursor: 'pointer',
+          outline: 'none',
+          transition: `border-color var(--t-base) var(--ease-out), background var(--t-base) var(--ease-out), box-shadow var(--t-base) var(--ease-out), transform var(--t-fast) var(--ease-spring)`,
+          boxShadow: 'var(--shadow-1)',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.borderColor = 'var(--copper-500)'
+          e.currentTarget.style.background  = 'var(--bg-elev-4)'
+          e.currentTarget.style.boxShadow   = 'var(--shadow-glow)'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.borderColor = 'var(--hairline-2)'
+          e.currentTarget.style.background  = 'var(--bg-elev-3)'
+          e.currentTarget.style.boxShadow   = 'var(--shadow-1)'
+          e.currentTarget.style.transform   = 'scale(1)'
+        }}
+        onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+        onMouseUp={e   => { e.currentTarget.style.transform = 'scale(1)' }}
+        onTouchStart={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+        onTouchEnd={e   => { e.currentTarget.style.transform = 'scale(1)'; onVote(side) }}
+      >
+        <span style={{
+          fontSize: 'var(--fs-overline)',
+          fontWeight: 700,
+          letterSpacing: 'var(--tracking-overline)',
+          textTransform: 'uppercase',
+          color: 'var(--text-muted)',
+        }}>Position</span>
+        <span style={{
+          fontFamily: "'Fraunces', Georgia, serif",
+          fontWeight: 600,
+          fontSize: 72,
+          color: 'var(--copper-500)',
+          lineHeight: 1,
+          letterSpacing: '-0.02em',
+        }}>{pos}</span>
+        <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>Prefer this one</span>
+      </button>
+    )
   }
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: '16px', animation: 'fadeUp 0.15s ease' }}>
-      <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: '#9a7c55', marginBottom: 6 }}>
+    <div style={{ maxWidth: 480, margin: '0 auto', padding: 'var(--sp-4)', animation: 'fadeUp 0.15s var(--ease-out)' }}>
+      <div style={{ textAlign: 'center', marginBottom: 'var(--sp-4)' }}>
+        <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
           Comparison {pairIdx + 1} of {pairs.length}
+        </span>
+        {/* Progress bar */}
+        <div style={{
+          height: 3, background: 'var(--bg-elev-3)', borderRadius: 'var(--r-pill)',
+          overflow: 'hidden', margin: 'var(--sp-2) 0 var(--sp-4)',
+        }}>
+          <div style={{
+            height: '100%',
+            width: `${progress * 100}%`,
+            background: 'var(--grad-copper)',
+            borderRadius: 'var(--r-pill)',
+            transition: 'width var(--t-slow) var(--ease-out)',
+          }} />
         </div>
-        <div style={{ height: 3, background: '#1f1308', borderRadius: 2, overflow: 'hidden', marginBottom: 14 }}>
-          <div style={{ height: '100%', width: `${progress * 100}%`, background: '#e8943a', borderRadius: 2, transition: 'width 0.3s' }} />
-        </div>
-        <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc' }}>Which do you prefer?</div>
-        <div style={{ fontSize: 12, color: '#9a7c55', marginTop: 4 }}>
+        <h2 style={{ margin: 0, fontSize: 'var(--fs-h2)', fontWeight: 800, color: 'var(--text-primary)' }}>
+          Which do you prefer?
+        </h2>
+        <p style={{ margin: 'var(--sp-1) 0 0', fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
           You&apos;re comparing two glasses — you don&apos;t know which bottle is which.
-        </div>
+        </p>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-        <button style={tapStyle} onClick={() => onVote('a')} onMouseEnter={e => hover(e, true)} onMouseLeave={e => hover(e, false)}>
-          <div style={{ fontWeight: 800, fontSize: 18, color: '#9a7c55', letterSpacing: '0.08em' }}>Position</div>
-          <div style={{ fontWeight: 800, fontSize: 56, color: '#e8943a', lineHeight: 1 }}>{posA}</div>
-          <div style={{ fontSize: 12, color: '#9a7c55' }}>Prefer this one</div>
-        </button>
-        <button style={tapStyle} onClick={() => onVote('b')} onMouseEnter={e => hover(e, true)} onMouseLeave={e => hover(e, false)}>
-          <div style={{ fontWeight: 800, fontSize: 18, color: '#9a7c55', letterSpacing: '0.08em' }}>Position</div>
-          <div style={{ fontWeight: 800, fontSize: 56, color: '#e8943a', lineHeight: 1 }}>{posB}</div>
-          <div style={{ fontSize: 12, color: '#9a7c55' }}>Prefer this one</div>
-        </button>
+      <div style={{ display: 'flex', gap: 'var(--sp-3)', marginBottom: 'var(--sp-4)' }}>
+        <ChoiceCard pos={posA} side="a" />
+        <ChoiceCard pos={posB} side="b" />
       </div>
 
-      <button
+      <Button
+        variant="ghost"
+        size="md"
+        fullWidth
+        icon={<Handshake size={18} strokeWidth={1.75} />}
         onClick={() => onVote('tie')}
-        style={{ width: '100%', background: 'none', border: 'none', color: '#9a7c55', cursor: 'pointer', fontSize: 13, padding: '8px 0' }}
       >
-        🤝 Too close to call — tie
-      </button>
+        Too close to call — tie
+      </Button>
     </div>
   )
 }
@@ -359,7 +533,7 @@ function StepCompare({ n, pairs, pairIdx, onVote }) {
 // ── Step 5 — Reveal ───────────────────────────────────────────────────────────
 
 function StepReveal({ n, posToGlen, onGlenChange, onSubmit }) {
-  const posLabels = POS_LABELS.slice(0, n)
+  const posLabels  = POS_LABELS.slice(0, n)
   const glenValues = Object.values(posToGlen).filter(Boolean).map(Number)
   const glenNums   = Array.from({ length: n }, (_, i) => i + 1)
 
@@ -368,55 +542,73 @@ function StepReveal({ n, posToGlen, onGlenChange, onSubmit }) {
     new Set(glenValues).size === n
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: '32px 16px', animation: 'fadeUp 0.2s ease' }}>
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <div style={{ fontSize: 52, marginBottom: 10 }}>🔍</div>
-        <div style={{ fontWeight: 800, fontSize: 20, color: '#f5e6cc', marginBottom: 8 }}>
-          Reveal the Glens
+    <div style={{ maxWidth: 480, margin: '0 auto', padding: 'var(--sp-8) var(--sp-4)', animation: 'fadeUp 0.2s var(--ease-out)' }}>
+      <div style={{ textAlign: 'center', marginBottom: 'var(--sp-5)' }}>
+        <div style={{
+          width: 72, height: 72,
+          borderRadius: 'var(--r-xl)',
+          background: 'var(--bg-elev-3)',
+          border: '1px solid var(--hairline-2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto var(--sp-4)',
+          boxShadow: 'var(--shadow-2)',
+        }}>
+          <Eye size={32} strokeWidth={1.75} color="var(--copper-400)" />
         </div>
-        <div style={{ fontSize: 13, color: '#9a7c55', lineHeight: 1.6 }}>
+        <h2 style={{ margin: 0, fontSize: 'var(--fs-h2)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 'var(--sp-2)' }}>
+          Reveal the Glens
+        </h2>
+        <p style={{ margin: 0, fontSize: 'var(--fs-body)', color: 'var(--text-muted)', lineHeight: 'var(--lh-body)' }}>
           Flip each glass and read the number on the bottom.<br />
           Enter the glen number for each position.
-        </div>
+        </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', marginBottom: 'var(--sp-5)' }}>
         {posLabels.map(pos => {
-          const val      = posToGlen[pos] ?? ''
-          const isDup    = val && glenValues.filter(v => v === Number(val)).length > 1
+          const val   = posToGlen[pos] ?? ''
+          const isDup = val && glenValues.filter(v => v === Number(val)).length > 1
 
           return (
             <div key={pos} style={{
-              display: 'flex', alignItems: 'center', gap: 14,
-              padding: '12px 14px',
-              background: '#1a1008', border: `1px solid ${isDup ? '#f87171' : '#3d2b10'}`,
-              borderRadius: 10,
+              display: 'flex', alignItems: 'center', gap: 'var(--sp-4)',
+              padding: 'var(--sp-3) var(--sp-4)',
+              background: 'var(--bg-elev-2)',
+              border: `1px solid ${isDup ? 'var(--red)' : 'var(--hairline-2)'}`,
+              borderRadius: 'var(--r-md)',
+              transition: 'border-color var(--t-base) var(--ease-out)',
             }}>
               <div style={{
-                width: 44, height: 44, borderRadius: 10,
-                background: '#1f1308', border: '1px solid #3d2b10',
+                width: 48, height: 48, borderRadius: 'var(--r-md)',
+                background: 'var(--bg-elev-3)',
+                border: '1px solid var(--hairline-2)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}>
-                <div style={{ fontSize: 9, color: '#9a7c55', letterSpacing: '0.05em' }}>POS</div>
-                <div style={{ fontWeight: 800, fontSize: 22, color: '#e8943a', lineHeight: 1 }}>{pos}</div>
+                <span style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>POS</span>
+                <span style={{ fontWeight: 800, fontSize: 'var(--fs-h2)', color: 'var(--copper-500)', lineHeight: 1 }}>{pos}</span>
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: '#9a7c55', display: 'block', marginBottom: 4 }}>
+                <label style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', display: 'block', marginBottom: 'var(--sp-2)' }}>
                   Flip Position {pos} — enter the glen number:
                 </label>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
                   {glenNums.map(g => (
                     <button
                       key={g}
                       onClick={() => onGlenChange(pos, String(g))}
                       style={{
-                        width: 36, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer',
-                        fontWeight: 800, fontSize: 15,
-                        background: Number(val) === g ? '#e8943a' : '#1f1308',
-                        color:      Number(val) === g ? '#fff'     : '#6b5030',
-                        outline:    isDup && Number(val) === g ? '2px solid #f87171' : 'none',
+                        width: 38, height: 38,
+                        borderRadius: 'var(--r-sm)',
+                        border: Number(val) === g ? '2px solid var(--copper-500)' : '1px solid var(--hairline-2)',
+                        cursor: 'pointer',
+                        fontWeight: 800, fontSize: 'var(--fs-body)',
+                        background: Number(val) === g ? 'var(--copper-500)' : 'var(--bg-elev-3)',
+                        color:      Number(val) === g ? 'var(--text-inverse)' : 'var(--text-dim)',
+                        outline:    isDup && Number(val) === g ? '2px solid var(--red)' : 'none',
+                        transition: `background var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-spring)`,
                       }}
+                      {...pressHandlers(0.92)}
                     >{g}</button>
                   ))}
                 </div>
@@ -427,58 +619,121 @@ function StepReveal({ n, posToGlen, onGlenChange, onSubmit }) {
       </div>
 
       {!isValid && (
-        <p style={{ color: '#f87171', fontSize: 12, textAlign: 'center', marginBottom: 12 }}>
+        <p style={{
+          color: 'var(--red)',
+          fontSize: 'var(--fs-meta)',
+          textAlign: 'center',
+          marginBottom: 'var(--sp-3)',
+        }}>
           Each glen number (1–{n}) must appear exactly once.
         </p>
       )}
 
-      <button
-        onClick={onSubmit}
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
         disabled={!isValid}
-        style={isValid ? accentBtn : grayBtn}
+        icon={<RefreshCw size={18} strokeWidth={1.75} />}
+        onClick={onSubmit}
       >
-        🔓 Decode &amp; Show Results →
-      </button>
+        Decode &amp; Show Results
+      </Button>
     </div>
   )
 }
 
 // ── Step 6 — Results ──────────────────────────────────────────────────────────
 
-function StepResults({ bottles, glenAssignment, ranked, onSave, saving }) {
+function StepResults({ ranked, onSave, saving }) {
+  const winner = ranked[0]
+
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: '32px 16px', animation: 'fadeUp 0.3s ease' }}>
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <div style={{ fontSize: 48, marginBottom: 8 }}>🏆</div>
-        <div style={{ fontWeight: 800, fontSize: 22, color: '#f5e6cc' }}>Results</div>
-        <div style={{ fontSize: 13, color: '#9a7c55', marginTop: 4 }}>
-          Your honest preferences, decoded from the blind.
+    <div style={{ maxWidth: 480, margin: '0 auto', padding: 'var(--sp-8) var(--sp-4)', animation: 'fadeUp 0.3s var(--ease-out)' }}>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: 'var(--sp-6)' }}>
+        <div style={{
+          width: 72, height: 72,
+          borderRadius: 'var(--r-xl)',
+          background: 'var(--bg-elev-3)',
+          border: '1px solid var(--hairline-2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto var(--sp-4)',
+          boxShadow: 'var(--shadow-glow)',
+        }}>
+          <Trophy size={32} strokeWidth={1.75} color="var(--copper-400)" />
         </div>
+        <h2 style={{ margin: 0, fontSize: 'var(--fs-h2)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 'var(--sp-2)' }}>
+          Results
+        </h2>
+        <p style={{ margin: 0, fontSize: 'var(--fs-body)', color: 'var(--text-muted)' }}>
+          Your honest preferences, decoded from the blind.
+        </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+      {/* Winner stat tiles */}
+      {winner && (
+        <div style={{ display: 'flex', gap: 'var(--sp-3)', marginBottom: 'var(--sp-5)' }}>
+          <StatTile
+            label="Winner ELO"
+            value={winner.newScore.toFixed(1)}
+            delta={winner.oldScore != null ? `${winner.newScore - winner.oldScore >= 0 ? '+' : ''}${(winner.newScore - winner.oldScore).toFixed(1)}` : undefined}
+            deltaPositive={winner.oldScore != null ? winner.newScore >= winner.oldScore : true}
+          />
+          <StatTile
+            label="Tastings"
+            value={ranked.length}
+          />
+        </div>
+      )}
+
+      <SectionHeader overline="Rankings" style={{ marginBottom: 'var(--sp-3)' }} />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', marginBottom: 'var(--sp-6)' }}>
         {ranked.map(({ bottle, glen, newScore, oldScore }, i) => {
-          const delta = newScore - (oldScore ?? newScore)
+          const delta    = newScore - (oldScore ?? newScore)
+          const isWinner = i === 0
+
           return (
             <div key={bottle.id} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '12px 14px',
-              background:  i === 0 ? 'rgba(232,148,58,0.08)' : '#1a1008',
-              border:      `1px solid ${i === 0 ? 'rgba(232,148,58,0.3)' : '#2a1c08'}`,
-              borderRadius: 10,
-              animation:   `fadeUp ${0.1 + i * 0.05}s ease`,
+              display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
+              padding: 'var(--sp-3) var(--sp-4)',
+              background:  isWinner
+                ? 'linear-gradient(135deg, rgba(217,126,44,0.12) 0%, rgba(217,126,44,0.04) 100%)'
+                : 'var(--bg-elev-2)',
+              border: `1px solid ${isWinner ? 'var(--copper-500)' : 'var(--hairline-2)'}`,
+              borderRadius: 'var(--r-lg)',
+              boxShadow:   isWinner ? 'var(--shadow-glow)' : 'var(--shadow-1)',
+              transition:  `opacity var(--t-base) var(--ease-out)`,
+              animation:   `fadeUp ${0.1 + i * 0.06}s var(--ease-out) both`,
             }}>
-              <span style={{ fontSize: 22, flexShrink: 0 }}>{MEDALS[i]}</span>
+              <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{MEDALS[i]}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: '#f5e6cc', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                <div style={{
+                  fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)',
+                  textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap',
+                }}>
                   {bottle.name}
                 </div>
-                <div style={{ fontSize: 11, color: '#9a7c55', marginTop: 1 }}>Glen {glen}</div>
+                <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginTop: 'var(--sp-1)' }}>
+                  Glen {glen}
+                </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc' }}>{newScore.toFixed(1)}</div>
+                <div style={{
+                  fontFamily: "'Fraunces', Georgia, serif",
+                  fontWeight: 600,
+                  fontSize: 'var(--fs-h2)',
+                  color: 'var(--copper-500)',
+                  lineHeight: 1,
+                }}>
+                  {newScore.toFixed(1)}
+                </div>
                 {oldScore != null && (
-                  <div style={{ fontSize: 11, fontWeight: 600, color: delta >= 0 ? '#4ade80' : '#f87171' }}>
+                  <div style={{
+                    fontSize: 'var(--fs-overline)', fontWeight: 600, marginTop: 'var(--sp-1)',
+                    color: delta >= 0 ? 'var(--green)' : 'var(--red)',
+                  }}>
                     {delta >= 0 ? '+' : ''}{delta.toFixed(1)}
                   </div>
                 )}
@@ -488,9 +743,18 @@ function StepResults({ bottles, glenAssignment, ranked, onSave, saving }) {
         })}
       </div>
 
-      <button onClick={onSave} disabled={saving} style={saving ? grayBtn : accentBtn}>
-        {saving ? '⏳ Saving…' : '✓ Save scores to collection'}
-      </button>
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
+        disabled={saving}
+        icon={saving
+          ? <Loader size={18} strokeWidth={1.75} style={{ animation: 'spin 1s linear infinite' }} />
+          : <Check size={18} strokeWidth={1.75} />}
+        onClick={onSave}
+      >
+        {saving ? 'Saving…' : 'Save scores to collection'}
+      </Button>
     </div>
   )
 }
@@ -506,16 +770,15 @@ export default function PickMyBlindPage() {
   const [loaded,  setLoaded]  = useState(false)
 
   // Session state
-  const [step,          setStep]         = useState(0)
-  const [selected,      setSelected]     = useState([])   // indices into eligible[]
-  const [glenAssign,    setGlenAssign]   = useState([])   // [glen1bottleIdx, glen2bottleIdx, ...]
-  const [pairs,         setPairs]        = useState([])   // [[posA, posB], ...] 0-indexed positions
-  const [pairIdx,       setPairIdx]      = useState(0)
-  const [posVotes,      setPosVotes]     = useState([])   // [{posA, posB, result}] per pair
-  const [posToGlen,     setPosToGlen]    = useState({})   // { 'A': '3', 'B': '1', ... }
-  const [ranked,        setRanked]       = useState([])
-  const [finalScores,   setFinalScores]  = useState({})   // bottleId → newScore
-  const [saving,        setSaving]       = useState(false)
+  const [step,        setStep]       = useState(0)
+  const [selected,    setSelected]   = useState([])   // indices into eligible[]
+  const [glenAssign,  setGlenAssign] = useState([])   // [glen1bottleIdx, glen2bottleIdx, ...]
+  const [pairs,       setPairs]      = useState([])   // [[posA, posB], ...] 0-indexed positions
+  const [pairIdx,     setPairIdx]    = useState(0)
+  const [posVotes,    setPosVotes]   = useState([])   // [{posA, posB, result}] per pair
+  const [posToGlen,   setPosToGlen]  = useState({})   // { 'A': '3', 'B': '1', ... }
+  const [ranked,      setRanked]     = useState([])
+  const [saving,      setSaving]     = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login')
@@ -599,13 +862,7 @@ export default function PickMyBlindPage() {
       }
     }).sort((a, b) => b.newScore - a.newScore)
 
-    const scoresById = {}
-    for (const { bottle, newScore } of rankedList) {
-      scoresById[bottle.id] = newScore
-    }
-
     setRanked(rankedList)
-    setFinalScores(scoresById)
     setStep(6)
   }
 
@@ -631,43 +888,68 @@ export default function PickMyBlindPage() {
   }
 
   if (status === 'loading' || !loaded) return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: '#9a7c55', fontSize: 13 }}>Loading…</p>
+    <div className="min-h-screen" style={{
+      background: 'var(--bg-base)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sp-3)',
+    }}>
+      <Loader size={18} strokeWidth={1.75} color="var(--text-muted)" style={{ animation: 'spin 1s linear infinite' }} />
+      <span style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-body)' }}>Loading…</span>
     </div>
   )
 
   const stepLabels = ['Intro', 'Select', 'Glen Setup', 'Shuffle', 'Tasting', 'Reveal', 'Results']
+  const canGoBack  = step <= 3
 
   function handleBack() {
     if (step === 0) { router.push('/profile'); return }
-    if (step <= 3) { setStep(s => s - 1); return }
+    if (canGoBack)  { setStep(s => s - 1); return }
     // Don't allow back during tasting (steps 4-6) — would break ELO integrity
   }
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
-      {/* Header */}
+      {/* Sticky header */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(15,10,5,0.95)', borderBottom: '1px solid #3d2b10',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 12,
+        background: 'rgba(var(--bg-base-rgb, 15,10,5), 0.92)',
+        borderBottom: '1px solid var(--hairline-2)',
+        backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+        padding: 'var(--sp-3) var(--sp-4)',
+        display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
       }}>
         <button
           onClick={handleBack}
-          style={{ background: 'none', border: 'none', color: '#9a7c55', cursor: 'pointer', fontSize: 20, lineHeight: 1, opacity: step >= 4 && step < 6 ? 0.3 : 1 }}
-          disabled={step >= 4 && step < 6}
-        >←</button>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc' }}>🙈 Battle of the Blinds</div>
-          <div style={{ fontSize: 11, color: '#9a7c55' }}>{stepLabels[step]}</div>
+          disabled={!canGoBack && step !== 0}
+          style={{
+            background: 'none', border: 'none',
+            color: 'var(--text-muted)',
+            cursor: canGoBack || step === 0 ? 'pointer' : 'not-allowed',
+            opacity: !canGoBack && step !== 0 ? 0.3 : 1,
+            display: 'flex', alignItems: 'center', padding: 'var(--sp-1)',
+            borderRadius: 'var(--r-sm)',
+            transition: 'opacity var(--t-base) var(--ease-out), transform var(--t-fast) var(--ease-spring)',
+          }}
+          {...(canGoBack || step === 0 ? pressHandlers(0.9) : {})}
+        >
+          <ChevronLeft size={20} strokeWidth={1.75} />
+        </button>
+
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 800, fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>
+            🙈 Battle of the Blinds
+          </div>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>{stepLabels[step]}</div>
         </div>
-        {/* Step dots */}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 5 }}>
-          {[1,2,3,4,5,6].map(s => (
+
+        {/* Step progress dots */}
+        <div style={{ display: 'flex', gap: 'var(--sp-1)', alignItems: 'center' }}>
+          {[1, 2, 3, 4, 5, 6].map(s => (
             <div key={s} style={{
-              width: 6, height: 6, borderRadius: '50%',
-              background: step >= s ? '#e8943a' : '#2a1c08',
+              width: s === step ? 16 : 6,
+              height: 6,
+              borderRadius: 'var(--r-pill)',
+              background: step >= s ? 'var(--copper-500)' : 'var(--bg-elev-3)',
+              transition: `width var(--t-base) var(--ease-spring), background var(--t-base) var(--ease-out)`,
             }} />
           ))}
         </div>
@@ -726,6 +1008,11 @@ export default function PickMyBlindPage() {
           saving={saving}
         />
       )}
+
+      {/* Spin keyframe for loader */}
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   )
 }

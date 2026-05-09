@@ -3,7 +3,18 @@ import { useSession } from 'next-auth/react'
 import { useRouter }  from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Link           from 'next/link'
+import {
+  ArrowLeft, Plus, X, Camera, Tag, ChevronRight, Gavel,
+  Star, Wine, FlaskConical, BarChart2, Image as ImageIcon,
+  CheckCircle, SkipForward, RefreshCw, Pencil, Loader,
+} from 'lucide-react'
 import BarcodeScanner from '../../finds/BarcodeScanner.jsx'
+import Button         from '../../components/ui/Button.jsx'
+import Chip           from '../../components/ui/Chip.jsx'
+import StatTile       from '../../components/ui/StatTile.jsx'
+import EmptyState     from '../../components/ui/EmptyState.jsx'
+import SectionHeader  from '../../components/ui/SectionHeader.jsx'
+import Sheet          from '../../components/ui/Sheet.jsx'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -14,32 +25,33 @@ function ShelfIcon({ size = 20 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: 'inline', verticalAlign: 'middle' }}>
       {/* Shelf plank */}
-      <rect x="1"    y="17.5" width="22"  height="2.5" rx="1"   fill="#8B4513" />
+      <rect x="1"    y="17.5" width="22"  height="2.5" rx="1"   fill="var(--copper-600)" />
       {/* Bottle 1 — tall bourbon */}
-      <rect x="3"    y="8"    width="3.5" height="9.5" rx="1"   fill="#c46c1a" />
-      <rect x="4"    y="5.5"  width="1.5" height="2.5" rx="0.5" fill="#c46c1a" />
-      <rect x="3.5"  y="5.5"  width="2.5" height="1"   rx="0.5" fill="#a05010" />
+      <rect x="3"    y="8"    width="3.5" height="9.5" rx="1"   fill="var(--copper-500)" />
+      <rect x="4"    y="5.5"  width="1.5" height="2.5" rx="0.5" fill="var(--copper-500)" />
+      <rect x="3.5"  y="5.5"  width="2.5" height="1"   rx="0.5" fill="var(--copper-600)" />
       {/* Bottle 2 — medium */}
-      <rect x="9"    y="10"   width="3.5" height="7.5" rx="1"   fill="#d4a054" />
-      <rect x="10"   y="7.5"  width="1.5" height="2.5" rx="0.5" fill="#d4a054" />
+      <rect x="9"    y="10"   width="3.5" height="7.5" rx="1"   fill="var(--copper-400)" />
+      <rect x="10"   y="7.5"  width="1.5" height="2.5" rx="0.5" fill="var(--copper-400)" />
       {/* Bottle 3 — tall */}
-      <rect x="15.5" y="8"    width="3.5" height="9.5" rx="1"   fill="#e8943a" />
-      <rect x="16.5" y="5.5"  width="1.5" height="2.5" rx="0.5" fill="#e8943a" />
-      <rect x="16"   y="5.5"  width="2.5" height="1"   rx="0.5" fill="#c47020" />
+      <rect x="15.5" y="8"    width="3.5" height="9.5" rx="1"   fill="var(--copper-500)" />
+      <rect x="16.5" y="5.5"  width="1.5" height="2.5" rx="0.5" fill="var(--copper-500)" />
+      <rect x="16"   y="5.5"  width="2.5" height="1"   rx="0.5" fill="var(--copper-600)" />
     </svg>
   )
 }
+
 const SORT_OPTIONS = [
-  { key: 'score',     label: '🏆 Score'     },
-  { key: 'secondary', label: '💰 Secondary' },
-  { key: 'msrp',      label: 'MSRP'         },
-  { key: 'name',      label: 'Name'          },
+  { key: 'score',     label: 'Score'     },
+  { key: 'secondary', label: 'Secondary' },
+  { key: 'msrp',      label: 'MSRP'      },
+  { key: 'name',      label: 'Name'       },
 ]
 
 function scoreColor(score) {
-  if (score >= 85) return '#4ade80'
-  if (score >= 75) return '#e8943a'
-  return '#9a7c55'
+  if (score >= 85) return 'var(--green)'
+  if (score >= 75) return 'var(--copper-500)'
+  return 'var(--text-muted)'
 }
 
 function fmt$(n) {
@@ -51,7 +63,7 @@ function fmt$(n) {
 
 function normalizeName(s) {
   return s.toLowerCase()
-    .replace(/['''‘’]/g, '')
+    .replace(/[''''']/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -64,16 +76,13 @@ function findUnicornMatches(bottleName, deals) {
   if (!words.length) return []
   return deals.filter(d => {
     const hay  = normalizeName(d.bottle_name ?? d.title ?? '')
-    // Brand (first significant word) must always match
     if (!hay.includes(words[0])) return false
     if (words.length === 1) return true
-
     const hits  = words.filter(w => hay.includes(w)).length
     const ratio = hits / words.length
-
-    if (words.length === 2) return hits === 2        // both words required
-    if (words.length === 3) return hits >= 2         // 2 of 3
-    return ratio >= 0.6                              // ≥60% for 4+ word bottles
+    if (words.length === 2) return hits === 2
+    if (words.length === 3) return hits >= 2
+    return ratio >= 0.6
   })
 }
 
@@ -86,12 +95,38 @@ function timeLeft(isoStr) {
   return `${Math.floor(h / 24)}d left`
 }
 
+// ── Shared form styles (token-based) ─────────────────────────────────────────
+
+const inputStyle = {
+  width:        '100%',
+  padding:      'var(--sp-2) var(--sp-3)',
+  background:   'var(--bg-base)',
+  border:       '1px solid var(--hairline-3)',
+  borderRadius: 'var(--r-md)',
+  color:        'var(--text-primary)',
+  fontSize:     'var(--fs-body)',
+  fontFamily:   'inherit',
+  outline:      'none',
+  boxSizing:    'border-box',
+}
+
+const labelStyle = {
+  display:       'block',
+  fontSize:      'var(--fs-overline)',
+  fontWeight:    700,
+  color:         'var(--text-muted)',
+  marginBottom:  'var(--sp-1)',
+  marginTop:     'var(--sp-3)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+}
+
 // ── Bottle Card ───────────────────────────────────────────────────────────────
 
 function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
   const score = bottle.blindScore
+  const [pressed, setPressed] = useState(false)
 
-  // Best unicorn lot — highest current bid
   const bestMatch = unicornMatches?.length
     ? unicornMatches.reduce((a, b) => ((b.current_bid || 0) > (a.current_bid || 0) ? b : a))
     : null
@@ -105,7 +140,21 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
     <div
       className="card"
       onClick={() => onEdit(bottle)}
-      style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 0, overflow: 'hidden', cursor: 'pointer' }}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      onMouseLeave={() => setPressed(false)}
+      onTouchStart={() => setPressed(true)}
+      onTouchEnd={() => setPressed(false)}
+      style={{
+        display:    'flex',
+        flexDirection: 'column',
+        gap:        0,
+        padding:    0,
+        overflow:   'hidden',
+        cursor:     'pointer',
+        transform:  pressed ? 'scale(0.97)' : 'scale(1)',
+        transition: `transform var(--t-fast) var(--ease-out)`,
+      }}
     >
       {/* ── Main row ──────────────────────────────────────────────── */}
       <div style={{ display: 'flex' }}>
@@ -116,8 +165,8 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
             width:       64,
             flexShrink:  0,
             position:    'relative',
-            background:  '#0c0804',
-            borderRight: '1px solid #2a1c08',
+            background:  'var(--bg-base)',
+            borderRight: '1px solid var(--hairline)',
             overflow:    'hidden',
           }}>
             <img
@@ -128,9 +177,14 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
             />
             {score != null && (
               <div style={{
-                position: 'absolute', bottom: 4, left: 0, right: 0,
-                textAlign: 'center', fontSize: 11, fontWeight: 800,
-                color: scoreColor(score),
+                position:   'absolute',
+                bottom:     'var(--sp-1)',
+                left:       0,
+                right:      0,
+                textAlign:  'center',
+                fontSize:   'var(--fs-overline)',
+                fontWeight: 800,
+                color:      scoreColor(score),
                 textShadow: '0 1px 3px rgba(0,0,0,0.9)',
               }}>{score.toFixed(0)}</div>
             )}
@@ -143,67 +197,46 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
             flexDirection:  'column',
             alignItems:     'center',
             justifyContent: 'center',
-            padding:        '12px 0',
-            background:     '#1f1308',
-            borderRight:    '1px solid #2a1c08',
-            gap:            2,
+            padding:        'var(--sp-3) 0',
+            background:     'var(--bg-elev-2)',
+            borderRight:    '1px solid var(--hairline)',
+            gap:            'var(--sp-1)',
           }}>
-            <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</div>
-            <div style={{ fontWeight: 800, fontSize: score != null ? 24 : 18, color: score != null ? scoreColor(score) : '#3d2b10', lineHeight: 1 }}>
+            <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</div>
+            <div style={{ fontWeight: 800, fontSize: score != null ? 'var(--fs-h1)' : 'var(--fs-h2)', color: score != null ? scoreColor(score) : 'var(--text-dim)', lineHeight: 1 }}>
               {score != null ? score.toFixed(0) : '—'}
             </div>
-            <div style={{ fontSize: 9, color: '#6b5030' }}>{bottle.tastings ?? 0} tastings</div>
+            <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>{bottle.tastings ?? 0} tastings</div>
           </div>
         )}
 
         {/* Middle: info */}
-        <div style={{ flex: 1, padding: '12px 12px', minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', lineHeight: 1.3, marginBottom: 3 }}>
+        <div style={{ flex: 1, padding: 'var(--sp-3)', minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)', lineHeight: 1.3, marginBottom: 'var(--sp-1)' }}>
             {bottle.name}
           </div>
-          <div style={{ fontSize: 11, color: '#9a7c55', marginBottom: 6 }}>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginBottom: 'var(--sp-2)' }}>
             {[bottle.distillery, bottle.proof ? `${bottle.proof}°` : null, bottle.qty > 1 ? `×${bottle.qty}` : null].filter(Boolean).join(' · ')}
           </div>
           {bottle.flavors?.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-1)' }}>
               {bottle.flavors.map(f => (
-                <span key={f} style={{
-                  fontSize:     10,
-                  color:        '#9a7c55',
-                  background:   '#1f1308',
-                  border:       '1px solid #2a1c08',
-                  borderRadius: 999,
-                  padding:      '2px 7px',
-                }}>{f}</span>
+                <Chip key={f} tone="neutral" size="sm">{f}</Chip>
               ))}
             </div>
           )}
           {(bottle.forSale || bottle.forTrade) && (
-            <div style={{ display: 'flex', gap: 5, marginTop: 5 }}>
-              {bottle.forSale && (
-                <span style={{
-                  fontSize: 10, fontWeight: 700,
-                  color: '#4ade80', background: 'rgba(21,128,61,0.15)',
-                  border: '1px solid #16a34a', borderRadius: 999, padding: '2px 8px',
-                }}>For Sale</span>
-              )}
-              {bottle.forTrade && (
-                <span style={{
-                  fontSize: 10, fontWeight: 700,
-                  color: '#60a5fa', background: 'rgba(37,99,235,0.15)',
-                  border: '1px solid #2563eb', borderRadius: 999, padding: '2px 8px',
-                }}>For Trade</span>
-              )}
+            <div style={{ display: 'flex', gap: 'var(--sp-1)', marginTop: 'var(--sp-1)' }}>
+              {bottle.forSale  && <Chip tone="green" size="sm">For Sale</Chip>}
+              {bottle.forTrade && <Chip tone="blue"  size="sm">For Trade</Chip>}
             </div>
           )}
           {marketPrice && !bottle.secondary && (
-            <div style={{ marginTop: 5 }}>
-              <span style={{
-                fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 999,
-                color: '#60a5fa', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)',
-              }}>
-                📊 ${marketPrice.low}–${marketPrice.high} secondary
-              </span>
+            <div style={{ marginTop: 'var(--sp-1)' }}>
+              <Chip tone="blue" size="sm">
+                <BarChart2 size={10} strokeWidth={1.75} />
+                ${marketPrice.low}–${marketPrice.high} secondary
+              </Chip>
             </div>
           )}
         </div>
@@ -215,20 +248,20 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
           flexDirection:  'column',
           alignItems:     'flex-end',
           justifyContent: 'space-between',
-          padding:        '10px 12px',
-          gap:            4,
+          padding:        'var(--sp-2) var(--sp-3)',
+          gap:            'var(--sp-1)',
         }}>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase' }}>MSRP</div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#c9a87a' }}>{fmt$(bottle.msrp)}</div>
+            <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', textTransform: 'uppercase' }}>MSRP</div>
+            <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--copper-400)' }}>{fmt$(bottle.msrp)}</div>
           </div>
           {bottle.secondary > 0 && (
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 10, color: '#6b5030', textTransform: 'uppercase' }}>2ndary</div>
+              <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', textTransform: 'uppercase' }}>2ndary</div>
               <div style={{
                 fontWeight: 700,
-                fontSize:   14,
-                color:      bottle.secondary > (bottle.msrp ?? 0) * 1.4 ? '#4ade80' : '#9a7c55',
+                fontSize:   'var(--fs-body)',
+                color:      bottle.secondary > (bottle.msrp ?? 0) * 1.4 ? 'var(--green)' : 'var(--text-muted)',
               }}>{fmt$(bottle.secondary)}</div>
             </div>
           )}
@@ -237,13 +270,16 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
             style={{
               background: 'none',
               border:     'none',
-              color:      '#6b5030',
+              color:      'var(--text-dim)',
               cursor:     'pointer',
-              fontSize:   16,
-              padding:    0,
+              padding:    'var(--sp-1)',
               lineHeight: 1,
+              display:    'flex',
+              borderRadius: 'var(--r-sm)',
             }}
-          >✕</button>
+          >
+            <X size={16} strokeWidth={1.75} />
+          </button>
         </div>
       </div>
 
@@ -252,45 +288,45 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
         <div
           onClick={e => e.stopPropagation()}
           style={{
-            borderTop:      '1px solid #2a1c08',
-            padding:        '6px 12px',
+            borderTop:      '1px solid var(--hairline)',
+            padding:        'var(--sp-2) var(--sp-3)',
             display:        'flex',
             alignItems:     'center',
             justifyContent: 'space-between',
-            background:     '#0c0804',
-            gap:            8,
+            background:     'var(--bg-base)',
+            gap:            'var(--sp-2)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', minWidth: 0 }}>
-            <span style={{ fontSize: 11, color: '#9a7c55' }}>🔨</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap', minWidth: 0 }}>
+            <Gavel size={14} strokeWidth={1.75} color="var(--text-muted)" />
             {auctionBid > 0 ? (
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#f5e6cc' }}>
+              <span style={{ fontSize: 'var(--fs-meta)', fontWeight: 700, color: 'var(--text-primary)' }}>
                 ${auctionBid.toLocaleString()} bid
               </span>
             ) : (
-              <span style={{ fontSize: 12, color: '#6b5030' }}>No bids yet</span>
+              <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' }}>No bids yet</span>
             )}
             {msrpPremium !== null && msrpPremium > 0 && (
-              <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 600 }}>
+              <span style={{ fontSize: 'var(--fs-overline)', color: 'var(--green)', fontWeight: 600 }}>
                 +{msrpPremium}% vs MSRP
               </span>
             )}
             {unicornMatches.length > 1 && (
-              <span style={{ fontSize: 11, color: '#6b5030' }}>
+              <span style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>
                 ({unicornMatches.length} lots)
               </span>
             )}
             {tl && (
-              <span style={{ fontSize: 10, color: '#6b5030' }}>{tl}</span>
+              <span style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>{tl}</span>
             )}
           </div>
           <a
             href={bestMatch.lot_url}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ fontSize: 12, color: '#e8943a', textDecoration: 'none', fontWeight: 700, flexShrink: 0 }}
+            style={{ fontSize: 'var(--fs-meta)', color: 'var(--copper-500)', textDecoration: 'none', fontWeight: 700, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3 }}
           >
-            view →
+            view <ChevronRight size={12} strokeWidth={2} />
           </a>
         </div>
       )}
@@ -301,36 +337,45 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
 // ── Sample Card ───────────────────────────────────────────────────────────────
 
 function SampleCard({ sample, onRemove }) {
-  const TYPE_ICON  = { Mule: '🫏', Handshake: '🤝', Other: '🥃' }
-  const TYPE_COLOR = { Mule: '#e8943a', Handshake: '#4ade80', Other: '#9a7c55' }
-  const icon  = TYPE_ICON[sample.type]  ?? '🥃'
-  const color = TYPE_COLOR[sample.type] ?? '#9a7c55'
+  const TYPE_TONE  = { Mule: 'copper', Handshake: 'green', Other: 'neutral' }
+  const tone = TYPE_TONE[sample.type] ?? 'neutral'
 
   return (
-    <div className="card" style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '12px 14px' }}>
+    <div className="card" style={{ display: 'flex', gap: 'var(--sp-3)', alignItems: 'center', padding: 'var(--sp-3) var(--sp-4)' }}>
       <div style={{
-        width: 40, height: 40, borderRadius: 8,
-        background: '#1f1308', border: '1px solid #3d2b10',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 22,
-      }}>{icon}</div>
+        width:          40,
+        height:         40,
+        borderRadius:   'var(--r-md)',
+        background:     'var(--bg-elev-2)',
+        border:         '1px solid var(--hairline-2)',
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        flexShrink:     0,
+        fontSize:       'var(--fs-h1)',
+      }}>🥃</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sample.name}</div>
-        <div style={{ fontSize: 11 }}>
-          <span style={{ color: '#9a7c55' }}>from </span>
-          <span style={{ color }}>{sample.from}</span>
-          <span style={{ color: '#3d2b10', margin: '0 5px' }}>·</span>
-          <span style={{ color, fontWeight: 600 }}>{sample.type}</span>
+        <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)', marginBottom: 'var(--sp-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sample.name}</div>
+        <div style={{ fontSize: 'var(--fs-meta)', display: 'flex', alignItems: 'center', gap: 'var(--sp-1)', flexWrap: 'wrap' }}>
+          <span style={{ color: 'var(--text-muted)' }}>from </span>
+          <Chip tone={tone} size="sm">{sample.from}</Chip>
+          <Chip tone={tone} size="sm">{sample.type}</Chip>
         </div>
-        {sample.notes && <div style={{ fontSize: 11, color: '#6b5030', marginTop: 2, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sample.notes}</div>}
+        {sample.notes && <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', marginTop: 'var(--sp-1)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sample.notes}</div>}
       </div>
-      <button onClick={() => onRemove(sample.id)} style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 16, padding: 0, flexShrink: 0 }}>✕</button>
+      <button
+        onClick={() => onRemove(sample.id)}
+        style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 'var(--sp-1)', flexShrink: 0, display: 'flex', borderRadius: 'var(--r-sm)' }}
+      >
+        <X size={16} strokeWidth={1.75} />
+      </button>
     </div>
   )
 }
 
 // ── Add Sample Sheet ──────────────────────────────────────────────────────────
 
-function AddSampleSheet({ onClose, onAdd }) {
+function AddSampleSheet({ open, onClose, onAdd }) {
   const [name,       setName]       = useState('')
   const [fromText,   setFromText]   = useState('')
   const [fromEmail,  setFromEmail]  = useState(null)
@@ -347,9 +392,6 @@ function AddSampleSheet({ onClose, onAdd }) {
       .then(d => setFriends(d.friends ?? []))
       .catch(() => {})
   }, [])
-
-  const labelStyle = { display: 'block', fontSize: 10, fontWeight: 700, color: '#9a7c55', marginBottom: 4, marginTop: 14, textTransform: 'uppercase', letterSpacing: '0.06em' }
-  const inputStyle = { width: '100%', padding: '9px 12px', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none' }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -374,112 +416,128 @@ function AddSampleSheet({ onClose, onAdd }) {
   }
 
   return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 99 }} />
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-        background: '#1a1008', borderRadius: '16px 16px 0 0',
-        borderTop: '1px solid #3d2b10',
-        maxHeight: '90vh', overflowY: 'auto',
-        padding: '20px 16px calc(20px + env(safe-area-inset-bottom))',
-        animation: 'slideUp 0.2s ease',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc' }}>🥃 Add a Sample</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9a7c55', fontSize: 20, cursor: 'pointer' }}>✕</button>
+    <Sheet open={open} onClose={onClose} title="Add a Sample 🥃">
+      <form onSubmit={handleSubmit}>
+        <label style={labelStyle}>Bottle Name *</label>
+        <input style={inputStyle} placeholder="e.g. Blanton's Single Barrel" value={name} onChange={e => setName(e.target.value)} required />
+
+        <label style={labelStyle}>From (who gave it) *</label>
+        <div style={{ position: 'relative' }}>
+          <input
+            style={inputStyle}
+            placeholder="Name or select a friend"
+            value={fromText}
+            onChange={e => { setFromText(e.target.value); setFromEmail(null); setShowFriends(false) }}
+            onFocus={() => setShowFriends(friends.length > 0)}
+          />
+          {showFriends && friends.length > 0 && (
+            <div style={{
+              position:     'absolute',
+              top:          '100%',
+              left:         0,
+              right:        0,
+              zIndex:       10,
+              background:   'var(--bg-elev-3)',
+              border:       '1px solid var(--hairline-2)',
+              borderRadius: '0 0 var(--r-md) var(--r-md)',
+              maxHeight:    160,
+              overflowY:    'auto',
+            }}>
+              {friends.map(f => (
+                <button
+                  key={f.email}
+                  type="button"
+                  onClick={() => { setFromText(f.name ?? f.email); setFromEmail(f.email); setShowFriends(false) }}
+                  style={{ width: '100%', padding: 'var(--sp-2) var(--sp-3)', background: 'none', border: 'none', borderTop: '1px solid var(--hairline)', color: 'var(--text-primary)', fontSize: 'var(--fs-body)', textAlign: 'left', cursor: 'pointer' }}
+                >
+                  {f.name ?? f.email}
+                  <span style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-meta)', marginLeft: 'var(--sp-2)' }}>{f.email}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <label style={labelStyle}>Bottle Name *</label>
-          <input style={inputStyle} placeholder="e.g. Blanton's Single Barrel" value={name} onChange={e => setName(e.target.value)} required />
+        <label style={labelStyle}>Type</label>
+        <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+          {['Mule', 'Handshake', 'Other'].map(t => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setType(t)}
+              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
+              onMouseUp={e   => e.currentTarget.style.transform = 'scale(1)'}
+              style={{
+                flex:         1,
+                padding:      'var(--sp-2) 0',
+                borderRadius: 'var(--r-md)',
+                border:       'none',
+                cursor:       'pointer',
+                fontWeight:   700,
+                fontSize:     'var(--fs-body)',
+                background:   type === t ? 'var(--copper-500)' : 'var(--bg-elev-2)',
+                color:        type === t ? 'var(--text-inverse)' : 'var(--text-dim)',
+                transition:   `background var(--t-base) var(--ease-out), transform var(--t-fast) var(--ease-out)`,
+              }}
+            >
+              {t === 'Mule' ? '🫏 Mule' : t === 'Handshake' ? '🤝 Handshake' : '🥃 Other'}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', marginTop: 'var(--sp-2)', lineHeight: 1.5 }}>
+          {type === 'Mule' ? 'Someone physically transported this sample for you.' : type === 'Handshake' ? 'Traded or received at a meet-up.' : 'Other way you got it.'}
+        </div>
 
-          <label style={labelStyle}>From (who gave it) *</label>
-          <div style={{ position: 'relative' }}>
-            <input
-              style={inputStyle}
-              placeholder="Name or select a friend"
-              value={fromText}
-              onChange={e => { setFromText(e.target.value); setFromEmail(null); setShowFriends(false) }}
-              onFocus={() => setShowFriends(friends.length > 0)}
-            />
-            {showFriends && friends.length > 0 && (
-              <div style={{
-                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
-                background: '#1f1308', border: '1px solid #3d2b10', borderRadius: '0 0 8px 8px',
-                maxHeight: 160, overflowY: 'auto',
-              }}>
-                {friends.map(f => (
-                  <button
-                    key={f.email}
-                    type="button"
-                    onClick={() => { setFromText(f.name ?? f.email); setFromEmail(f.email); setShowFriends(false) }}
-                    style={{ width: '100%', padding: '9px 12px', background: 'none', border: 'none', borderTop: '1px solid #2a1c08', color: '#f5e6cc', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}
-                  >
-                    {f.name ?? f.email}
-                    <span style={{ color: '#6b5030', fontSize: 11, marginLeft: 6 }}>{f.email}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+        <label style={labelStyle}>Notes (optional)</label>
+        <textarea style={{ ...inputStyle, minHeight: 56, resize: 'vertical' }} placeholder="What did you think? Anything to remember?" value={notes} onChange={e => setNotes(e.target.value)} />
 
-          <label style={labelStyle}>Type</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {['Mule', 'Handshake', 'Other'].map(t => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setType(t)}
-                style={{
-                  flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13,
-                  background: type === t ? '#e8943a' : '#1f1308',
-                  color:      type === t ? '#fff'     : '#6b5030',
-                }}
-              >
-                {t === 'Mule' ? '🫏 Mule' : t === 'Handshake' ? '🤝 Handshake' : '🥃 Other'}
-              </button>
-            ))}
-          </div>
-          <div style={{ fontSize: 11, color: '#6b5030', marginTop: 6, lineHeight: 1.5 }}>
-            {type === 'Mule' ? 'Someone physically transported this sample for you.' : type === 'Handshake' ? 'Traded or received at a meet-up.' : 'Other way you got it.'}
-          </div>
+        {error && <p style={{ color: 'var(--red)', fontSize: 'var(--fs-meta)', margin: 'var(--sp-2) 0 0' }}>{error}</p>}
 
-          <label style={labelStyle}>Notes (optional)</label>
-          <textarea style={{ ...inputStyle, minHeight: 56, resize: 'vertical' }} placeholder="What did you think? Anything to remember?" value={notes} onChange={e => setNotes(e.target.value)} />
-
-          {error && <p style={{ color: '#f87171', fontSize: 13, margin: '10px 0 0' }}>{error}</p>}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{ marginTop: 16, width: '100%', padding: '12px', background: '#e8943a', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 800, fontSize: 15, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1 }}
-          >
-            {submitting ? '⏳ Saving…' : '+ Add Sample'}
-          </button>
-        </form>
-      </div>
-    </>
+        <div style={{ marginTop: 'var(--sp-4)' }}>
+          <Button type="submit" variant="primary" fullWidth disabled={submitting}>
+            {submitting ? <><Loader size={14} strokeWidth={1.75} /> Saving…</> : <><Plus size={14} strokeWidth={1.75} /> Add Sample</>}
+          </Button>
+        </div>
+      </form>
+    </Sheet>
   )
 }
 
 // ── Edit Bottle Sheet ─────────────────────────────────────────────────────────
 
-function EditBottleSheet({ bottle, onClose, onSave }) {
-  const [name,         setName]         = useState(bottle.name       ?? '')
-  const [distillery,   setDistillery]   = useState(bottle.distillery ?? '')
-  const [category,     setCategory]     = useState(bottle.category   ?? 'Bourbon')
-  const [proof,        setProof]        = useState(bottle.proof > 0  ? String(bottle.proof) : '')
-  const [msrp,         setMsrp]         = useState(bottle.msrp > 0   ? String(bottle.msrp)  : '')
-  const [secondary,    setSecondary]    = useState(bottle.secondary > 0 ? String(bottle.secondary) : '')
-  const [qty,          setQty]          = useState(Number(bottle.qty ?? 1))
-  const [flavors,      setFlavors]      = useState((bottle.flavors ?? []).join(', '))
-  const [forSale,      setForSale]      = useState(bottle.forSale  ?? false)
-  const [forTrade,     setForTrade]     = useState(bottle.forTrade ?? false)
-  const [photoUrl,     setPhotoUrl]     = useState(bottle.photoUrl ?? null)
+function EditBottleSheet({ bottle, open, onClose, onSave }) {
+  const [name,         setName]         = useState(bottle?.name       ?? '')
+  const [distillery,   setDistillery]   = useState(bottle?.distillery ?? '')
+  const [category,     setCategory]     = useState(bottle?.category   ?? 'Bourbon')
+  const [proof,        setProof]        = useState(bottle?.proof > 0  ? String(bottle.proof) : '')
+  const [msrp,         setMsrp]         = useState(bottle?.msrp > 0   ? String(bottle.msrp)  : '')
+  const [secondary,    setSecondary]    = useState(bottle?.secondary > 0 ? String(bottle.secondary) : '')
+  const [qty,          setQty]          = useState(Number(bottle?.qty ?? 1))
+  const [flavors,      setFlavors]      = useState((bottle?.flavors ?? []).join(', '))
+  const [forSale,      setForSale]      = useState(bottle?.forSale  ?? false)
+  const [forTrade,     setForTrade]     = useState(bottle?.forTrade ?? false)
+  const [photoUrl,     setPhotoUrl]     = useState(bottle?.photoUrl ?? null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [submitting,   setSubmitting]   = useState(false)
   const [error,        setError]        = useState(null)
   const photoInputRef = useRef(null)
+
+  // Sync state when bottle changes
+  useEffect(() => {
+    if (!bottle) return
+    setName(bottle.name ?? '')
+    setDistillery(bottle.distillery ?? '')
+    setCategory(bottle.category ?? 'Bourbon')
+    setProof(bottle.proof > 0 ? String(bottle.proof) : '')
+    setMsrp(bottle.msrp > 0 ? String(bottle.msrp) : '')
+    setSecondary(bottle.secondary > 0 ? String(bottle.secondary) : '')
+    setQty(Number(bottle.qty ?? 1))
+    setFlavors((bottle.flavors ?? []).join(', '))
+    setForSale(bottle.forSale ?? false)
+    setForTrade(bottle.forTrade ?? false)
+    setPhotoUrl(bottle.photoUrl ?? null)
+    setError(null)
+  }, [bottle?.id])
 
   async function handlePhotoChange(e) {
     const file = e.target.files?.[0]
@@ -498,16 +556,6 @@ function EditBottleSheet({ bottle, onClose, onSave }) {
       setUploadingPhoto(false)
       e.target.value = ''
     }
-  }
-
-  const inputStyle = {
-    width: '100%', padding: '9px 12px',
-    background: '#0f0a05', border: '1px solid #3d2b10', borderRadius: 8,
-    color: '#f5e6cc', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
-  }
-  const labelStyle = {
-    display: 'block', fontSize: 10, fontWeight: 700, color: '#9a7c55',
-    marginBottom: 4, marginTop: 12, textTransform: 'uppercase', letterSpacing: '0.06em',
   }
 
   async function handleSubmit(e) {
@@ -541,130 +589,146 @@ function EditBottleSheet({ bottle, onClose, onSave }) {
   }
 
   return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 149 }} />
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 150,
-        background: '#1a1008', borderRadius: '16px 16px 0 0',
-        border: '1px solid #3d2b10', borderBottom: 'none',
-        maxHeight: '90vh', overflowY: 'auto',
-        animation: 'fadeUp 0.25s ease',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: '#3d2b10' }} />
-        </div>
-        <div style={{ padding: '0 16px 32px' }}>
-          <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc', marginBottom: 16 }}>
-            ✏️ Edit Bottle
+    <Sheet open={open} onClose={onClose} title="Edit Bottle">
+      <form onSubmit={handleSubmit}>
+        <label style={labelStyle}>Bottle Name *</label>
+        <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} required />
+
+        <label style={labelStyle}>Distillery</label>
+        <input style={inputStyle} value={distillery} onChange={e => setDistillery(e.target.value)} />
+
+        <label style={labelStyle}>Category</label>
+        <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}>
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--sp-2)' }}>
+          <div>
+            <label style={labelStyle}>Proof</label>
+            <input style={inputStyle} type="number" min="0" step="0.1" value={proof} onChange={e => setProof(e.target.value)} />
           </div>
-          <form onSubmit={handleSubmit}>
-            <label style={labelStyle}>Bottle Name *</label>
-            <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} required />
+          <div>
+            <label style={labelStyle}>MSRP $</label>
+            <input style={inputStyle} type="number" min="0" value={msrp} onChange={e => setMsrp(e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>Qty</label>
+            <input style={inputStyle} type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} />
+          </div>
+        </div>
 
-            <label style={labelStyle}>Distillery</label>
-            <input style={inputStyle} value={distillery} onChange={e => setDistillery(e.target.value)} />
+        <label style={labelStyle}>Secondary Market $</label>
+        <input style={inputStyle} type="number" min="0" value={secondary} onChange={e => setSecondary(e.target.value)} />
 
-            <label style={labelStyle}>Category</label>
-            <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+        <label style={labelStyle}>Flavor Notes (comma separated)</label>
+        <input style={inputStyle} value={flavors} onChange={e => setFlavors(e.target.value)} />
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-              <div>
-                <label style={labelStyle}>Proof</label>
-                <input style={inputStyle} type="number" min="0" step="0.1" value={proof} onChange={e => setProof(e.target.value)} />
-              </div>
-              <div>
-                <label style={labelStyle}>MSRP $</label>
-                <input style={inputStyle} type="number" min="0" value={msrp} onChange={e => setMsrp(e.target.value)} />
-              </div>
-              <div>
-                <label style={labelStyle}>Qty</label>
-                <input style={inputStyle} type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} />
-              </div>
-            </div>
-
-            <label style={labelStyle}>Secondary Market $</label>
-            <input style={inputStyle} type="number" min="0" value={secondary} onChange={e => setSecondary(e.target.value)} />
-
-            <label style={labelStyle}>Flavor Notes (comma separated)</label>
-            <input style={inputStyle} value={flavors} onChange={e => setFlavors(e.target.value)} />
-
-            {/* Photo */}
-            <label style={labelStyle}>Photo</label>
-            <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} style={{ display: 'none' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {photoUrl ? (
-                <>
-                  <img src={photoUrl} alt="Bottle" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid #3d2b10', flexShrink: 0 }} onError={() => setPhotoUrl(null)} />
-                  <button type="button" onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto} style={{ flex: 1, padding: '7px 10px', background: '#1f1308', border: '1px solid #3d2b10', borderRadius: 8, color: '#9a7c55', fontSize: 12, cursor: 'pointer' }}>
-                    {uploadingPhoto ? '⏳ Uploading…' : '📷 Change Photo'}
-                  </button>
-                  <button type="button" onClick={() => setPhotoUrl(null)} style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 18, padding: 0 }}>✕</button>
-                </>
-              ) : (
-                <button type="button" onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto} style={{ width: '100%', padding: '9px', background: '#0f0a05', border: '1px dashed #3d2b10', borderRadius: 8, color: '#9a7c55', fontSize: 13, cursor: 'pointer' }}>
-                  {uploadingPhoto ? '⏳ Uploading…' : '📷 Add Photo'}
-                </button>
-              )}
-            </div>
-
-            {/* For Sale / For Trade toggles */}
-            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-              <label style={{
-                flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-                padding: '9px 12px', borderRadius: 8, cursor: 'pointer',
-                background: forSale ? 'rgba(21,128,61,0.2)' : '#0f0a05',
-                border: `1px solid ${forSale ? '#16a34a' : '#3d2b10'}`,
-              }}>
-                <input
-                  type="checkbox"
-                  checked={forSale}
-                  onChange={e => setForSale(e.target.checked)}
-                  style={{ accentColor: '#16a34a', width: 16, height: 16 }}
-                />
-                <span style={{ fontSize: 13, color: forSale ? '#4ade80' : '#6b5030', fontWeight: 600 }}>For Sale</span>
-              </label>
-              <label style={{
-                flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-                padding: '9px 12px', borderRadius: 8, cursor: 'pointer',
-                background: forTrade ? 'rgba(37,99,235,0.2)' : '#0f0a05',
-                border: `1px solid ${forTrade ? '#2563eb' : '#3d2b10'}`,
-              }}>
-                <input
-                  type="checkbox"
-                  checked={forTrade}
-                  onChange={e => setForTrade(e.target.checked)}
-                  style={{ accentColor: '#3b82f6', width: 16, height: 16 }}
-                />
-                <span style={{ fontSize: 13, color: forTrade ? '#60a5fa' : '#6b5030', fontWeight: 600 }}>For Trade</span>
-              </label>
-            </div>
-
-            {error && <p style={{ color: '#f87171', fontSize: 13, margin: '10px 0 0' }}>{error}</p>}
-
+        {/* Photo */}
+        <label style={labelStyle}>Photo</label>
+        <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} style={{ display: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+          {photoUrl ? (
+            <>
+              <img src={photoUrl} alt="Bottle" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 'var(--r-md)', border: '1px solid var(--hairline-2)', flexShrink: 0 }} onError={() => setPhotoUrl(null)} />
+              <Button type="button" variant="secondary" size="sm" icon={<Camera size={14} strokeWidth={1.75} />} onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto} style={{ flex: 1 }}>
+                {uploadingPhoto ? 'Uploading…' : 'Change Photo'}
+              </Button>
+              <button
+                type="button"
+                onClick={() => setPhotoUrl(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 'var(--sp-1)', display: 'flex', borderRadius: 'var(--r-sm)' }}
+              >
+                <X size={16} strokeWidth={1.75} />
+              </button>
+            </>
+          ) : (
             <button
-              type="submit"
-              disabled={submitting}
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
+              onMouseUp={e   => e.currentTarget.style.transform = 'scale(1)'}
               style={{
-                marginTop: 16, width: '100%', padding: '12px',
-                background: '#e8943a', border: 'none', borderRadius: 8,
-                color: '#fff', fontWeight: 800, fontSize: 15,
-                cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1,
+                width:        '100%',
+                padding:      'var(--sp-2)',
+                background:   'var(--bg-base)',
+                border:       '1px dashed var(--hairline-3)',
+                borderRadius: 'var(--r-md)',
+                color:        'var(--text-muted)',
+                fontSize:     'var(--fs-body)',
+                cursor:       uploadingPhoto ? 'not-allowed' : 'pointer',
+                display:      'flex',
+                alignItems:   'center',
+                justifyContent: 'center',
+                gap:          'var(--sp-2)',
+                transition:   `transform var(--t-fast) var(--ease-out)`,
               }}
             >
-              {submitting ? '⏳ Saving…' : 'Save Changes'}
+              <Camera size={16} strokeWidth={1.75} />
+              {uploadingPhoto ? 'Uploading…' : 'Add Photo'}
             </button>
-          </form>
+          )}
         </div>
-      </div>
-    </>
+
+        {/* For Sale / For Trade toggles */}
+        <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
+          <label style={{
+            flex:       1,
+            display:    'flex',
+            alignItems: 'center',
+            gap:        'var(--sp-2)',
+            padding:    'var(--sp-2) var(--sp-3)',
+            borderRadius: 'var(--r-md)',
+            cursor:     'pointer',
+            background: forSale ? 'rgba(93,211,158,0.10)' : 'var(--bg-base)',
+            border:     `1px solid ${forSale ? 'rgba(93,211,158,0.30)' : 'var(--hairline-3)'}`,
+            transition: `background var(--t-base) var(--ease-out), border-color var(--t-base) var(--ease-out)`,
+          }}>
+            <input
+              type="checkbox"
+              checked={forSale}
+              onChange={e => setForSale(e.target.checked)}
+              style={{ accentColor: 'var(--green)', width: 16, height: 16 }}
+            />
+            <span style={{ fontSize: 'var(--fs-body)', color: forSale ? 'var(--green)' : 'var(--text-dim)', fontWeight: 600 }}>For Sale</span>
+          </label>
+          <label style={{
+            flex:       1,
+            display:    'flex',
+            alignItems: 'center',
+            gap:        'var(--sp-2)',
+            padding:    'var(--sp-2) var(--sp-3)',
+            borderRadius: 'var(--r-md)',
+            cursor:     'pointer',
+            background: forTrade ? 'rgba(143,181,255,0.10)' : 'var(--bg-base)',
+            border:     `1px solid ${forTrade ? 'rgba(143,181,255,0.30)' : 'var(--hairline-3)'}`,
+            transition: `background var(--t-base) var(--ease-out), border-color var(--t-base) var(--ease-out)`,
+          }}>
+            <input
+              type="checkbox"
+              checked={forTrade}
+              onChange={e => setForTrade(e.target.checked)}
+              style={{ accentColor: 'var(--blue)', width: 16, height: 16 }}
+            />
+            <span style={{ fontSize: 'var(--fs-body)', color: forTrade ? 'var(--blue)' : 'var(--text-dim)', fontWeight: 600 }}>For Trade</span>
+          </label>
+        </div>
+
+        {error && <p style={{ color: 'var(--red)', fontSize: 'var(--fs-meta)', margin: 'var(--sp-2) 0 0' }}>{error}</p>}
+
+        <div style={{ marginTop: 'var(--sp-4)' }}>
+          <Button type="submit" variant="primary" fullWidth disabled={submitting}>
+            {submitting ? <><Loader size={14} strokeWidth={1.75} /> Saving…</> : 'Save Changes'}
+          </Button>
+        </div>
+      </form>
+    </Sheet>
   )
 }
 
 // ── Add Bottle Sheet ──────────────────────────────────────────────────────────
 
-function AddBottleSheet({ onClose, onAdd }) {
+function AddBottleSheet({ open, onClose, onAdd }) {
   const [name,        setName]        = useState('')
   const [distillery,  setDistillery]  = useState('')
   const [category,    setCategory]    = useState('Bourbon')
@@ -674,46 +738,42 @@ function AddBottleSheet({ onClose, onAdd }) {
   const [qty,         setQty]         = useState('1')
   const [flavors,     setFlavors]     = useState('')
   const [upc,         setUpc]         = useState('')
-  const [photoUrl,    setPhotoUrl]    = useState(null)  // pre-populated from UPC or uploaded
+  const [photoUrl,    setPhotoUrl]    = useState(null)
   const [forSale,     setForSale]     = useState(false)
   const [forTrade,    setForTrade]    = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [submitting,  setSubmitting]  = useState(false)
-  const [lookingUp,   setLookingUp]   = useState(false) // UPC or photo in progress
-  const [lookupMsg,   setLookupMsg]   = useState(null)  // success/info message
+  const [lookingUp,   setLookingUp]   = useState(false)
+  const [lookupMsg,   setLookupMsg]   = useState(null)
   const [suggestions, setSuggestions] = useState([])
   const [error,       setError]       = useState(null)
   const photoInputRef = useRef(null)
   const nameDebounce  = useRef(null)
 
-  // ── Auto-fill helper ────────────────────────────────────────────────────────
   function applyBottle(b, msg) {
     if (b.name)       setName(b.name)
     if (b.distillery) setDistillery(b.distillery)
     if (b.category)   setCategory(b.category)
-    if (b.imageUrl)   setPhotoUrl(b.imageUrl)  // pre-populate from UPC lookup
+    if (b.imageUrl)   setPhotoUrl(b.imageUrl)
     if (b.proof)      setProof(String(b.proof))
     if (b.msrp)       setMsrp(String(b.msrp))
     if (msg)          setLookupMsg(msg)
     setSuggestions([])
   }
 
-  // ── Barcode scan ────────────────────────────────────────────────────────────
   async function handleBarcode(code) {
     setUpc(code)
     setShowScanner(false)
     setLookingUp(true)
     setLookupMsg(null)
     try {
-      // Primary lookup: internal DB + Algolia (returns bottle details)
       const r = await fetch(`/api/lookup?upc=${encodeURIComponent(code)}`)
       const d = await r.json()
       if (d.found) {
-        applyBottle(d.bottle, `✓ Found via barcode (${d.bottle.source})`)
+        applyBottle(d.bottle, `Found via barcode (${d.bottle.source})`)
       } else {
         setLookupMsg('Barcode not in database — fill in manually')
       }
-      // Also hit /api/upc for imageUrl (fire separately — doesn't block)
       if (!d.found || !d.bottle?.imageUrl) {
         fetch(`/api/upc?code=${encodeURIComponent(code)}`)
           .then(r => r.json())
@@ -727,7 +787,6 @@ function AddBottleSheet({ onClose, onAdd }) {
     }
   }
 
-  // ── Photo label scan ────────────────────────────────────────────────────────
   async function handlePhoto(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -748,7 +807,7 @@ function AddBottleSheet({ onClose, onAdd }) {
       })
       const d = await r.json()
       if (d.found) {
-        applyBottle(d.bottle, '✓ Label read by AI — verify details below')
+        applyBottle(d.bottle, 'Label read by AI — verify details below')
       } else {
         setLookupMsg(d.error ?? 'Could not read label — fill in manually')
       }
@@ -760,7 +819,6 @@ function AddBottleSheet({ onClose, onAdd }) {
     }
   }
 
-  // ── Name autocomplete ───────────────────────────────────────────────────────
   function handleNameChange(val) {
     setName(val)
     clearTimeout(nameDebounce.current)
@@ -774,7 +832,6 @@ function AddBottleSheet({ onClose, onAdd }) {
     }, 280)
   }
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
   async function handleSubmit(e) {
     e.preventDefault()
     if (!name.trim()) return setError('Bottle name is required')
@@ -797,282 +854,200 @@ function AddBottleSheet({ onClose, onAdd }) {
     }
   }
 
-  const inputStyle = {
-    width:        '100%',
-    padding:      '9px 12px',
-    background:   '#0f0a05',
-    border:       '1px solid #3d2b10',
-    borderRadius: 8,
-    color:        '#f5e6cc',
-    fontSize:     13,
-    fontFamily:   'inherit',
-    outline:      'none',
-    boxSizing:    'border-box',
-  }
-  const labelStyle = {
-    display:       'block',
-    fontSize:      10,
-    fontWeight:    700,
-    color:         '#9a7c55',
-    marginBottom:  4,
-    marginTop:     12,
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-  }
+  const lookupOk = lookupMsg?.startsWith('Found') || lookupMsg?.startsWith('Label read')
 
   return (
-    <>
-      {/* Backdrop */}
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 149 }} />
-
-      {/* Sheet */}
-      <div style={{
-        position:     'fixed',
-        bottom:       0,
-        left:         0,
-        right:        0,
-        zIndex:       150,
-        background:   '#1a1008',
-        borderRadius: '16px 16px 0 0',
-        border:       '1px solid #3d2b10',
-        borderBottom: 'none',
-        maxHeight:    '90vh',
-        overflowY:    'auto',
-        animation:    'fadeUp 0.25s ease',
-      }}>
-        {/* Handle */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: '#3d2b10' }} />
-        </div>
-
-        <div style={{ padding: '0 16px 32px' }}>
-          <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc', marginBottom: 4 }}>
-            + Add to Collection
-          </div>
-
-          {/* Quick-scan buttons */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <button
-              type="button"
-              onClick={() => { setShowScanner(s => !s); setLookupMsg(null) }}
-              disabled={lookingUp}
-              style={{
-                flex:         1,
-                padding:      '9px 0',
-                background:   showScanner ? '#e8943a' : '#1f1308',
-                border:       '1px solid #3d2b10',
-                borderRadius: 8,
-                color:        showScanner ? '#fff' : '#e8943a',
-                cursor:       'pointer',
-                fontSize:     13,
-                fontWeight:   700,
-              }}
-            >
-              {showScanner ? '✕ Close Scanner' : '📷 Scan Barcode'}
-            </button>
-            <button
-              type="button"
-              onClick={() => photoInputRef.current?.click()}
-              disabled={lookingUp}
-              style={{
-                flex:         1,
-                padding:      '9px 0',
-                background:   '#1f1308',
-                border:       '1px solid #3d2b10',
-                borderRadius: 8,
-                color:        '#c084fc',
-                cursor:       lookingUp ? 'not-allowed' : 'pointer',
-                fontSize:     13,
-                fontWeight:   700,
-                opacity:      lookingUp ? 0.5 : 1,
-              }}
-            >
-              {lookingUp ? '⏳ Reading…' : '🏷️ Scan Label'}
-            </button>
-          </div>
-
-          {/* Hidden photo input */}
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handlePhoto}
-            style={{ display: 'none' }}
-          />
-
-          {/* Lookup status message */}
-          {lookupMsg && (
-            <div style={{
-              fontSize:     12,
-              color:        lookupMsg.startsWith('✓') ? '#4ade80' : '#e8943a',
-              marginBottom: 10,
-              padding:      '7px 10px',
-              background:   '#0f0a05',
-              borderRadius: 6,
-              border:       '1px solid #2a1c08',
-            }}>
-              {lookupMsg}
-            </div>
-          )}
-
-          {/* Photo preview from UPC scan */}
-          {photoUrl && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <img
-                src={photoUrl}
-                alt="Bottle"
-                style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid #3d2b10', flexShrink: 0 }}
-                onError={() => setPhotoUrl(null)}
-              />
-              <div style={{ flex: 1, fontSize: 11, color: '#9a7c55' }}>Photo pre-populated from scan</div>
-              <button
-                type="button"
-                onClick={() => setPhotoUrl(null)}
-                style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 16, padding: 0 }}
-              >✕</button>
-            </div>
-          )}
-
-          {showScanner && (
-            <div style={{ marginBottom: 12 }}>
-              <BarcodeScanner onResult={handleBarcode} onClose={() => setShowScanner(false)} autoCamera />
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            {/* Name with autocomplete */}
-            <label style={labelStyle}>Bottle Name *</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                style={inputStyle}
-                placeholder="e.g. Blanton's Original Single Barrel"
-                value={name}
-                onChange={e => handleNameChange(e.target.value)}
-                onBlur={() => setTimeout(() => setSuggestions([]), 200)}
-                required
-              />
-              {suggestions.length > 0 && (
-                <div style={{
-                  position:   'absolute',
-                  top:        '100%',
-                  left:       0,
-                  right:      0,
-                  background: '#1a1008',
-                  border:     '1px solid #3d2b10',
-                  borderTop:  'none',
-                  borderRadius: '0 0 8px 8px',
-                  zIndex:     200,
-                  overflow:   'hidden',
-                }}>
-                  {suggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onMouseDown={() => applyBottle(s, `✓ Matched "${s.name}" from database`)}
-                      style={{
-                        display:    'block',
-                        width:      '100%',
-                        padding:    '9px 12px',
-                        background: 'none',
-                        border:     'none',
-                        borderTop:  i > 0 ? '1px solid #2a1c08' : 'none',
-                        color:      '#f5e6cc',
-                        fontSize:   13,
-                        textAlign:  'left',
-                        cursor:     'pointer',
-                      }}
-                    >
-                      <span style={{ fontWeight: 600 }}>{s.name}</span>
-                      <span style={{ color: '#6b5030', fontSize: 11, marginLeft: 8 }}>
-                        {s.proof ? `${s.proof}°` : ''} {s.msrp ? `· $${s.msrp}` : ''}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <label style={labelStyle}>Distillery</label>
-            <input style={inputStyle} placeholder="e.g. Buffalo Trace" value={distillery} onChange={e => setDistillery(e.target.value)} />
-
-            <label style={labelStyle}>Category</label>
-            <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-
-            {/* 3-col grid: Proof / MSRP / Qty */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-              <div>
-                <label style={labelStyle}>Proof</label>
-                <input style={inputStyle} type="number" min="0" step="0.1" placeholder="93" value={proof} onChange={e => setProof(e.target.value)} />
-              </div>
-              <div>
-                <label style={labelStyle}>MSRP $</label>
-                <input style={inputStyle} type="number" min="0" placeholder="60" value={msrp} onChange={e => setMsrp(e.target.value)} />
-              </div>
-              <div>
-                <label style={labelStyle}>Qty</label>
-                <input style={inputStyle} type="number" min="1" placeholder="1" value={qty} onChange={e => setQty(e.target.value)} />
-              </div>
-            </div>
-
-            <label style={labelStyle}>Secondary Market $</label>
-            <input style={inputStyle} type="number" min="0" placeholder="e.g. 120" value={secondary} onChange={e => setSecondary(e.target.value)} />
-
-            <label style={labelStyle}>Flavor Notes (comma separated)</label>
-            <input style={inputStyle} placeholder="e.g. Caramel, Vanilla, Oak" value={flavors} onChange={e => setFlavors(e.target.value)} />
-
-            {error && <p style={{ color: '#f87171', fontSize: 13, margin: '10px 0 0' }}>{error}</p>}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              style={{
-                marginTop:    16,
-                width:        '100%',
-                padding:      '12px',
-                background:   '#e8943a',
-                border:       'none',
-                borderRadius: 8,
-                color:        '#fff',
-                fontWeight:   800,
-                fontSize:     15,
-                cursor:       submitting ? 'not-allowed' : 'pointer',
-                opacity:      submitting ? 0.6 : 1,
-              }}
-            >
-              {submitting ? '⏳ Adding…' : '+ Add to Collection'}
-            </button>
-          </form>
-        </div>
+    <Sheet open={open} onClose={onClose} title="Add to Collection">
+      {/* Quick-scan buttons */}
+      <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-4)' }}>
+        <Button
+          type="button"
+          variant={showScanner ? 'primary' : 'secondary'}
+          size="sm"
+          icon={showScanner ? <X size={14} strokeWidth={1.75} /> : <Camera size={14} strokeWidth={1.75} />}
+          onClick={() => { setShowScanner(s => !s); setLookupMsg(null) }}
+          disabled={lookingUp}
+          style={{ flex: 1 }}
+        >
+          {showScanner ? 'Close Scanner' : 'Scan Barcode'}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          icon={lookingUp ? <Loader size={14} strokeWidth={1.75} /> : <Tag size={14} strokeWidth={1.75} />}
+          onClick={() => photoInputRef.current?.click()}
+          disabled={lookingUp}
+          style={{ flex: 1, color: 'var(--violet)' }}
+        >
+          {lookingUp ? 'Reading…' : 'Scan Label'}
+        </Button>
       </div>
-    </>
+
+      {/* Hidden photo input */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handlePhoto}
+        style={{ display: 'none' }}
+      />
+
+      {/* Lookup status message */}
+      {lookupMsg && (
+        <div style={{
+          fontSize:     'var(--fs-meta)',
+          color:        lookupOk ? 'var(--green)' : 'var(--copper-500)',
+          marginBottom: 'var(--sp-2)',
+          padding:      'var(--sp-2) var(--sp-3)',
+          background:   'var(--bg-base)',
+          borderRadius: 'var(--r-sm)',
+          border:       '1px solid var(--hairline)',
+        }}>
+          {lookupOk ? <CheckCircle size={12} strokeWidth={1.75} style={{ marginRight: 4, verticalAlign: 'middle' }} /> : null}
+          {lookupMsg}
+        </div>
+      )}
+
+      {/* Photo preview from UPC scan */}
+      {photoUrl && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', marginBottom: 'var(--sp-2)' }}>
+          <img
+            src={photoUrl}
+            alt="Bottle"
+            style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 'var(--r-md)', border: '1px solid var(--hairline-2)', flexShrink: 0 }}
+            onError={() => setPhotoUrl(null)}
+          />
+          <div style={{ flex: 1, fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>Photo pre-populated from scan</div>
+          <button
+            type="button"
+            onClick={() => setPhotoUrl(null)}
+            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 'var(--sp-1)', display: 'flex', borderRadius: 'var(--r-sm)' }}
+          >
+            <X size={16} strokeWidth={1.75} />
+          </button>
+        </div>
+      )}
+
+      {showScanner && (
+        <div style={{ marginBottom: 'var(--sp-3)' }}>
+          <BarcodeScanner onResult={handleBarcode} onClose={() => setShowScanner(false)} autoCamera />
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        {/* Name with autocomplete */}
+        <label style={labelStyle}>Bottle Name *</label>
+        <div style={{ position: 'relative' }}>
+          <input
+            style={inputStyle}
+            placeholder="e.g. Blanton's Original Single Barrel"
+            value={name}
+            onChange={e => handleNameChange(e.target.value)}
+            onBlur={() => setTimeout(() => setSuggestions([]), 200)}
+            required
+          />
+          {suggestions.length > 0 && (
+            <div style={{
+              position:     'absolute',
+              top:          '100%',
+              left:         0,
+              right:        0,
+              background:   'var(--bg-elev-3)',
+              border:       '1px solid var(--hairline-2)',
+              borderTop:    'none',
+              borderRadius: '0 0 var(--r-md) var(--r-md)',
+              zIndex:       200,
+              overflow:     'hidden',
+            }}>
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onMouseDown={() => applyBottle(s, `Matched "${s.name}" from database`)}
+                  style={{
+                    display:    'block',
+                    width:      '100%',
+                    padding:    'var(--sp-2) var(--sp-3)',
+                    background: 'none',
+                    border:     'none',
+                    borderTop:  i > 0 ? '1px solid var(--hairline)' : 'none',
+                    color:      'var(--text-primary)',
+                    fontSize:   'var(--fs-body)',
+                    textAlign:  'left',
+                    cursor:     'pointer',
+                  }}
+                >
+                  <span style={{ fontWeight: 600 }}>{s.name}</span>
+                  <span style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-meta)', marginLeft: 'var(--sp-2)' }}>
+                    {s.proof ? `${s.proof}°` : ''} {s.msrp ? `· $${s.msrp}` : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <label style={labelStyle}>Distillery</label>
+        <input style={inputStyle} placeholder="e.g. Buffalo Trace" value={distillery} onChange={e => setDistillery(e.target.value)} />
+
+        <label style={labelStyle}>Category</label>
+        <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}>
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+
+        {/* 3-col grid: Proof / MSRP / Qty */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--sp-2)' }}>
+          <div>
+            <label style={labelStyle}>Proof</label>
+            <input style={inputStyle} type="number" min="0" step="0.1" placeholder="93" value={proof} onChange={e => setProof(e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>MSRP $</label>
+            <input style={inputStyle} type="number" min="0" placeholder="60" value={msrp} onChange={e => setMsrp(e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>Qty</label>
+            <input style={inputStyle} type="number" min="1" placeholder="1" value={qty} onChange={e => setQty(e.target.value)} />
+          </div>
+        </div>
+
+        <label style={labelStyle}>Secondary Market $</label>
+        <input style={inputStyle} type="number" min="0" placeholder="e.g. 120" value={secondary} onChange={e => setSecondary(e.target.value)} />
+
+        <label style={labelStyle}>Flavor Notes (comma separated)</label>
+        <input style={inputStyle} placeholder="e.g. Caramel, Vanilla, Oak" value={flavors} onChange={e => setFlavors(e.target.value)} />
+
+        {error && <p style={{ color: 'var(--red)', fontSize: 'var(--fs-meta)', margin: 'var(--sp-2) 0 0' }}>{error}</p>}
+
+        <div style={{ marginTop: 'var(--sp-4)' }}>
+          <Button type="submit" variant="primary" fullWidth disabled={submitting}>
+            {submitting
+              ? <><Loader size={14} strokeWidth={1.75} /> Adding…</>
+              : <><Plus size={14} strokeWidth={1.75} /> Add to Collection</>}
+          </Button>
+        </div>
+      </form>
+    </Sheet>
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-
 // ── Fill Photos Sheet ─────────────────────────────────────────────────────────
-// Steps through every collection bottle that has no photoUrl. For each bottle
-// it auto-fetches a stock image from Binny's Algolia catalog and surfaces it
-// as a one-tap suggestion. Users can also upload their own photo or skip.
 
 function FillPhotosSheet({ bottles, onDone }) {
   const [idx,        setIdx]        = useState(0)
   const [saving,     setSaving]     = useState(false)
   const [autoFilling,setAutoFilling]= useState(false)
   const [error,      setError]      = useState(null)
-  // Per-bottle Algolia image cache: { [bottleId]: { imageUrl, loading } }
   const [algoliaImgs, setAlgoliaImgs] = useState({})
   const inputRef = useRef(null)
 
   const bottle = bottles[idx]
 
-  // Fetch Algolia image for current bottle whenever idx changes
   useEffect(() => {
     if (!bottle) return
-    if (algoliaImgs[bottle.id] !== undefined) return  // already fetched
+    if (algoliaImgs[bottle.id] !== undefined) return
     setAlgoliaImgs(prev => ({ ...prev, [bottle.id]: { imageUrl: null, loading: true } }))
     fetch(`/api/algolia-image?name=${encodeURIComponent(bottle.name)}`)
       .then(r => r.json())
@@ -1086,29 +1061,26 @@ function FillPhotosSheet({ bottles, onDone }) {
       })))
   }, [idx, bottle?.id])
 
-  // All done — nothing left without photos
   if (!bottle) {
     return (
       <div style={{
-        position: 'fixed', inset: 0, background: 'var(--bg-base)',
-        zIndex: 400, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32,
+        position:       'fixed',
+        inset:          0,
+        background:     'var(--bg-base)',
+        zIndex:         400,
+        display:        'flex',
+        flexDirection:  'column',
+        alignItems:     'center',
+        justifyContent: 'center',
+        gap:            'var(--sp-4)',
+        padding:        'var(--sp-8)',
       }}>
-        <div style={{ fontSize: 48 }}>🥃</div>
-        <div style={{ fontWeight: 800, fontSize: 20, color: '#f5e6cc', textAlign: 'center' }}>All done!</div>
-        <div style={{ fontSize: 14, color: '#9a7c55', textAlign: 'center' }}>
+        <div style={{ fontSize: 'var(--fs-display)' }}>🥃</div>
+        <div style={{ fontWeight: 800, fontSize: 'var(--fs-h1)', color: 'var(--text-primary)', textAlign: 'center' }}>All done!</div>
+        <div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-muted)', textAlign: 'center' }}>
           Every bottle in your collection now has a photo.
         </div>
-        <button
-          onClick={onDone}
-          style={{
-            marginTop: 8, padding: '11px 32px', background: '#e8943a',
-            border: 'none', borderRadius: 10, color: '#fff',
-            fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          Back to collection
-        </button>
+        <Button variant="primary" onClick={onDone}>Back to collection</Button>
       </div>
     )
   }
@@ -1153,7 +1125,6 @@ function FillPhotosSheet({ bottles, onDone }) {
     }
   }
 
-  // Auto-fill: fetch Algolia images for all remaining bottles and apply matches
   async function handleAutoFill() {
     setAutoFilling(true)
     setError(null)
@@ -1173,7 +1144,6 @@ function FillPhotosSheet({ bottles, onDone }) {
         setAutoFilling(false)
         return
       }
-      // Apply all matches in sequence
       let lastBottles = null
       for (const { id, imageUrl } of matched) {
         const res  = await fetch('/api/collection', {
@@ -1185,8 +1155,7 @@ function FillPhotosSheet({ bottles, onDone }) {
         if (res.ok) lastBottles = data.bottles
       }
       if (lastBottles) onDone(lastBottles, false)
-      // Skip past everything that was auto-filled
-      setIdx(bottles.length)  // triggers "all done" screen
+      setIdx(bottles.length)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -1199,10 +1168,10 @@ function FillPhotosSheet({ bottles, onDone }) {
     setIdx(i => i + 1)
   }
 
-  const algoliaImg = algoliaImgs[bottle.id]
-  const catalogUrl = algoliaImg?.imageUrl ?? null
+  const algoliaImg    = algoliaImgs[bottle.id]
+  const catalogUrl    = algoliaImg?.imageUrl ?? null
   const loadingCatalog = algoliaImg?.loading ?? true
-  const remaining  = bottles.length - idx
+  const remaining     = bottles.length - idx
 
   return (
     <div style={{
@@ -1219,46 +1188,50 @@ function FillPhotosSheet({ bottles, onDone }) {
         display:        'flex',
         alignItems:     'center',
         justifyContent: 'space-between',
-        padding:        '14px 16px',
-        paddingTop:     'calc(14px + env(safe-area-inset-top))',
-        background:     '#0f0a05',
-        borderBottom:   '1px solid #2a1c08',
+        padding:        'var(--sp-4)',
+        paddingTop:     'calc(var(--sp-4) + env(safe-area-inset-top))',
+        background:     'var(--bg-elev-1)',
+        borderBottom:   '1px solid var(--hairline)',
         flexShrink:     0,
       }}>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc' }}>Add Missing Photos</div>
-          <div style={{ fontSize: 11, color: '#9a7c55', marginTop: 1 }}>
+          <div style={{ fontWeight: 800, fontSize: 'var(--fs-h3)', color: 'var(--text-primary)' }}>Add Missing Photos</div>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginTop: 'var(--sp-1)' }}>
             {idx + 1} of {bottles.length} · {remaining} remaining
           </div>
         </div>
         <button
           onClick={onDone}
-          style={{ background: 'none', border: 'none', color: '#6b5030', fontSize: 22, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
+          style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 'var(--sp-1)', lineHeight: 1, display: 'flex', borderRadius: 'var(--r-sm)' }}
           aria-label="Close"
-        >✕</button>
+        >
+          <X size={20} strokeWidth={1.75} />
+        </button>
       </div>
 
       {/* Progress bar */}
-      <div style={{ height: 3, background: '#1f1308', flexShrink: 0 }}>
+      <div style={{ height: 3, background: 'var(--bg-elev-2)', flexShrink: 0 }}>
         <div style={{
-          height: '100%', background: '#e8943a', transition: 'width 0.3s ease',
-          width: `${(idx / bottles.length) * 100}%`,
+          height:     '100%',
+          background: 'var(--copper-500)',
+          transition: `width var(--t-slow) var(--ease-out)`,
+          width:      `${(idx / bottles.length) * 100}%`,
         }} />
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+      <div style={{ flex: 1, padding: 'var(--sp-6) var(--sp-5)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-5)' }}>
 
         {/* Bottle identity */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontWeight: 800, fontSize: 20, color: '#f5e6cc', lineHeight: 1.25, marginBottom: 5 }}>
+          <div style={{ fontWeight: 800, fontSize: 'var(--fs-h1)', color: 'var(--text-primary)', lineHeight: 1.25, marginBottom: 'var(--sp-1)' }}>
             {bottle.name}
           </div>
           {bottle.distillery && (
-            <div style={{ fontSize: 13, color: '#9a7c55' }}>{bottle.distillery}</div>
+            <div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-muted)' }}>{bottle.distillery}</div>
           )}
           {(bottle.category || bottle.proof) && (
-            <div style={{ fontSize: 12, color: '#6b5030', marginTop: 2 }}>
+            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', marginTop: 'var(--sp-1)' }}>
               {[bottle.category, bottle.proof ? `${bottle.proof}°` : null].filter(Boolean).join(' · ')}
             </div>
           )}
@@ -1267,98 +1240,139 @@ function FillPhotosSheet({ bottles, onDone }) {
         {/* Catalog image suggestion */}
         {loadingCatalog ? (
           <div style={{
-            width: '100%', maxWidth: 300, aspectRatio: '3/4',
-            background: '#0f0a05', borderRadius: 14,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#3d2b10', fontSize: 13,
+            width:          '100%',
+            maxWidth:       300,
+            aspectRatio:    '3/4',
+            background:     'var(--bg-elev-1)',
+            borderRadius:   'var(--r-lg)',
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            color:          'var(--text-dim)',
+            fontSize:       'var(--fs-body)',
+            gap:            'var(--sp-2)',
           }}>
+            <Loader size={16} strokeWidth={1.75} color="var(--text-dim)" />
             Checking catalog…
           </div>
         ) : catalogUrl ? (
-          <div style={{ width: '100%', maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontSize: 11, color: '#9a7c55', textAlign: 'center', letterSpacing: 0.3 }}>
+          <div style={{ width: '100%', maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+            <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', textAlign: 'center', letterSpacing: 0.3, textTransform: 'uppercase' }}>
               Found in Binny's catalog
             </div>
             <img
               src={catalogUrl}
               alt={bottle.name}
               style={{
-                width: '100%', aspectRatio: '3/4', objectFit: 'contain',
-                borderRadius: 14, background: '#fff', padding: 12, boxSizing: 'border-box',
+                width:       '100%',
+                aspectRatio: '3/4',
+                objectFit:   'contain',
+                borderRadius: 'var(--r-lg)',
+                background:  'var(--text-inverse)',
+                padding:     'var(--sp-3)',
+                boxSizing:   'border-box',
               }}
             />
-            <button
+            <Button
+              variant="primary"
+              fullWidth
+              icon={<CheckCircle size={16} strokeWidth={1.75} />}
               onClick={() => applyPhotoUrl(catalogUrl)}
               disabled={saving}
-              style={{
-                padding: '12px', background: '#e8943a', border: 'none',
-                borderRadius: 10, color: '#fff', fontWeight: 700,
-                fontSize: 15, cursor: saving ? 'default' : 'pointer',
-                fontFamily: 'inherit', opacity: saving ? 0.6 : 1,
-              }}
             >
-              {saving ? 'Saving…' : '✓ Use this photo'}
-            </button>
+              {saving ? 'Saving…' : 'Use this photo'}
+            </Button>
             <label style={{
-              padding: '10px', background: '#0f0a05', border: '1px solid #3d2b10',
-              borderRadius: 10, color: '#9a7c55', fontWeight: 600,
-              fontSize: 13, cursor: saving ? 'default' : 'pointer',
-              textAlign: 'center', fontFamily: 'inherit',
+              padding:        'var(--sp-2)',
+              background:     'var(--bg-elev-1)',
+              border:         '1px solid var(--hairline-2)',
+              borderRadius:   'var(--r-md)',
+              color:          'var(--text-muted)',
+              fontWeight:     600,
+              fontSize:       'var(--fs-body)',
+              cursor:         saving ? 'default' : 'pointer',
+              textAlign:      'center',
+              fontFamily:     'inherit',
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+              gap:            'var(--sp-2)',
             }}>
-              📷 Use my own instead
+              <Camera size={14} strokeWidth={1.75} />
+              Use my own instead
               <input type="file" accept="image/*" capture="environment"
                 onChange={handleFile} disabled={saving} style={{ display: 'none' }} />
             </label>
           </div>
         ) : (
-          /* No catalog image found — show upload area */
           <label style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', width: '100%', maxWidth: 300,
-            aspectRatio: '4/3', background: '#0f0a05',
-            border: `2px dashed ${error ? '#f87' : '#3d2b10'}`,
-            borderRadius: 16, cursor: saving ? 'default' : 'pointer', gap: 12,
+            display:        'flex',
+            flexDirection:  'column',
+            alignItems:     'center',
+            justifyContent: 'center',
+            width:          '100%',
+            maxWidth:       300,
+            aspectRatio:    '4/3',
+            background:     'var(--bg-elev-1)',
+            border:         `2px dashed ${error ? 'var(--red)' : 'var(--hairline-3)'}`,
+            borderRadius:   'var(--r-xl)',
+            cursor:         saving ? 'default' : 'pointer',
+            gap:            'var(--sp-3)',
           }}>
             {saving ? (
-              <><div style={{ fontSize: 32 }}>⏳</div><div style={{ fontSize: 13, color: '#9a7c55' }}>Uploading…</div></>
+              <>
+                <Loader size={28} strokeWidth={1.75} color="var(--text-dim)" />
+                <div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-muted)' }}>Uploading…</div>
+              </>
             ) : (
-              <><div style={{ fontSize: 40, opacity: 0.5 }}>📷</div>
-                <div style={{ fontSize: 14, color: '#9a7c55', fontWeight: 600 }}>Tap to add a photo</div>
-                <div style={{ fontSize: 11, color: '#6b5030' }}>Not found in catalog · Camera or gallery</div></>
+              <>
+                <Camera size={36} strokeWidth={1.5} color="var(--text-dim)" style={{ opacity: 0.5 }} />
+                <div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-muted)', fontWeight: 600 }}>Tap to add a photo</div>
+                <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' }}>Not found in catalog · Camera or gallery</div>
+              </>
             )}
             <input ref={inputRef} type="file" accept="image/*" capture="environment"
               onChange={handleFile} disabled={saving} style={{ display: 'none' }} />
           </label>
         )}
 
-        {error && <p style={{ fontSize: 12, color: '#f87', textAlign: 'center', margin: 0 }}>{error}</p>}
+        {error && <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--red)', textAlign: 'center', margin: 0 }}>{error}</p>}
 
         {/* Skip + auto-fill */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%', maxWidth: 300 }}>
-          <button
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-2)', width: '100%', maxWidth: 300 }}>
+          <Button
+            variant="secondary"
+            fullWidth
+            icon={<SkipForward size={14} strokeWidth={1.75} />}
             onClick={skip}
             disabled={saving || autoFilling}
-            style={{
-              background: 'none', border: '1px solid #3d2b10', borderRadius: 10,
-              color: '#9a7c55', fontSize: 13, padding: '10px 0', width: '100%',
-              cursor: (saving || autoFilling) ? 'default' : 'pointer',
-              fontFamily: 'inherit', opacity: (saving || autoFilling) ? 0.4 : 1,
-            }}
           >
-            Skip this bottle →
-          </button>
+            Skip this bottle
+          </Button>
           {remaining > 1 && (
             <button
               onClick={handleAutoFill}
               disabled={saving || autoFilling}
+              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
+              onMouseUp={e   => e.currentTarget.style.transform = 'scale(1)'}
               style={{
-                background: 'none', border: 'none', color: '#6b5030', fontSize: 12,
-                cursor: (saving || autoFilling) ? 'default' : 'pointer',
-                fontFamily: 'inherit', padding: '4px 0',
-                opacity: (saving || autoFilling) ? 0.4 : 1,
+                background:  'none',
+                border:      'none',
+                color:       'var(--text-dim)',
+                fontSize:    'var(--fs-meta)',
+                cursor:      (saving || autoFilling) ? 'default' : 'pointer',
+                fontFamily:  'inherit',
+                padding:     'var(--sp-1) 0',
+                opacity:     (saving || autoFilling) ? 0.4 : 1,
+                display:     'flex',
+                alignItems:  'center',
+                gap:         'var(--sp-1)',
+                transition:  `transform var(--t-fast) var(--ease-out)`,
               }}
             >
-              {autoFilling ? '⏳ Filling from catalog…' : `🖼 Auto-fill all ${remaining} from Binny's catalog`}
+              {autoFilling
+                ? <><Loader size={12} strokeWidth={1.75} /> Filling from catalog…</>
+                : <><RefreshCw size={12} strokeWidth={1.75} /> Auto-fill all {remaining} from Binny's catalog</>}
             </button>
           )}
         </div>
@@ -1366,6 +1380,8 @@ function FillPhotosSheet({ bottles, onDone }) {
     </div>
   )
 }
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CollectionPage() {
   const { data: session, status } = useSession()
@@ -1375,8 +1391,8 @@ export default function CollectionPage() {
   const [loaded,        setLoaded]        = useState(false)
   const [sort,          setSort]          = useState('score')
   const [showAdd,       setShowAdd]       = useState(false)
-  const [removing,       setRemoving]       = useState(null)
-  const [editingBottle,  setEditingBottle]  = useState(null)
+  const [removing,      setRemoving]      = useState(null)
+  const [editingBottle, setEditingBottle] = useState(null)
   const [showFillPhotos, setShowFillPhotos] = useState(false)
   const [unicornDeals,  setUnicornDeals]  = useState([])
   const [marketPrices,  setMarketPrices]  = useState({})
@@ -1398,7 +1414,6 @@ export default function CollectionPage() {
       .then(d => {
         const bs = d.bottles ?? []
         setBottles(bs)
-        // Batch-fetch market prices for all unique bottle names
         const names = [...new Set(bs.map(b => b.name))]
         Promise.all(
           names.map(name =>
@@ -1453,9 +1468,8 @@ export default function CollectionPage() {
     return 0
   })
 
-  // Stats — Number() guards prevent string-concatenation after an edit
+  // Stats
   const totalBottles = bottles.reduce((s, b) => s + Number(b.qty ?? 1), 0)
-  // Est. value: use secondary market price when available, fall back to MSRP
   const estValue = bottles.reduce((s, b) => {
     const val = Number(b.secondary) > 0 ? Number(b.secondary) : (Number(b.msrp) > 0 ? Number(b.msrp) : 0)
     return s + val * Number(b.qty ?? 1)
@@ -1475,66 +1489,57 @@ export default function CollectionPage() {
         position:             'sticky',
         top:                  0,
         zIndex:               50,
-        background:           'rgba(15,10,5,0.95)',
-        borderBottom:         '1px solid #3d2b10',
+        background:           'rgba(var(--bg-base-rgb, 15,10,5),0.95)',
+        borderBottom:         '1px solid var(--hairline-2)',
         backdropFilter:       'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        padding:              '11px 16px',
+        padding:              'var(--sp-3) var(--sp-4)',
         display:              'flex',
         alignItems:           'center',
         justifyContent:       'space-between',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Link href="/profile" style={{ color: '#9a7c55', textDecoration: 'none', fontSize: 20, lineHeight: 1 }}>←</Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+          <Link
+            href="/profile"
+            style={{
+              color:          'var(--text-muted)',
+              textDecoration: 'none',
+              lineHeight:     1,
+              display:        'flex',
+              padding:        'var(--sp-1)',
+              borderRadius:   'var(--r-sm)',
+            }}
+          >
+            <ArrowLeft size={20} strokeWidth={1.75} />
+          </Link>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ShelfIcon size={18} /> My Collection
-          </div>
-            <div style={{ fontSize: 11, color: '#9a7c55' }}>Personal bottle inventory</div>
+            <div style={{ fontWeight: 800, fontSize: 'var(--fs-body)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+              <ShelfIcon size={18} /> My Collection
+            </div>
+            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>Personal bottle inventory</div>
           </div>
         </div>
-        <button
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<Plus size={14} strokeWidth={2} />}
           onClick={() => tab === 'bottles' ? setShowAdd(true) : setShowAddSample(true)}
-          style={{
-            padding:      '7px 14px',
-            background:   '#e8943a',
-            border:       'none',
-            borderRadius: 8,
-            color:        '#fff',
-            fontWeight:   700,
-            fontSize:     13,
-            cursor:       'pointer',
-          }}
         >
-          {tab === 'bottles' ? '+ Bottle' : '+ Sample'}
-        </button>
+          {tab === 'bottles' ? 'Bottle' : 'Sample'}
+        </Button>
       </div>
 
-      <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 12px' }}>
+      <div style={{ maxWidth: 700, margin: '0 auto', padding: 'var(--sp-4) var(--sp-3)' }}>
 
         {/* Summary Strip */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {[
-            { label: 'Bottles', value: totalBottles },
-            { label: 'Est. Value', value: estValue > 0 ? `$${Math.round(estValue).toLocaleString()}` : '—' },
-            { label: 'Avg Score', value: avgScore },
-          ].map(({ label, value }) => (
-            <div key={label} style={{
-              flex:         1,
-              textAlign:    'center',
-              padding:      '10px 6px',
-              background:   '#1f1308',
-              borderRadius: 8,
-              border:       '1px solid #2a1c08',
-            }}>
-              <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc', lineHeight: 1 }}>{value}</div>
-              <div style={{ fontSize: 10, color: '#9a7c55', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-            </div>
-          ))}
+        <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-4)' }}>
+          <StatTile label="Bottles"   value={totalBottles} />
+          <StatTile label="Est. Value" value={estValue > 0 ? Math.round(estValue).toLocaleString() : '—'} prefix={estValue > 0 ? '$' : ''} />
+          <StatTile label="Avg Score" value={avgScore} />
         </div>
 
         {/* Tab switcher */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+        <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-3)' }}>
           {[
             { key: 'bottles', icon: <ShelfIcon size={14} />, text: `Bottles (${bottles.length})` },
             { key: 'samples', icon: '🥃',                   text: `Samples (${samples.length})`  },
@@ -1542,45 +1547,45 @@ export default function CollectionPage() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
+              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
+              onMouseUp={e   => e.currentTarget.style.transform = 'scale(1)'}
               style={{
-                flex:         1,
-                padding:      '8px 0',
-                borderRadius: 8,
-                border:       'none',
-                cursor:       'pointer',
-                background:   tab === t.key ? '#e8943a' : '#1f1308',
-                color:        tab === t.key ? '#fff' : '#6b5030',
-                fontWeight:   700,
-                fontSize:     13,
-                display:      'flex',
-                alignItems:   'center',
+                flex:           1,
+                padding:        'var(--sp-2) 0',
+                borderRadius:   'var(--r-md)',
+                border:         'none',
+                cursor:         'pointer',
+                background:     tab === t.key ? 'var(--copper-500)' : 'var(--bg-elev-2)',
+                color:          tab === t.key ? 'var(--text-inverse)' : 'var(--text-dim)',
+                fontWeight:     700,
+                fontSize:       'var(--fs-body)',
+                display:        'flex',
+                alignItems:     'center',
                 justifyContent: 'center',
-                gap:          5,
+                gap:            'var(--sp-1)',
+                transition:     `background var(--t-base) var(--ease-out), transform var(--t-fast) var(--ease-out)`,
               }}
             >{t.icon} {t.text}</button>
           ))}
         </div>
 
-        {/* Sort bar — only shown on bottles tab */}
+        {/* ── Samples tab ─────────────────────────────────────────── */}
         {tab === 'samples' && (
           <div>
-            {/* Samples list */}
             {!samplesLoaded ? (
-              <p style={{ color: '#9a7c55', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>Loading…</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-body)', textAlign: 'center', padding: 'var(--sp-8) 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sp-2)' }}>
+                <Loader size={16} strokeWidth={1.75} />Loading…
+              </p>
             ) : samples.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '48px 16px' }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>🥃</div>
-                <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc', marginBottom: 8 }}>No samples yet</div>
-                <div style={{ fontSize: 14, color: '#9a7c55', marginBottom: 20 }}>Track bottles you received via mule or handshake</div>
-                <button
-                  onClick={() => setShowAddSample(true)}
-                  style={{ padding: '10px 24px', background: '#e8943a', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
-                >
-                  + Add your first sample
-                </button>
-              </div>
+              <EmptyState
+                icon="FlaskConical"
+                title="No samples yet"
+                body="Track bottles you received via mule or handshake"
+                ctaLabel="Add your first sample"
+                onCta={() => setShowAddSample(true)}
+              />
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
                 {samples.map(sample => (
                   <SampleCard
                     key={sample.id}
@@ -1593,24 +1598,28 @@ export default function CollectionPage() {
           </div>
         )}
 
+        {/* ── Bottles tab ─────────────────────────────────────────── */}
         {tab === 'bottles' && <>
           {/* Sort bar */}
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14, paddingBottom: 2 }}>
+          <div style={{ display: 'flex', gap: 'var(--sp-1)', overflowX: 'auto', marginBottom: 'var(--sp-3)', paddingBottom: 'var(--sp-1)' }}>
             {SORT_OPTIONS.map(o => (
               <button
                 key={o.key}
                 onClick={() => setSort(o.key)}
+                onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
+                onMouseUp={e   => e.currentTarget.style.transform = 'scale(1)'}
                 style={{
-                  flexShrink:   0,
-                  padding:      '6px 13px',
-                  borderRadius: 999,
-                  border:       'none',
-                  cursor:       'pointer',
-                  background:   sort === o.key ? '#e8943a' : '#1f1308',
-                  color:        sort === o.key ? '#fff' : '#9a7c55',
-                  fontSize:     12,
-                  fontWeight:   600,
-                  whiteSpace:   'nowrap',
+                  flexShrink:  0,
+                  padding:     'var(--sp-1) var(--sp-3)',
+                  borderRadius: 'var(--r-pill)',
+                  border:      'none',
+                  cursor:      'pointer',
+                  background:  sort === o.key ? 'var(--copper-500)' : 'var(--bg-elev-2)',
+                  color:       sort === o.key ? 'var(--text-inverse)' : 'var(--text-muted)',
+                  fontSize:    'var(--fs-meta)',
+                  fontWeight:  600,
+                  whiteSpace:  'nowrap',
+                  transition:  `background var(--t-base) var(--ease-out), transform var(--t-fast) var(--ease-out)`,
                 }}
               >
                 {o.label}
@@ -1622,51 +1631,52 @@ export default function CollectionPage() {
           {loaded && bottles.filter(b => !b.photoUrl).length > 0 && (
             <button
               onClick={() => setShowFillPhotos(true)}
+              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
+              onMouseUp={e   => e.currentTarget.style.transform = 'scale(1)'}
               style={{
                 width:        '100%',
                 display:      'flex',
                 alignItems:   'center',
-                gap:          10,
-                padding:      '10px 14px',
-                marginBottom: 12,
-                background:   '#0f0a05',
-                border:       '1px solid #3d2b10',
-                borderRadius: 10,
+                gap:          'var(--sp-2)',
+                padding:      'var(--sp-2) var(--sp-3)',
+                marginBottom: 'var(--sp-3)',
+                background:   'var(--bg-elev-1)',
+                border:       '1px solid var(--hairline-2)',
+                borderRadius: 'var(--r-md)',
                 cursor:       'pointer',
                 textAlign:    'left',
                 fontFamily:   'inherit',
+                transition:   `transform var(--t-fast) var(--ease-out)`,
               }}
             >
-              <span style={{ fontSize: 20, flexShrink: 0 }}>📷</span>
+              <ImageIcon size={18} strokeWidth={1.75} color="var(--copper-500)" style={{ flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#f5e6cc' }}>
+                <div style={{ fontSize: 'var(--fs-body)', fontWeight: 700, color: 'var(--text-primary)' }}>
                   {bottles.filter(b => !b.photoUrl).length} bottle{bottles.filter(b => !b.photoUrl).length !== 1 ? 's' : ''} missing photos
                 </div>
-                <div style={{ fontSize: 11, color: '#9a7c55', marginTop: 1 }}>
+                <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginTop: 'var(--sp-1)' }}>
                   Tap to add them all in one pass
                 </div>
               </div>
-              <span style={{ color: '#e8943a', fontSize: 16, flexShrink: 0 }}>›</span>
+              <ChevronRight size={16} strokeWidth={1.75} color="var(--copper-500)" style={{ flexShrink: 0 }} />
             </button>
           )}
 
           {/* Bottle list */}
           {!loaded ? (
-            <p style={{ color: '#9a7c55', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>Loading…</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-body)', textAlign: 'center', padding: 'var(--sp-8) 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sp-2)' }}>
+              <Loader size={16} strokeWidth={1.75} />Loading…
+            </p>
           ) : sorted.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 16px' }}>
-              <div style={{ marginBottom: 12 }}><ShelfIcon size={48} /></div>
-              <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc', marginBottom: 8 }}>Your collection is empty</div>
-              <div style={{ fontSize: 14, color: '#9a7c55', marginBottom: 20 }}>Add your first bottle to get started</div>
-              <button
-                onClick={() => setShowAdd(true)}
-                style={{ padding: '10px 24px', background: '#e8943a', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
-              >
-                + Add your first bottle
-              </button>
-            </div>
+            <EmptyState
+              icon="Wine"
+              title="Your collection is empty"
+              body="Add your first bottle to get started"
+              ctaLabel="Add your first bottle"
+              onCta={() => setShowAdd(true)}
+            />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
               {sorted.map(bottle => (
                 <BottleCard
                   key={bottle.id}
@@ -1686,6 +1696,7 @@ export default function CollectionPage() {
       {editingBottle && (
         <EditBottleSheet
           bottle={editingBottle}
+          open={!!editingBottle}
           onClose={() => setEditingBottle(null)}
           onSave={(bottles) => { setBottles(bottles); setEditingBottle(null) }}
         />
@@ -1701,19 +1712,17 @@ export default function CollectionPage() {
         />
       )}
 
-      {showAdd && (
-        <AddBottleSheet
-          onClose={() => setShowAdd(false)}
-          onAdd={(bottles) => { setBottles(bottles); setShowAdd(false) }}
-        />
-      )}
+      <AddBottleSheet
+        open={showAdd}
+        onClose={() => setShowAdd(false)}
+        onAdd={(bottles) => { setBottles(bottles); setShowAdd(false) }}
+      />
 
-      {showAddSample && (
-        <AddSampleSheet
-          onClose={() => setShowAddSample(false)}
-          onAdd={(sample) => { setSamples(prev => [sample, ...prev]); setShowAddSample(false) }}
-        />
-      )}
+      <AddSampleSheet
+        open={showAddSample}
+        onClose={() => setShowAddSample(false)}
+        onAdd={(sample) => { setSamples(prev => [sample, ...prev]); setShowAddSample(false) }}
+      />
     </div>
   )
 }

@@ -3,6 +3,13 @@ import { useSession } from 'next-auth/react'
 import { useRouter }  from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import Link           from 'next/link'
+import { X, Plus, UserPlus, Users, RefreshCw, ChevronLeft, Search } from 'lucide-react'
+
+import Button        from '../../components/ui/Button'
+import Card          from '../../components/ui/Card'
+import EmptyState    from '../../components/ui/EmptyState'
+import SectionHeader from '../../components/ui/SectionHeader'
+import Icon          from '../../components/ui/Icon'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -25,9 +32,9 @@ function joinedAgo(iso) {
 }
 
 function scoreColor(s) {
-  if (s >= 85) return '#4ade80'
-  if (s >= 75) return '#e8943a'
-  return '#9a7c55'
+  if (s >= 85) return 'var(--green)'
+  if (s >= 75) return 'var(--copper-500)'
+  return 'var(--text-muted)'
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
@@ -38,13 +45,13 @@ function Avatar({ name, size = 40 }) {
       width:          size,
       height:         size,
       borderRadius:   '50%',
-      background:     'linear-gradient(135deg, #e8943a, #b05a10)',
+      background:     'var(--grad-copper)',
       display:        'flex',
       alignItems:     'center',
       justifyContent: 'center',
       fontWeight:     800,
       fontSize:       size * 0.35,
-      color:          '#fff',
+      color:          'var(--text-inverse)',
       flexShrink:     0,
       letterSpacing:  '-0.02em',
     }}>
@@ -92,66 +99,90 @@ function FriendProfilePanel({ friend, onClose }) {
   return (
     <>
       {/* Backdrop */}
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 149 }} />
+      <div
+        onClick={onClose}
+        style={{
+          position:   'fixed',
+          inset:      0,
+          background: 'rgba(0,0,0,0.55)',
+          zIndex:     149,
+        }}
+      />
 
       {/* Panel */}
       <div style={{
-        position:     'fixed',
-        top:          0,
-        right:        0,
-        bottom:       0,
-        width:        'min(420px, 100vw)',
-        background:   '#1a1008',
-        borderLeft:   '1px solid #3d2b10',
-        zIndex:       150,
-        display:      'flex',
-        flexDirection:'column',
-        animation:    'slideLeft 0.25s ease',
-        overflowY:    'auto',
+        position:      'fixed',
+        top:           0,
+        right:         0,
+        bottom:        0,
+        width:         'min(420px, 100vw)',
+        background:    'var(--bg-base)',
+        borderLeft:    '1px solid var(--hairline-2)',
+        zIndex:        150,
+        display:       'flex',
+        flexDirection: 'column',
+        animation:     'slideLeft 0.25s ease',
+        overflowY:     'auto',
       }}>
 
         {/* Header */}
         <div style={{
-          position:   'sticky',
-          top:        0,
-          zIndex:     1,
-          background: '#1a1008',
-          borderBottom:'1px solid #3d2b10',
-          padding:    '14px 16px',
-          display:    'flex',
-          alignItems: 'center',
-          justifyContent:'space-between',
+          position:       'sticky',
+          top:            0,
+          zIndex:         1,
+          background:     'var(--bg-base)',
+          borderBottom:   '1px solid var(--hairline-2)',
+          padding:        'var(--sp-3) var(--sp-4)',
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'space-between',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
             <Avatar name={friend.name} size={44} />
             <div>
-              <div style={{ fontWeight: 800, fontSize: 16, color: '#f5e6cc' }}>{friend.name}</div>
-              <div style={{ fontSize: 11, color: '#9a7c55', marginTop: 2 }}>{joinedAgo(friend.joinedAt)}</div>
+              <div style={{ fontWeight: 800, fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>{friend.name}</div>
+              <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', marginTop: 'var(--sp-1)' }}>{joinedAgo(friend.joinedAt)}</div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background:'none',border:'none',cursor:'pointer',color:'#9a7c55',fontSize:22,lineHeight:1 }}>✕</button>
+          <button
+            onClick={onClose}
+            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
+            onMouseUp={e   => (e.currentTarget.style.transform = 'scale(1)')}
+            style={{
+              background:    'none',
+              border:        'none',
+              cursor:        'pointer',
+              color:         'var(--text-muted)',
+              padding:       'var(--sp-2)',
+              display:       'flex',
+              alignItems:    'center',
+              borderRadius:  'var(--r-sm)',
+            }}
+          >
+            <X size={18} strokeWidth={1.75} />
+          </button>
         </div>
 
-        <div style={{ padding: '16px' }}>
+        <div style={{ padding: 'var(--sp-4)' }}>
 
           {/* Stats row */}
           {loaded && !forbidden && (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-4)' }}>
               {[
-                { label: 'Bottles',   value: totalBottles },
-                { label: 'Tastings',  value: totalTastings },
+                { label: 'Bottles',    value: totalBottles },
+                { label: 'Tastings',   value: totalTastings },
                 { label: 'Est. Value', value: estValue > 0 ? `$${Math.round(estValue).toLocaleString()}` : '—' },
               ].map(({ label, value }) => (
                 <div key={label} style={{
                   flex:         1,
                   textAlign:    'center',
-                  padding:      '10px 4px',
-                  background:   '#1f1308',
-                  borderRadius: 8,
-                  border:       '1px solid #2a1c08',
+                  padding:      'var(--sp-3) var(--sp-1)',
+                  background:   'var(--bg-elev-2)',
+                  borderRadius: 'var(--r-md)',
+                  border:       '1px solid var(--hairline)',
                 }}>
-                  <div style={{ fontWeight: 800, fontSize: 17, color: '#f5e6cc', lineHeight: 1 }}>{value}</div>
-                  <div style={{ fontSize: 9, color: '#9a7c55', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+                  <div style={{ fontWeight: 800, fontSize: 'var(--fs-h3)', color: 'var(--text-primary)', lineHeight: 1 }}>{value}</div>
+                  <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', marginTop: 'var(--sp-1)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
                 </div>
               ))}
             </div>
@@ -160,35 +191,35 @@ function FriendProfilePanel({ friend, onClose }) {
           {/* Top bottle */}
           {loaded && topBottle && topBottle.tastings > 0 && (
             <div style={{
-              background:   'linear-gradient(135deg, #2a1505 0%, #1a1008 100%)',
-              border:       '1px solid #7c3a0a',
-              borderRadius: 10,
-              padding:      '12px 14px',
-              marginBottom: 16,
-              display:      'flex',
-              alignItems:   'center',
-              gap:          12,
+              background:    'var(--bg-elev-2)',
+              border:        '1px solid var(--copper-600)',
+              borderRadius:  'var(--r-md)',
+              padding:       'var(--sp-3) var(--sp-4)',
+              marginBottom:  'var(--sp-4)',
+              display:       'flex',
+              alignItems:    'center',
+              gap:           'var(--sp-3)',
             }}>
               <span style={{ fontSize: 22 }}>🏆</span>
               <div>
-                <div style={{ fontSize: 9, fontWeight: 700, color: '#e8943a', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Top Bottle</div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc' }}>{topBottle.name}</div>
-                <div style={{ fontSize: 11, color: '#9a7c55' }}>Score: {(topBottle.blindScore ?? 75).toFixed(1)}</div>
+                <div style={{ fontSize: 'var(--fs-overline)', fontWeight: 700, color: 'var(--copper-500)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 'var(--sp-1)' }}>Top Bottle</div>
+                <div style={{ fontWeight: 700, fontSize: 'var(--fs-meta)', color: 'var(--text-primary)' }}>{topBottle.name}</div>
+                <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)' }}>Score: {(topBottle.blindScore ?? 75).toFixed(1)}</div>
               </div>
             </div>
           )}
 
           {/* Mule requests — shown immediately, before collection loads */}
           {(friend.muleRequests ?? []).length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: '#9a7c55', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            <div style={{ marginBottom: 'var(--sp-4)' }}>
+              <div style={{ fontWeight: 700, fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 'var(--sp-2)' }}>
                 🫏 Hunting For
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-1)' }}>
                 {(friend.muleRequests ?? []).map((req, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: '#1f1308', border: '1px solid #2a1c08', borderRadius: 8 }}>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', padding: 'var(--sp-2) var(--sp-3)', background: 'var(--bg-elev-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
                     <span style={{ fontSize: 14 }}>🥃</span>
-                    <span style={{ fontSize: 13, color: '#f5e6cc' }}>{req}</span>
+                    <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-primary)' }}>{req}</span>
                   </div>
                 ))}
               </div>
@@ -197,16 +228,16 @@ function FriendProfilePanel({ friend, onClose }) {
 
           {/* Loading / empty / forbidden states */}
           {!loaded && (
-            <div style={{ textAlign: 'center', padding: '32px 0', color: '#9a7c55', fontSize: 13 }}>Loading…</div>
+            <div style={{ textAlign: 'center', padding: 'var(--sp-8) 0', color: 'var(--text-muted)', fontSize: 'var(--fs-meta)' }}>Loading…</div>
           )}
           {loaded && forbidden && (
-            <div style={{ textAlign: 'center', padding: '32px 0' }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
-              <div style={{ color: '#9a7c55', fontSize: 13 }}>Collection is private</div>
+            <div style={{ textAlign: 'center', padding: 'var(--sp-8) 0' }}>
+              <div style={{ fontSize: 32, marginBottom: 'var(--sp-2)' }}>🔒</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-meta)' }}>Collection is private</div>
             </div>
           )}
           {loaded && !forbidden && sorted.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '32px 0', color: '#6b5030', fontSize: 13 }}>
+            <div style={{ textAlign: 'center', padding: 'var(--sp-8) 0', color: 'var(--text-dim)', fontSize: 'var(--fs-meta)' }}>
               {friend.name?.split(' ')[0] ?? 'They'} hasn&apos;t added any bottles yet
             </div>
           )}
@@ -214,42 +245,42 @@ function FriendProfilePanel({ friend, onClose }) {
           {/* Bottle list */}
           {loaded && !forbidden && sorted.length > 0 && (
             <>
-              <div style={{ fontWeight: 700, fontSize: 12, color: '#9a7c55', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 'var(--sp-3)' }}>
                 🥃 Collection · {totalBottles} bottle{totalBottles !== 1 ? 's' : ''}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
                 {sorted.map((bottle, i) => {
                   const score = bottle.blindScore ?? 75
                   return (
                     <div key={bottle.id} style={{
                       display:      'flex',
                       alignItems:   'center',
-                      gap:          10,
-                      padding:      '10px 12px',
-                      background:   '#1f1308',
-                      border:       '1px solid #2a1c08',
-                      borderRadius: 9,
+                      gap:          'var(--sp-3)',
+                      padding:      'var(--sp-3)',
+                      background:   'var(--bg-elev-2)',
+                      border:       '1px solid var(--hairline)',
+                      borderRadius: 'var(--r-md)',
                     }}>
                       {/* Rank */}
-                      <div style={{ fontSize: 13, color: '#6b5030', fontWeight: 700, width: 16, flexShrink: 0, textAlign: 'center' }}>
+                      <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', fontWeight: 700, width: 16, flexShrink: 0, textAlign: 'center' }}>
                         {i + 1}
                       </div>
                       {/* Score */}
-                      <div style={{ fontWeight: 800, fontSize: 18, color: scoreColor(score), flexShrink: 0, width: 34, textAlign: 'center' }}>
+                      <div style={{ fontWeight: 800, fontSize: 'var(--fs-h3)', color: scoreColor(score), flexShrink: 0, width: 34, textAlign: 'center' }}>
                         {score.toFixed(0)}
                       </div>
                       {/* Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 12, color: '#f5e6cc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 700, fontSize: 'var(--fs-meta)', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {bottle.name}
                         </div>
                         {bottle.distillery && (
-                          <div style={{ fontSize: 10, color: '#9a7c55', marginTop: 1 }}>{bottle.distillery}</div>
+                          <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', marginTop: 'var(--sp-1)' }}>{bottle.distillery}</div>
                         )}
                       </div>
                       {/* MSRP */}
                       {bottle.msrp > 0 && (
-                        <div style={{ fontSize: 11, color: '#c9a87a', flexShrink: 0 }}>${bottle.msrp}</div>
+                        <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-2)', flexShrink: 0 }}>${bottle.msrp}</div>
                       )}
                     </div>
                   )
@@ -268,13 +299,21 @@ function FriendProfilePanel({ friend, onClose }) {
 
 function UserRow({ user, rightSlot }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0' }}>
+    <div style={{
+      display:      'flex',
+      alignItems:   'center',
+      gap:          'var(--sp-3)',
+      padding:      'var(--sp-3) var(--sp-3)',
+      background:   'var(--bg-elev-2)',
+      border:       '1px solid var(--hairline)',
+      borderRadius: 'var(--r-md)',
+    }}>
       <Avatar name={user.name} size={38} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: '#f5e6cc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {user.name}
         </div>
-        <div style={{ fontSize: 11, color: '#9a7c55', marginTop: 1 }}>{joinedAgo(user.joinedAt)}</div>
+        <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', marginTop: 'var(--sp-1)' }}>{joinedAgo(user.joinedAt)}</div>
       </div>
       {rightSlot}
     </div>
@@ -429,50 +468,6 @@ export default function FriendsPage() {
 
   if (status === 'loading') return null
 
-  const accentBtn = (label, onClick, loading) => (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      style={{
-        padding:      '6px 13px',
-        background:   '#e8943a',
-        border:       'none',
-        borderRadius: 7,
-        color:        '#fff',
-        fontWeight:   700,
-        fontSize:     12,
-        cursor:       loading ? 'not-allowed' : 'pointer',
-        opacity:      loading ? 0.6 : 1,
-        flexShrink:   0,
-        whiteSpace:   'nowrap',
-      }}
-    >
-      {loading ? '…' : label}
-    </button>
-  )
-
-  const ghostBtn = (label, onClick, loading, color = '#9a7c55') => (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      style={{
-        padding:      '5px 11px',
-        background:   'none',
-        border:       `1px solid #3d2b10`,
-        borderRadius: 7,
-        color,
-        fontWeight:   600,
-        fontSize:     12,
-        cursor:       loading ? 'not-allowed' : 'pointer',
-        opacity:      loading ? 0.6 : 1,
-        flexShrink:   0,
-        whiteSpace:   'nowrap',
-      }}
-    >
-      {loading ? '…' : label}
-    </button>
-  )
-
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
 
@@ -482,55 +477,71 @@ export default function FriendsPage() {
         top:                  0,
         zIndex:               50,
         background:           'rgba(15,10,5,0.95)',
-        borderBottom:         '1px solid #3d2b10',
+        borderBottom:         '1px solid var(--hairline-2)',
         backdropFilter:       'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
       }}>
-        <div style={{ padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Link href="/profile" style={{ color: '#9a7c55', textDecoration: 'none', fontSize: 20, lineHeight: 1 }}>←</Link>
+        <div style={{ padding: 'var(--sp-3) var(--sp-4)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+          <Link
+            href="/profile"
+            style={{
+              color:          'var(--text-muted)',
+              textDecoration: 'none',
+              display:        'flex',
+              alignItems:     'center',
+            }}
+          >
+            <ChevronLeft size={20} strokeWidth={1.75} />
+          </Link>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc' }}>👥 Friends</div>
-            <div style={{ fontSize: 11, color: '#9a7c55' }}>Jon and the Juice</div>
+            <div style={{ fontWeight: 800, fontSize: 'var(--fs-body)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+              <Users size={18} strokeWidth={1.75} color="var(--copper-500)" />
+              Friends
+            </div>
+            <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)' }}>Jon and the Juice</div>
           </div>
           <button
             onClick={loadData}
-            style={{ background: 'none', border: 'none', color: '#9a7c55', cursor: 'pointer', fontSize: 18 }}
+            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
+            onMouseUp={e   => (e.currentTarget.style.transform = 'scale(1)')}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 'var(--sp-2)', borderRadius: 'var(--r-sm)' }}
           >
-            ↺
+            <RefreshCw size={18} strokeWidth={1.75} />
           </button>
         </div>
 
         {/* Tab bar */}
-        <div style={{ display: 'flex', borderTop: '1px solid #2a1c08' }}>
+        <div style={{ display: 'flex', borderTop: '1px solid var(--hairline)' }}>
           {TABS.map((t, i) => (
             <button
               key={t}
               onClick={() => setTab(i)}
               style={{
-                flex:           1,
-                padding:        '10px 0',
-                background:     'none',
-                border:         'none',
-                borderBottom:   tab === i ? '2px solid #e8943a' : '2px solid transparent',
-                color:          tab === i ? '#e8943a' : '#6b5030',
-                fontWeight:     tab === i ? 700 : 500,
-                fontSize:       13,
-                cursor:         'pointer',
-                position:       'relative',
+                flex:         1,
+                padding:      'var(--sp-3) 0',
+                background:   'none',
+                border:       'none',
+                borderBottom: tab === i ? '2px solid var(--copper-500)' : '2px solid transparent',
+                color:        tab === i ? 'var(--copper-500)' : 'var(--text-dim)',
+                fontWeight:   tab === i ? 700 : 500,
+                fontSize:     'var(--fs-meta)',
+                cursor:       'pointer',
+                position:     'relative',
+                transition:   'color var(--t-base) var(--ease-out)',
               }}
             >
               {t}
               {i === 1 && requestBadge > 0 && (
                 <span style={{
                   position:     'absolute',
-                  top:          6,
+                  top:          'var(--sp-2)',
                   right:        '50%',
                   transform:    'translateX(18px)',
-                  background:   '#f87171',
-                  color:        '#fff',
-                  fontSize:     9,
+                  background:   'var(--red)',
+                  color:        'var(--text-inverse)',
+                  fontSize:     'var(--fs-overline)',
                   fontWeight:   700,
-                  borderRadius: 999,
+                  borderRadius: 'var(--r-pill)',
                   padding:      '1px 5px',
                   lineHeight:   1.3,
                 }}>
@@ -542,32 +553,37 @@ export default function FriendsPage() {
         </div>
 
         {/* Search */}
-        <div style={{ padding: '8px 16px 10px' }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name…"
-            style={{
-              width:        '100%',
-              padding:      '8px 12px',
-              background:   '#1f1308',
-              border:       '1px solid #3d2b10',
-              borderRadius: 8,
-              color:        '#f5e6cc',
-              fontSize:     13,
-              fontFamily:   'inherit',
-              outline:      'none',
-              boxSizing:    'border-box',
-            }}
-          />
+        <div style={{ padding: 'var(--sp-2) var(--sp-4) var(--sp-3)' }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{ position: 'absolute', left: 'var(--sp-3)', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }}>
+              <Search size={14} strokeWidth={1.75} />
+            </div>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name…"
+              style={{
+                width:        '100%',
+                padding:      'var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-8)',
+                background:   'var(--bg-elev-2)',
+                border:       '1px solid var(--hairline-2)',
+                borderRadius: 'var(--r-md)',
+                color:        'var(--text-primary)',
+                fontSize:     'var(--fs-meta)',
+                fontFamily:   'inherit',
+                outline:      'none',
+                boxSizing:    'border-box',
+              }}
+            />
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px 32px' }}>
+      <div style={{ maxWidth: 600, margin: '0 auto', padding: '0 var(--sp-4) var(--sp-8)' }}>
 
         {!loaded ? (
-          <div style={{ textAlign: 'center', padding: '48px 0', color: '#9a7c55', fontSize: 13 }}>Loading…</div>
+          <div style={{ textAlign: 'center', padding: 'var(--sp-12) 0', color: 'var(--text-muted)', fontSize: 'var(--fs-meta)' }}>Loading…</div>
         ) : (
 
           <>
@@ -575,76 +591,75 @@ export default function FriendsPage() {
             {tab === 0 && (
               <>
                 {/* My Mule Requests card */}
-                <div style={{ marginTop: 16, marginBottom: 8, background: '#1a1008', border: '1px solid #3d2b10', borderRadius: 12, padding: '14px 16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: (editingMule || myRequests.length > 0) ? 10 : 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc' }}>🫏 My Mule Requests</div>
-                      {muleSaved && <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 600 }}>✓ Saved</span>}
+                <Card hover={false} style={{ marginTop: 'var(--sp-4)', marginBottom: 'var(--sp-2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: (editingMule || myRequests.length > 0) ? 'var(--sp-3)' : 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                      <div style={{ fontWeight: 700, fontSize: 'var(--fs-meta)', color: 'var(--text-primary)' }}>🫏 My Mule Requests</div>
+                      {muleSaved && <span style={{ fontSize: 'var(--fs-overline)', color: 'var(--green)', fontWeight: 600 }}>✓ Saved</span>}
                     </div>
                     {!editingMule && (
-                      <button
-                        onClick={startEditMule}
-                        style={{ background: 'none', border: '1px solid #3d2b10', borderRadius: 6, color: '#9a7c55', fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: '3px 10px' }}
-                      >
-                        Edit
-                      </button>
+                      <Button variant="secondary" size="sm" onClick={startEditMule}>Edit</Button>
                     )}
                   </div>
 
                   {editingMule ? (
                     <div>
                       {editRequests.map((req, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                        <div key={i} style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-2)' }}>
                           <input
                             value={req}
                             onChange={e => setEditRequests(prev => prev.map((r, j) => j === i ? e.target.value : r))}
                             placeholder="e.g. Blanton's Original"
-                            style={{ flex: 1, padding: '7px 10px', background: '#2a1c08', border: '1px solid #3d2b10', borderRadius: 7, color: '#f5e6cc', fontSize: 12, fontFamily: 'inherit', outline: 'none' }}
+                            style={{ flex: 1, padding: 'var(--sp-2) var(--sp-3)', background: 'var(--bg-elev-3)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r-sm)', color: 'var(--text-primary)', fontSize: 'var(--fs-meta)', fontFamily: 'inherit', outline: 'none' }}
                           />
                           <button
                             onClick={() => setEditRequests(prev => prev.filter((_, j) => j !== i))}
-                            style={{ background: 'none', border: '1px solid #3d2b10', borderRadius: 7, color: '#f87171', cursor: 'pointer', padding: '0 10px', fontSize: 14 }}
-                          >✕</button>
+                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
+                            onMouseUp={e   => (e.currentTarget.style.transform = 'scale(1)')}
+                            style={{ background: 'none', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r-sm)', color: 'var(--red)', cursor: 'pointer', padding: '0 var(--sp-3)', display: 'flex', alignItems: 'center' }}
+                          >
+                            <X size={14} strokeWidth={1.75} />
+                          </button>
                         </div>
                       ))}
                       {editRequests.length < 5 && (
                         <button
                           onClick={() => setEditRequests(prev => [...prev, ''])}
-                          style={{ width: '100%', padding: '7px 0', background: 'none', border: '1px dashed #3d2b10', borderRadius: 7, color: '#9a7c55', fontSize: 12, cursor: 'pointer', marginBottom: 10 }}
-                        >+ Add bottle</button>
+                          onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
+                          onMouseUp={e   => (e.currentTarget.style.transform = 'scale(1)')}
+                          style={{ width: '100%', padding: 'var(--sp-2) 0', background: 'none', border: '1px dashed var(--hairline-2)', borderRadius: 'var(--r-sm)', color: 'var(--text-muted)', fontSize: 'var(--fs-meta)', cursor: 'pointer', marginBottom: 'var(--sp-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sp-2)' }}
+                        >
+                          <Plus size={14} strokeWidth={1.75} />
+                          Add bottle
+                        </button>
                       )}
                       {muleError && (
-                        <div style={{ fontSize: 11, color: '#f87171', marginBottom: 6, padding: '5px 8px', background: 'rgba(248,113,113,0.1)', borderRadius: 6, border: '1px solid rgba(248,113,113,0.2)' }}>
+                        <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--red)', marginBottom: 'var(--sp-2)', padding: 'var(--sp-1) var(--sp-2)', background: 'rgba(248,113,113,0.1)', borderRadius: 'var(--r-sm)', border: '1px solid rgba(248,113,113,0.2)' }}>
                           ⚠ {muleError}
                         </div>
                       )}
-                      <div style={{ display: 'flex', gap: 8, marginTop: editRequests.length < 5 ? 0 : 10 }}>
-                        <button
-                          onClick={saveMuleRequests}
-                          disabled={savingMule}
-                          style={{ flex: 1, padding: '7px 0', background: '#e8943a', border: 'none', borderRadius: 7, color: '#fff', fontWeight: 700, fontSize: 12, cursor: savingMule ? 'not-allowed' : 'pointer', opacity: savingMule ? 0.6 : 1 }}
-                        >{savingMule ? 'Saving…' : 'Save'}</button>
-                        <button
-                          onClick={cancelEditMule}
-                          style={{ flex: 1, padding: '7px 0', background: 'none', border: '1px solid #3d2b10', borderRadius: 7, color: '#9a7c55', fontSize: 12, cursor: 'pointer' }}
-                        >Cancel</button>
+                      <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: editRequests.length < 5 ? 0 : 'var(--sp-3)' }}>
+                        <Button variant="primary" size="sm" fullWidth onClick={saveMuleRequests} disabled={savingMule}>
+                          {savingMule ? 'Saving…' : 'Save'}
+                        </Button>
+                        <Button variant="secondary" size="sm" fullWidth onClick={cancelEditMule}>Cancel</Button>
                       </div>
                     </div>
                   ) : myRequests.length === 0 ? (
-                    <div style={{ fontSize: 12, color: '#6b5030', fontStyle: 'italic' }}>
+                    <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', fontStyle: 'italic' }}>
                       No bottles on your list yet — tap Edit to add bottles your friends can hunt for you
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-1)' }}>
                       {myRequests.map((req, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < myRequests.length - 1 ? '1px solid #2a1c08' : 'none' }}>
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', padding: 'var(--sp-1) 0', borderBottom: i < myRequests.length - 1 ? '1px solid var(--hairline)' : 'none' }}>
                           <span style={{ fontSize: 13 }}>🥃</span>
-                          <span style={{ fontSize: 13, color: '#f5e6cc', fontWeight: 500 }}>{req}</span>
+                          <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-primary)', fontWeight: 500 }}>{req}</span>
                         </div>
                       ))}
                     </div>
                   )}
-                </div>
+                </Card>
 
                 {/* Friends Hunting For — mule requests + structured wishlist Hunting entries */}
                 {(() => {
@@ -668,67 +683,63 @@ export default function FriendsPage() {
                   })
                   if (allRequests.length === 0) return null
 
-                  const rarityColor = { Common: '#9a7c55', Allocated: '#e8943a', Unicorn: '#c084fc' }
+                  const rarityColor = {
+                    Common:    'var(--text-muted)',
+                    Allocated: 'var(--copper-500)',
+                    Unicorn:   'var(--violet)',
+                  }
 
                   return (
-                    <div style={{ marginBottom: 8, background: '#1a1008', border: '1px solid #3d2b10', borderRadius: 12, padding: '14px 16px' }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', marginBottom: 10 }}>
+                    <Card hover={false} style={{ marginBottom: 'var(--sp-2)' }}>
+                      <div style={{ fontWeight: 700, fontSize: 'var(--fs-meta)', color: 'var(--text-primary)', marginBottom: 'var(--sp-3)' }}>
                         🔍 Friends Hunting For
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
                         {allRequests.map(({ req, name, rarity }, i) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < allRequests.length - 1 ? '1px solid #1f1308' : 'none' }}>
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', padding: 'var(--sp-1) 0', borderBottom: i < allRequests.length - 1 ? '1px solid var(--hairline)' : 'none' }}>
                             <span style={{ fontSize: 14, flexShrink: 0 }}>🥃</span>
-                            <span style={{ fontSize: 13, color: '#f5e6cc', flex: 1 }}>{req}</span>
+                            <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-primary)', flex: 1 }}>{req}</span>
                             {rarity && rarity !== 'Common' && (
-                              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999, color: rarityColor[rarity] ?? '#9a7c55', background: `${rarityColor[rarity] ?? '#9a7c55'}18`, border: `1px solid ${rarityColor[rarity] ?? '#9a7c55'}40`, flexShrink: 0 }}>
+                              <span style={{ fontSize: 'var(--fs-overline)', fontWeight: 700, padding: '1px 6px', borderRadius: 'var(--r-pill)', color: rarityColor[rarity] ?? 'var(--text-muted)', background: `color-mix(in srgb, ${rarityColor[rarity] ?? 'var(--text-muted)'} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${rarityColor[rarity] ?? 'var(--text-muted)'} 30%, transparent)`, flexShrink: 0 }}>
                                 {rarity === 'Unicorn' ? '🦄' : rarity}
                               </span>
                             )}
-                            <span style={{ fontSize: 11, color: '#6b5030', flexShrink: 0 }}>{name}</span>
+                            <span style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', flexShrink: 0 }}>{name}</span>
                           </div>
                         ))}
                       </div>
-                    </div>
+                    </Card>
                   )
                 })()}
 
                 {filteredFriends.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '48px 0' }}>
-                    <div style={{ fontSize: 36, marginBottom: 10 }}>👥</div>
-                    <div style={{ fontWeight: 700, fontSize: 16, color: '#f5e6cc', marginBottom: 6 }}>
-                      {search ? 'No matches' : 'No friends yet'}
-                    </div>
-                    <div style={{ fontSize: 13, color: '#9a7c55', marginBottom: 16 }}>
-                      {search ? 'Try a different search' : 'Discover members on the Discover tab and send a friend request'}
-                    </div>
-                    {!search && (
-                      <button
-                        onClick={() => setTab(2)}
-                        style={{ padding: '8px 20px', background: '#e8943a', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
-                      >
-                        Discover Members →
-                      </button>
-                    )}
-                  </div>
+                  <EmptyState
+                    icon="Users"
+                    title={search ? 'No matches' : 'No friends yet'}
+                    body={search ? 'Try a different search' : 'Invite bourbon hunters you know'}
+                    ctaLabel={!search ? 'Discover Members' : undefined}
+                    onCta={!search ? () => setTab(2) : undefined}
+                  />
                 ) : (
-                  <div style={{ paddingTop: 4 }}>
-                    <div style={{ fontSize: 11, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '12px 0 4px', fontWeight: 700 }}>
-                      {filteredFriends.length} friend{filteredFriends.length !== 1 ? 's' : ''}
-                    </div>
-                    {filteredFriends.map(friend => (
-                      <div key={friend.email} style={{ borderBottom: '1px solid #1f1308' }}>
+                  <div style={{ paddingTop: 'var(--sp-1)' }}>
+                    <SectionHeader
+                      overline={`${filteredFriends.length} friend${filteredFriends.length !== 1 ? 's' : ''}`}
+                      style={{ marginTop: 'var(--sp-3)' }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                      {filteredFriends.map(friend => (
                         <UserRow
+                          key={friend.email}
                           user={friend}
                           rightSlot={
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              {accentBtn('View', () => setViewing(friend), false)}
-                              {ghostBtn('Remove', () => removeFriend(friend.email), actionEmail === friend.email, '#f87171')}
+                            <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+                              <Button size="sm" variant="primary" onClick={() => setViewing(friend)}>View</Button>
+                              <Button size="sm" variant="danger" onClick={() => removeFriend(friend.email)} disabled={actionEmail === friend.email}>Remove</Button>
                             </div>
                           }
                         />
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
               </>
@@ -738,27 +749,31 @@ export default function FriendsPage() {
             {tab === 1 && (
               <>
                 {filteredRequests.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '48px 0', color: '#6b5030', fontSize: 13 }}>
-                    {search ? 'No matches' : 'No pending friend requests'}
-                  </div>
+                  <EmptyState
+                    icon="UserPlus"
+                    title={search ? 'No matches' : 'No pending requests'}
+                    body={search ? 'Try a different search' : 'When someone sends you a friend request it will appear here'}
+                  />
                 ) : (
-                  <div style={{ paddingTop: 4 }}>
-                    <div style={{ fontSize: 11, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '12px 0 4px', fontWeight: 700 }}>
-                      {filteredRequests.length} pending request{filteredRequests.length !== 1 ? 's' : ''}
-                    </div>
-                    {filteredRequests.map(user => (
-                      <div key={user.email} style={{ borderBottom: '1px solid #1f1308' }}>
+                  <div style={{ paddingTop: 'var(--sp-1)' }}>
+                    <SectionHeader
+                      overline={`${filteredRequests.length} pending request${filteredRequests.length !== 1 ? 's' : ''}`}
+                      style={{ marginTop: 'var(--sp-3)' }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                      {filteredRequests.map(user => (
                         <UserRow
+                          key={user.email}
                           user={user}
                           rightSlot={
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              {accentBtn('Accept', () => respond(user.email, 'accept'), actionEmail === user.email)}
-                              {ghostBtn('Ignore', () => respond(user.email, 'reject'), actionEmail === user.email)}
+                            <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+                              <Button size="sm" variant="primary" onClick={() => respond(user.email, 'accept')} disabled={actionEmail === user.email}>Accept</Button>
+                              <Button size="sm" variant="secondary" onClick={() => respond(user.email, 'reject')} disabled={actionEmail === user.email}>Ignore</Button>
                             </div>
                           }
                         />
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
               </>
@@ -768,30 +783,44 @@ export default function FriendsPage() {
             {tab === 2 && (
               <>
                 {filteredDiscover.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '48px 0', color: '#6b5030', fontSize: 13 }}>
-                    {search ? 'No matches' : "You're connected with everyone in the club 🎉"}
-                  </div>
+                  <EmptyState
+                    icon="Users"
+                    title={search ? 'No matches' : 'All connected!'}
+                    body={search ? 'Try a different search' : "You're connected with everyone in the club 🎉"}
+                  />
                 ) : (
-                  <div style={{ paddingTop: 4 }}>
-                    <div style={{ fontSize: 11, color: '#6b5030', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '12px 0 4px', fontWeight: 700 }}>
-                      {filteredDiscover.length} member{filteredDiscover.length !== 1 ? 's' : ''}
-                    </div>
-                    {filteredDiscover.map(user => {
-                      const alreadySent = sentSet.has(user.email)
-                      const loading     = actionEmail === user.email
-                      return (
-                        <div key={user.email} style={{ borderBottom: '1px solid #1f1308' }}>
+                  <div style={{ paddingTop: 'var(--sp-1)' }}>
+                    <SectionHeader
+                      overline={`${filteredDiscover.length} member${filteredDiscover.length !== 1 ? 's' : ''}`}
+                      style={{ marginTop: 'var(--sp-3)' }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                      {filteredDiscover.map(user => {
+                        const alreadySent = sentSet.has(user.email)
+                        const loading     = actionEmail === user.email
+                        return (
                           <UserRow
+                            key={user.email}
                             user={user}
                             rightSlot={
                               alreadySent
-                                ? <span style={{ fontSize: 11, color: '#6b5030', fontStyle: 'italic', flexShrink: 0 }}>Requested</span>
-                                : accentBtn('+ Add', () => sendRequest(user.email), loading)
+                                ? <span style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', fontStyle: 'italic', flexShrink: 0 }}>Requested</span>
+                                : (
+                                  <Button
+                                    size="sm"
+                                    variant="primary"
+                                    icon={<UserPlus size={14} strokeWidth={1.75} />}
+                                    onClick={() => sendRequest(user.email)}
+                                    disabled={loading}
+                                  >
+                                    Add
+                                  </Button>
+                                )
                             }
                           />
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
               </>
