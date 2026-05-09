@@ -1,6 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
+import Sheet from './ui/Sheet.jsx'
+import SectionHeader from './ui/SectionHeader.jsx'
+import Button from './ui/Button.jsx'
 
 function initials(name) {
   if (!name) return '?'
@@ -12,13 +15,12 @@ function initials(name) {
 
 export default function SettingsDrawer({ open, onClose }) {
   const { data: session } = useSession()
-  const [displayName,    setDisplayName]    = useState('')
-  const [discordHandle,  setDiscordHandle]  = useState('')
-  const [saving,         setSaving]         = useState(false)
-  const [saved,          setSaved]          = useState(false)
-  const [saveError,      setSaveError]      = useState(null)
+  const [displayName,   setDisplayName]   = useState('')
+  const [discordHandle, setDiscordHandle] = useState('')
+  const [saving,        setSaving]        = useState(false)
+  const [saved,         setSaved]         = useState(false)
+  const [saveError,     setSaveError]     = useState(null)
 
-  // Load stored profile when drawer opens
   useEffect(() => {
     if (!open) return
     fetch('/api/profile')
@@ -27,54 +29,8 @@ export default function SettingsDrawer({ open, onClose }) {
         setDisplayName(d.profile?.name || session?.user?.name || '')
         setDiscordHandle(d.profile?.discordHandle || '')
       })
-      .catch(() => {
-        setDisplayName(session?.user?.name || '')
-      })
+      .catch(() => { setDisplayName(session?.user?.name || '') })
   }, [open])
-
-  if (!open) return null
-
-  const section = {
-    fontWeight:     700,
-    fontSize:       11,
-    color:          '#9a7c55',
-    textTransform:  'uppercase',
-    letterSpacing:  '0.07em',
-    padding:        '16px 16px 8px',
-    borderBottom:   '1px solid #2a1c08',
-  }
-
-  const inputStyle = {
-    width:        '100%',
-    padding:      '8px 12px',
-    background:   '#0f0a05',
-    border:       '1px solid #3d2b10',
-    borderRadius: 8,
-    color:        '#f5e6cc',
-    fontSize:     13,
-    fontFamily:   'inherit',
-    outline:      'none',
-    boxSizing:    'border-box',
-  }
-
-  const labelStyle = {
-    display:       'block',
-    fontSize:      10,
-    fontWeight:    700,
-    color:         '#9a7c55',
-    marginBottom:  4,
-    marginTop:     12,
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-  }
-
-  const prefRow = {
-    display:        'flex',
-    alignItems:     'center',
-    justifyContent: 'space-between',
-    padding:        '9px 16px',
-    borderBottom:   '1px solid #1f1308',
-  }
 
   async function handleSave() {
     setSaving(true)
@@ -95,181 +51,156 @@ export default function SettingsDrawer({ open, onClose }) {
     }
   }
 
+  const inputStyle = {
+    width:        '100%',
+    padding:      'var(--sp-2) var(--sp-3)',
+    background:   'var(--bg-base)',
+    border:       '1px solid var(--hairline-2)',
+    borderRadius: 'var(--r-md)',
+    color:        'var(--text-primary)',
+    fontSize:     'var(--fs-body)',
+    fontFamily:   'inherit',
+    outline:      'none',
+    boxSizing:    'border-box',
+    transition:   'border-color var(--t-fast) var(--ease-out)',
+  }
+
+  const labelStyle = {
+    display:       'block',
+    fontSize:      'var(--fs-overline)',
+    fontWeight:    700,
+    color:         'var(--text-muted)',
+    marginBottom:  'var(--sp-1)',
+    marginTop:     'var(--sp-4)',
+    textTransform: 'uppercase',
+    letterSpacing: 'var(--tracking-overline)',
+  }
+
+  const prefRow = {
+    display:        'flex',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+    padding:        'var(--sp-3) 0',
+    borderBottom:   '1px solid var(--hairline)',
+  }
+
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 149 }}
-      />
+    <Sheet open={open} onClose={onClose} side title="Settings">
 
-      {/* Panel */}
-      <div style={{
-        position:     'fixed',
-        top:          0,
-        right:        0,
-        bottom:       0,
-        width:        'min(360px, 100vw)',
-        background:   '#1a1008',
-        borderLeft:   '1px solid #3d2b10',
-        zIndex:       150,
-        display:      'flex',
-        flexDirection:'column',
-        animation:    'slideLeft 0.25s ease',
-        overflowY:    'auto',
-      }}>
+      {/* ── Profile ──────────────────────────────────────────────────────── */}
+      <SectionHeader overline="Profile" style={{ marginBottom: 'var(--sp-4)' }} />
 
-        {/* Header */}
+      {/* Avatar row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
         <div style={{
+          width:          52,
+          height:         52,
+          borderRadius:   '50%',
+          background:     'var(--grad-copper)',
           display:        'flex',
           alignItems:     'center',
-          justifyContent: 'space-between',
-          padding:        '14px 16px',
-          borderBottom:   '1px solid #3d2b10',
-          background:     '#1a1008',
-          position:       'sticky',
-          top:            0,
-          zIndex:         1,
+          justifyContent: 'center',
+          fontWeight:     800,
+          fontSize:       18,
+          color:          'var(--text-inverse)',
+          flexShrink:     0,
+          boxShadow:      'var(--shadow-2)',
         }}>
-          <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc' }}>⚙️ Settings</div>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9a7c55', fontSize: 20, lineHeight: 1 }}
-          >
-            ✕
-          </button>
+          {initials(displayName || session?.user?.name)}
         </div>
-
-        {/* Section: Profile */}
-        <div style={section}>Profile</div>
-
-        <div style={{ padding: '16px' }}>
-          {/* Avatar + name */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-            <div style={{
-              width:        52,
-              height:       52,
-              borderRadius: '50%',
-              background:   'linear-gradient(135deg, #e8943a, #b05a10)',
-              display:      'flex',
-              alignItems:   'center',
-              justifyContent: 'center',
-              fontWeight:   800,
-              fontSize:     18,
-              color:        '#fff',
-              flexShrink:   0,
-            }}>
-              {initials(displayName || session?.user?.name)}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#f5e6cc' }}>
-                {displayName || session?.user?.name || 'Your Name'}
-              </div>
-              <div style={{ fontSize: 12, color: '#9a7c55', marginTop: 2 }}>
-                {session?.user?.email}
-              </div>
-            </div>
+        <div>
+          <div style={{ fontSize: 'var(--fs-h3)', fontWeight: 700, color: 'var(--text-primary)' }}>
+            {displayName || session?.user?.name || 'Your Name'}
           </div>
-
-          <label style={labelStyle}>Display Name</label>
-          <input
-            style={inputStyle}
-            value={displayName}
-            onChange={e => setDisplayName(e.target.value)}
-            placeholder="How you appear in the app"
-          />
-
-          <label style={labelStyle}>Discord Handle</label>
-          <input
-            style={inputStyle}
-            value={discordHandle}
-            onChange={e => setDiscordHandle(e.target.value)}
-            placeholder="e.g. whiskeydave#1234"
-          />
-
-          {saveError && (
-            <p style={{ color: '#f87171', fontSize: 12, margin: '8px 0 0' }}>{saveError}</p>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{
-              marginTop:    12,
-              width:        '100%',
-              padding:      '9px',
-              background:   saved ? '#166534' : '#e8943a',
-              border:       'none',
-              borderRadius: 8,
-              color:        '#fff',
-              fontWeight:   700,
-              fontSize:     13,
-              cursor:       saving ? 'not-allowed' : 'pointer',
-              opacity:      saving ? 0.7 : 1,
-              transition:   'background 0.2s',
-            }}
-          >
-            {saving ? '⏳ Saving…' : saved ? '✓ Saved' : 'Save Profile'}
-          </button>
-        </div>
-
-        {/* Section: Club */}
-        <div style={section}>Club</div>
-
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a1c08' }}>
-          <div style={{
-            background:   '#1f1308',
-            border:       '1px solid #3d2b10',
-            borderRadius: 10,
-            padding:      '12px 14px',
-          }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#f5e6cc', marginBottom: 4 }}>
-              🥃 Jon and the Juice
-            </div>
-            <div style={{ fontSize: 12, color: '#9a7c55' }}>
-              Chicagoland bourbon community
-            </div>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginTop: 2 }}>
+            {session?.user?.email}
           </div>
         </div>
-
-        {/* Section: App Preferences */}
-        <div style={section}>App Preferences</div>
-
-        {[
-          { label: 'Default tab on open', value: 'Finds'       },
-          { label: 'Truck check schedule', value: '6× daily'   },
-          { label: 'Find expiry',          value: '24 hours'   },
-          { label: 'Fresh badge threshold',value: '< 6h old'   },
-        ].map(({ label, value }) => (
-          <div key={label} style={prefRow}>
-            <span style={{ fontSize: 13, color: '#c9a87a' }}>{label}</span>
-            <span style={{ fontSize: 12, color: '#6b5030' }}>{value}</span>
-          </div>
-        ))}
-
-        {/* Section: Account */}
-        <div style={section}>Account</div>
-
-        <div style={{ padding: '16px' }}>
-          <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
-            style={{
-              width:        '100%',
-              padding:      '10px',
-              background:   'transparent',
-              border:       '1px solid #f87171',
-              borderRadius: 8,
-              color:        '#f87171',
-              fontWeight:   700,
-              fontSize:     14,
-              cursor:       'pointer',
-            }}
-          >
-            Sign Out
-          </button>
-        </div>
-
-        <div style={{ height: 'env(safe-area-inset-bottom)' }} />
       </div>
-    </>
+
+      <label style={labelStyle}>Display Name</label>
+      <input
+        style={inputStyle}
+        value={displayName}
+        onChange={e => setDisplayName(e.target.value)}
+        placeholder="How you appear in the app"
+        onFocus={e => e.target.style.borderColor = 'var(--copper-500)'}
+        onBlur={e  => e.target.style.borderColor = 'var(--hairline-2)'}
+      />
+
+      <label style={labelStyle}>Discord Handle</label>
+      <input
+        style={inputStyle}
+        value={discordHandle}
+        onChange={e => setDiscordHandle(e.target.value)}
+        placeholder="e.g. whiskeydave#1234"
+        onFocus={e => e.target.style.borderColor = 'var(--copper-500)'}
+        onBlur={e  => e.target.style.borderColor = 'var(--hairline-2)'}
+      />
+
+      {saveError && (
+        <p style={{ color: 'var(--red)', fontSize: 'var(--fs-meta)', margin: 'var(--sp-2) 0 0' }}>{saveError}</p>
+      )}
+
+      <Button
+        onClick={handleSave}
+        disabled={saving}
+        variant={saved ? 'secondary' : 'primary'}
+        fullWidth
+        style={{ marginTop: 'var(--sp-4)', background: saved ? 'rgba(93,211,158,0.15)' : undefined, color: saved ? 'var(--green)' : undefined }}
+      >
+        {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Profile'}
+      </Button>
+
+      <div style={{ borderTop: '1px solid var(--hairline)', margin: 'var(--sp-6) 0' }} />
+
+      {/* ── Club ─────────────────────────────────────────────────────────── */}
+      <SectionHeader overline="Club" style={{ marginBottom: 'var(--sp-3)' }} />
+
+      <div style={{
+        background:   'var(--bg-elev-3)',
+        border:       '1px solid var(--hairline-2)',
+        borderRadius: 'var(--r-md)',
+        padding:      'var(--sp-3) var(--sp-4)',
+      }}>
+        <div style={{ fontSize: 'var(--fs-body)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
+          🥃 Jon and the Juice
+        </div>
+        <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
+          Chicagoland bourbon community
+        </div>
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--hairline)', margin: 'var(--sp-6) 0' }} />
+
+      {/* ── App Preferences ──────────────────────────────────────────────── */}
+      <SectionHeader overline="App Preferences" style={{ marginBottom: 'var(--sp-2)' }} />
+
+      {[
+        { label: 'Default tab on open',  value: 'Finds'    },
+        { label: 'Truck check schedule', value: '6× daily' },
+        { label: 'Find expiry',          value: '24 hours' },
+        { label: 'Fresh badge threshold',value: '< 6h old' },
+      ].map(({ label, value }) => (
+        <div key={label} style={prefRow}>
+          <span style={{ fontSize: 'var(--fs-body)', color: 'var(--text-2)' }}>{label}</span>
+          <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' }}>{value}</span>
+        </div>
+      ))}
+
+      <div style={{ borderTop: '1px solid var(--hairline)', margin: 'var(--sp-6) 0' }} />
+
+      {/* ── Account ──────────────────────────────────────────────────────── */}
+      <SectionHeader overline="Account" style={{ marginBottom: 'var(--sp-4)' }} />
+
+      <Button
+        variant="danger"
+        fullWidth
+        onClick={() => signOut({ callbackUrl: '/login' })}
+      >
+        Sign Out
+      </Button>
+
+    </Sheet>
   )
 }

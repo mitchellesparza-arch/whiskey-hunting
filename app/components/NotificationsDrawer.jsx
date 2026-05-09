@@ -1,6 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
+import { Bell, X } from 'lucide-react'
+import Sheet from './ui/Sheet.jsx'
+import SectionHeader from './ui/SectionHeader.jsx'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -13,7 +16,7 @@ function urlBase64ToUint8Array(base64) {
   return arr
 }
 
-// ── Toggle component ──────────────────────────────────────────────────────────
+// ── Toggle ────────────────────────────────────────────────────────────────────
 function Toggle({ on, onChange, disabled }) {
   return (
     <button
@@ -23,25 +26,26 @@ function Toggle({ on, onChange, disabled }) {
       style={{
         width:        40,
         height:       22,
-        borderRadius: 11,
-        background:   on ? '#e8943a' : '#3d2b10',
-        border:       'none',
+        borderRadius: 'var(--r-pill)',
+        background:   on ? 'var(--copper-500)' : 'var(--bg-elev-3)',
+        border:       `1px solid ${on ? 'var(--copper-600)' : 'var(--hairline-2)'}`,
         cursor:       disabled ? 'not-allowed' : 'pointer',
         position:     'relative',
-        transition:   'background 0.2s',
+        transition:   'background var(--t-base) var(--ease-out), border-color var(--t-base) var(--ease-out)',
         flexShrink:   0,
-        opacity:      disabled ? 0.5 : 1,
+        opacity:      disabled ? 0.45 : 1,
       }}
     >
       <span style={{
         position:     'absolute',
         top:          3,
-        left:         on ? 21 : 3,
-        width:        16,
-        height:       16,
+        left:         on ? 19 : 3,
+        width:        14,
+        height:       14,
         borderRadius: '50%',
         background:   '#fff',
-        transition:   'left 0.2s',
+        transition:   'left var(--t-base) var(--ease-spring)',
+        boxShadow:    'var(--shadow-1)',
       }} />
     </button>
   )
@@ -53,24 +57,20 @@ const DEFAULT_PREFS = { trucks: true, finds: true, watchlist: true, auctions: tr
 export default function NotificationsDrawer({ open, onClose }) {
   const { data: session } = useSession()
 
-  // Watchlist
   const [watchlist,  setWatchlist]  = useState([])
   const [newBottle,  setNewBottle]  = useState('')
   const [adding,     setAdding]     = useState(false)
   const inputRef = useRef(null)
 
-  // Notification preferences (server-backed)
-  const [prefs,       setPrefs]       = useState(DEFAULT_PREFS)
-  const [costcoMode,  setCostcoMode]  = useState('all')   // 'all' | 'favorites'
+  const [prefs,      setPrefs]      = useState(DEFAULT_PREFS)
+  const [costcoMode, setCostcoMode] = useState('all')
 
-  // Push subscription state
   const [pushSupported,  setPushSupported]  = useState(false)
   const [pushPermission, setPushPermission] = useState('default')
   const [pushEnabled,    setPushEnabled]    = useState(false)
   const [enabling,       setEnabling]       = useState(false)
-  const [pushStatus,     setPushStatus]     = useState('') // user-facing status message
+  const [pushStatus,     setPushStatus]     = useState('')
 
-  // ── Check push support on mount ─────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
@@ -82,21 +82,16 @@ export default function NotificationsDrawer({ open, onClose }) {
       .catch(() => {})
   }, [])
 
-  // ── Load watchlist + prefs when drawer opens ─────────────────────────────
   useEffect(() => {
     if (!open || !session?.user) return
-
     fetch('/api/watchlist')
       .then(r => r.json())
       .then(d => setWatchlist(d.bottles ?? []))
       .catch(() => {})
-
     fetch('/api/profile')
       .then(r => r.json())
       .then(d => {
-        if (d.profile?.notifPrefs) {
-          setPrefs(prev => ({ ...DEFAULT_PREFS, ...d.profile.notifPrefs }))
-        }
+        if (d.profile?.notifPrefs) setPrefs(prev => ({ ...DEFAULT_PREFS, ...d.profile.notifPrefs }))
         if (d.profile?.costcoMode === 'favorites' || d.profile?.costcoMode === 'all') {
           setCostcoMode(d.profile.costcoMode)
         }
@@ -104,17 +99,14 @@ export default function NotificationsDrawer({ open, onClose }) {
       .catch(() => {})
   }, [open, session])
 
-  // ── Focus input ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (open && inputRef.current) setTimeout(() => inputRef.current?.focus(), 250)
+    if (open && inputRef.current) setTimeout(() => inputRef.current?.focus(), 300)
   }, [open])
 
-  // ── Push enable / disable ────────────────────────────────────────────────
   async function enablePush() {
     setEnabling(true)
     setPushStatus('Requesting permission…')
     try {
-      // Request permission (must be triggered by user gesture)
       const permission = await Notification.requestPermission()
       setPushPermission(permission)
       if (permission !== 'granted') {
@@ -123,51 +115,36 @@ export default function NotificationsDrawer({ open, onClose }) {
           : 'Permission not granted')
         return
       }
-
-      // Fetch VAPID public key
       setPushStatus('Fetching server key…')
       const keyRes = await fetch('/api/push')
       if (!keyRes.ok) throw new Error(`Key fetch failed: ${keyRes.status}`)
       const { publicKey } = await keyRes.json()
       if (!publicKey) { setPushStatus('VAPID_PUBLIC_KEY not set in Vercel — contact admin'); return }
-
-      // Register service worker (idempotent if already registered)
       setPushStatus('Registering service worker…')
       let reg
-      try {
-        reg = await navigator.serviceWorker.register('/sw.js')
-      } catch (err) {
-        throw new Error(`SW registration failed: ${err.message}`)
-      }
-
-      // Wait for SW to become active (max 8s)
+      try { reg = await navigator.serviceWorker.register('/sw.js') }
+      catch (err) { throw new Error(`SW registration failed: ${err.message}`) }
       if (!reg.active) {
         setPushStatus('Activating service worker…')
         await new Promise((resolve, reject) => {
           const timeout = setTimeout(
-            () => reject(new Error('SW did not activate — check /sw.js loads in browser')),
-            8000
+            () => reject(new Error('SW did not activate')), 8000
           )
           const worker = reg.installing || reg.waiting
           if (!worker) { clearTimeout(timeout); resolve(); return }
           worker.addEventListener('statechange', function () {
             if (this.state === 'activated') { clearTimeout(timeout); resolve() }
-            if (this.state === 'redundant') { clearTimeout(timeout); reject(new Error('SW became redundant')) }
+            if (this.state === 'redundant')  { clearTimeout(timeout); reject(new Error('SW became redundant')) }
           })
         })
-        // Re-fetch registration now that it's active
         reg = await navigator.serviceWorker.getRegistration('/sw.js')
         if (!reg?.active) throw new Error('SW active but registration lost')
       }
-
-      // Subscribe to push
       setPushStatus('Subscribing…')
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly:      true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       })
-
-      // Save to server
       setPushStatus('Saving subscription…')
       const res = await fetch('/api/push', {
         method:  'POST',
@@ -175,7 +152,6 @@ export default function NotificationsDrawer({ open, onClose }) {
         body:    JSON.stringify({ subscription: sub.toJSON() }),
       })
       if (!res.ok) throw new Error(`Server save failed: ${res.status}`)
-
       setPushEnabled(true)
       setPushStatus('✓ Push notifications enabled!')
     } catch (err) {
@@ -205,7 +181,6 @@ export default function NotificationsDrawer({ open, onClose }) {
     }
   }
 
-  // ── Preference toggle ────────────────────────────────────────────────────
   async function updatePref(key, value) {
     const newPrefs = { ...prefs, [key]: value }
     setPrefs(newPrefs)
@@ -225,7 +200,6 @@ export default function NotificationsDrawer({ open, onClose }) {
     }).catch(() => {})
   }
 
-  // ── Watchlist handlers ───────────────────────────────────────────────────
   async function addBottle() {
     const name = newBottle.trim()
     if (!name) return
@@ -249,267 +223,257 @@ export default function NotificationsDrawer({ open, onClose }) {
     } catch {}
   }
 
-  if (!open) return null
-
   const isIOS        = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
-  const isStandalone = typeof window !== 'undefined' &&
+  const isStandalone = typeof window   !== 'undefined' &&
     (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true)
 
-  const sectionStyle = {
-    fontWeight:    700,
-    fontSize:      11,
-    color:         '#9a7c55',
-    textTransform: 'uppercase',
-    letterSpacing: '0.07em',
-    padding:       '16px 16px 8px',
-    borderBottom:  '1px solid #2a1c08',
-  }
+  const divider = { borderTop: '1px solid var(--hairline)', margin: 0 }
 
-  const rowStyle = {
+  const row = {
     display:        'flex',
     alignItems:     'center',
     justifyContent: 'space-between',
-    padding:        '10px 16px',
-    borderBottom:   '1px solid #1f1308',
-    gap:            12,
+    padding:        'var(--sp-3) 0',
+    gap:            'var(--sp-3)',
+    borderBottom:   '1px solid var(--hairline)',
   }
 
   return (
-    <>
-      {/* Backdrop */}
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 149 }} />
+    <Sheet open={open} onClose={onClose} side title="Notifications">
+      {/* ── Push Notifications ────────────────────────────────────────────── */}
+      <SectionHeader overline="Push Notifications" style={{ marginBottom: 'var(--sp-3)' }} />
 
-      {/* Panel */}
-      <div style={{
-        position:      'fixed',
-        top:           0,
-        right:         0,
-        bottom:        0,
-        width:         'min(360px, 100vw)',
-        background:    '#1a1008',
-        borderLeft:    '1px solid #3d2b10',
-        zIndex:        150,
-        display:       'flex',
-        flexDirection: 'column',
-        animation:     'slideLeft 0.25s ease',
-        overflowY:     'auto',
-      }}>
-
-        {/* Header */}
-        <div style={{
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'space-between',
-          padding:        '14px 16px',
-          borderBottom:   '1px solid #3d2b10',
-          background:     '#1a1008',
-          position:       'sticky',
-          top:            0,
-          zIndex:         1,
-        }}>
-          <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc' }}>🔔 Notifications</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9a7c55', fontSize: 20, lineHeight: 1 }}>✕</button>
-        </div>
-
-        {/* ── Push Notifications section ──────────────────────────────── */}
-        <div style={sectionStyle}>Push Notifications</div>
-
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a1c08' }}>
-          {!pushSupported ? (
-            <div style={{ fontSize: 12, color: '#6b5030' }}>
-              Push notifications are not supported in this browser.
-            </div>
-          ) : isIOS && !isStandalone ? (
-            <div style={{ fontSize: 12, color: '#9a7c55', lineHeight: 1.5 }}>
-              📲 On iPhone, add Tater Tracker to your home screen first, then open from there to enable push notifications.
-            </div>
-          ) : pushPermission === 'denied' ? (
-            <div style={{ fontSize: 12, color: '#f87171', lineHeight: 1.5 }}>
-              Notifications are blocked. Allow them in your browser/phone settings, then come back here.
-            </div>
-          ) : pushEnabled ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#4ade80' }}>✓ Enabled on this device</div>
-                <div style={{ fontSize: 11, color: '#6b5030', marginTop: 2 }}>You'll receive notifications below</div>
-              </div>
-              <button
-                onClick={disablePush}
-                style={{ padding: '5px 12px', background: 'none', border: '1px solid #3d2b10', borderRadius: 7, color: '#9a7c55', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-              >
-                Disable
-              </button>
-            </div>
-          ) : (
-            <div>
-              <div style={{ fontSize: 12, color: '#9a7c55', marginBottom: 10, lineHeight: 1.5 }}>
-                Get notified on this device when trucks arrive, friends send requests, and more.
-              </div>
-              <button
-                onClick={enablePush}
-                disabled={enabling}
-                style={{
-                  width:        '100%',
-                  padding:      '9px 0',
-                  background:   enabling ? '#3d2b10' : '#e8943a',
-                  border:       'none',
-                  borderRadius: 8,
-                  color:        '#fff',
-                  fontWeight:   700,
-                  fontSize:     13,
-                  cursor:       enabling ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {enabling ? 'Enabling…' : '🔔 Enable Push Notifications'}
-              </button>
-            </div>
-          )}
-
-          {pushStatus && (
-            <div style={{ fontSize: 11, color: pushStatus.includes('!') ? '#4ade80' : '#f87171', marginTop: 8, textAlign: 'center' }}>
-              {pushStatus}
-            </div>
-          )}
-        </div>
-
-        {/* ── Alert Settings ──────────────────────────────────────────── */}
-        <div style={sectionStyle}>Alert Settings</div>
-
-        {[
-          { key: 'trucks',    label: 'Truck deliveries detected' },
-          { key: 'costco',    label: 'Costco bourbon alerts'     },
-          { key: 'finds',     label: 'New club finds'            },
-          { key: 'friends',   label: 'Friend requests'           },
-          { key: 'watchlist', label: 'Watchlist matches'         },
-          { key: 'auctions',  label: 'Auction price drops'       },
-        ].map(({ key, label }) => (
-          <div key={key} style={rowStyle}>
-            <div>
-              <span style={{ fontSize: 13, color: '#f5e6cc' }}>{label}</span>
-              {!pushEnabled && <div style={{ fontSize: 10, color: '#6b5030', marginTop: 1 }}>Enable push to receive alerts</div>}
-            </div>
-            <Toggle
-              on={prefs[key] ?? true}
-              onChange={v => updatePref(key, v)}
-              disabled={!pushEnabled}
-            />
-          </div>
-        ))}
-
-        {/* ── Costco Alerts scope ─────────────────────────────────────── */}
-        <div style={sectionStyle}>Costco Alert Scope</div>
-
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a1c08' }}>
-          <p style={{ margin: '0 0 10px', fontSize: 12, color: '#9a7c55', lineHeight: 1.5 }}>
-            Choose which Illinois Costco warehouses send you push notifications.
-            Pick favorites on the Tracker → Costco tab.
+      <div style={{ marginBottom: 'var(--sp-5)' }}>
+        {!pushSupported ? (
+          <p style={{ margin: 0, fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', lineHeight: 'var(--lh-body)' }}>
+            Push notifications are not supported in this browser.
           </p>
-          {[
-            { key: 'all',       label: 'All Illinois stores',  desc: 'Every alert from every IL Costco we track' },
-            { key: 'favorites', label: 'Favorites only',       desc: 'Only your pinned stores (max 3)' },
-          ].map(({ key, label, desc }) => {
-            const active = costcoMode === key
-            return (
-              <button
-                key={key}
-                onClick={() => updateCostcoMode(key)}
-                disabled={!pushEnabled || prefs.costco === false}
-                style={{
-                  display:      'flex',
-                  alignItems:   'center',
-                  gap:          10,
-                  width:        '100%',
-                  padding:      '10px 12px',
-                  marginBottom: 6,
-                  background:   active ? '#2a1500' : '#0f0a05',
-                  border:       `1px solid ${active ? '#e8943a' : '#3d2b10'}`,
-                  borderRadius: 8,
-                  cursor:       (!pushEnabled || prefs.costco === false) ? 'not-allowed' : 'pointer',
-                  opacity:      (!pushEnabled || prefs.costco === false) ? 0.5 : 1,
-                  textAlign:    'left',
-                }}
-              >
-                <span style={{
-                  width:        16,
-                  height:       16,
-                  borderRadius: '50%',
-                  border:       `2px solid ${active ? '#e8943a' : '#6b5030'}`,
-                  background:   active ? '#e8943a' : 'transparent',
-                  flexShrink:   0,
-                }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: active ? '#e8943a' : '#f5e6cc' }}>{label}</div>
-                  <div style={{ fontSize: 11, color: '#6b5030', marginTop: 2 }}>{desc}</div>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* ── Bottle Watchlist ────────────────────────────────────────── */}
-        <div style={sectionStyle}>Bottle Watchlist</div>
-
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a1c08' }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              ref={inputRef}
-              value={newBottle}
-              onChange={e => setNewBottle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addBottle()}
-              placeholder="e.g. Blanton's Original"
-              style={{
-                flex:         1,
-                padding:      '8px 12px',
-                background:   '#0f0a05',
-                border:       '1px solid #3d2b10',
-                borderRadius: 8,
-                color:        '#f5e6cc',
-                fontSize:     13,
-                fontFamily:   'inherit',
-                outline:      'none',
-              }}
-            />
+        ) : isIOS && !isStandalone ? (
+          <p style={{ margin: 0, fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', lineHeight: 'var(--lh-body)' }}>
+            Add Tater Tracker to your home screen first, then open from there to enable push notifications.
+          </p>
+        ) : pushPermission === 'denied' ? (
+          <p style={{ margin: 0, fontSize: 'var(--fs-meta)', color: 'var(--red)', lineHeight: 'var(--lh-body)' }}>
+            Notifications are blocked. Allow them in your browser settings, then come back here.
+          </p>
+        ) : pushEnabled ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
+            <div>
+              <div style={{ fontSize: 'var(--fs-body)', fontWeight: 700, color: 'var(--green)' }}>Enabled on this device</div>
+              <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', marginTop: 2 }}>You'll receive the alerts below</div>
+            </div>
             <button
-              onClick={addBottle}
-              disabled={adding || !newBottle.trim()}
+              onClick={disablePush}
               style={{
-                padding:      '8px 14px',
-                background:   '#e8943a',
-                border:       'none',
-                borderRadius: 8,
-                color:        '#fff',
-                fontWeight:   700,
-                cursor:       adding ? 'not-allowed' : 'pointer',
-                opacity:      adding ? 0.6 : 1,
-                fontSize:     18,
-                lineHeight:   1,
+                padding:      '5px 12px',
+                background:   'none',
+                border:       '1px solid var(--hairline-2)',
+                borderRadius: 'var(--r-sm)',
+                color:        'var(--text-muted)',
+                fontSize:     'var(--fs-meta)',
+                fontWeight:   600,
+                cursor:       'pointer',
+                fontFamily:   'inherit',
               }}
-            >+</button>
-          </div>
-        </div>
-
-        {watchlist.length === 0 ? (
-          <div style={{ padding: '16px', fontSize: 13, color: '#6b5030', textAlign: 'center' }}>
-            No bottles on your watchlist yet
+            >
+              Disable
+            </button>
           </div>
         ) : (
           <div>
-            {watchlist.map(bottle => (
-              <div key={bottle} style={rowStyle}>
-                <span style={{ fontSize: 13, color: '#f5e6cc' }}>🔔 {bottle}</span>
-                <button
-                  onClick={() => removeBottle(bottle)}
-                  style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
-                >✕</button>
-              </div>
-            ))}
+            <p style={{ margin: '0 0 var(--sp-3)', fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', lineHeight: 'var(--lh-body)' }}>
+              Get notified when trucks arrive, friends send requests, and more.
+            </p>
+            <button
+              onClick={enablePush}
+              disabled={enabling}
+              className="btn-primary"
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              {enabling ? 'Enabling…' : 'Enable Push Notifications'}
+            </button>
           </div>
         )}
 
-        <div style={{ padding: '16px', fontSize: 11, color: '#6b5030', textAlign: 'center' }}>
-          Watchlist is stored in your account. Alert toggles sync across devices.
-        </div>
+        {pushStatus && (
+          <p style={{
+            margin:     'var(--sp-2) 0 0',
+            fontSize:   'var(--fs-overline)',
+            color:      pushStatus.includes('!') ? 'var(--green)' : 'var(--red)',
+            textAlign:  'center',
+          }}>
+            {pushStatus}
+          </p>
+        )}
       </div>
-    </>
+
+      <hr style={divider} />
+
+      {/* ── Alert Settings ────────────────────────────────────────────────── */}
+      <SectionHeader overline="Alert Settings" style={{ marginTop: 'var(--sp-5)', marginBottom: 'var(--sp-2)' }} />
+
+      {[
+        { key: 'trucks',    label: 'Truck deliveries detected' },
+        { key: 'costco',    label: 'Costco bourbon alerts'     },
+        { key: 'finds',     label: 'New club finds'            },
+        { key: 'friends',   label: 'Friend requests'           },
+        { key: 'watchlist', label: 'Watchlist matches'         },
+        { key: 'auctions',  label: 'Auction price drops'       },
+      ].map(({ key, label }) => (
+        <div key={key} style={row}>
+          <div>
+            <span style={{ fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>{label}</span>
+            {!pushEnabled && (
+              <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', marginTop: 1 }}>
+                Enable push to receive alerts
+              </div>
+            )}
+          </div>
+          <Toggle on={prefs[key] ?? true} onChange={v => updatePref(key, v)} disabled={!pushEnabled} />
+        </div>
+      ))}
+
+      <hr style={{ ...divider, marginTop: 'var(--sp-2)' }} />
+
+      {/* ── Costco Alert Scope ────────────────────────────────────────────── */}
+      <SectionHeader overline="Costco Alert Scope" style={{ marginTop: 'var(--sp-5)', marginBottom: 'var(--sp-3)' }} />
+
+      <p style={{ margin: '0 0 var(--sp-3)', fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', lineHeight: 'var(--lh-body)' }}>
+        Choose which Illinois Costco warehouses send you push notifications. Pin favorites on the Tracker tab.
+      </p>
+
+      {[
+        { key: 'all',       label: 'All Illinois stores', desc: 'Every alert from every IL Costco we track' },
+        { key: 'favorites', label: 'Favorites only',      desc: 'Only your pinned stores (max 3)' },
+      ].map(({ key, label, desc }) => {
+        const active = costcoMode === key
+        return (
+          <button
+            key={key}
+            onClick={() => updateCostcoMode(key)}
+            disabled={!pushEnabled || prefs.costco === false}
+            style={{
+              display:       'flex',
+              alignItems:    'center',
+              gap:           'var(--sp-3)',
+              width:         '100%',
+              padding:       'var(--sp-3)',
+              marginBottom:  'var(--sp-2)',
+              background:    active ? 'rgba(217,126,44,0.10)' : 'var(--bg-elev-3)',
+              border:        `1px solid ${active ? 'var(--copper-600)' : 'var(--hairline-2)'}`,
+              borderRadius:  'var(--r-md)',
+              cursor:        (!pushEnabled || prefs.costco === false) ? 'not-allowed' : 'pointer',
+              opacity:       (!pushEnabled || prefs.costco === false) ? 0.45 : 1,
+              textAlign:     'left',
+              fontFamily:    'inherit',
+              transition:    'background var(--t-base) var(--ease-out), border-color var(--t-base) var(--ease-out)',
+            }}
+          >
+            <span style={{
+              width:        16,
+              height:       16,
+              borderRadius: '50%',
+              border:       `2px solid ${active ? 'var(--copper-500)' : 'var(--text-dim)'}`,
+              background:   active ? 'var(--copper-500)' : 'transparent',
+              flexShrink:   0,
+              transition:   'background var(--t-base) var(--ease-out)',
+            }} />
+            <div>
+              <div style={{ fontSize: 'var(--fs-body)', fontWeight: 700, color: active ? 'var(--copper-400)' : 'var(--text-primary)' }}>
+                {label}
+              </div>
+              <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', marginTop: 2 }}>{desc}</div>
+            </div>
+          </button>
+        )
+      })}
+
+      <hr style={{ ...divider, marginTop: 'var(--sp-2)' }} />
+
+      {/* ── Bottle Watchlist ──────────────────────────────────────────────── */}
+      <SectionHeader overline="Bottle Watchlist" style={{ marginTop: 'var(--sp-5)', marginBottom: 'var(--sp-3)' }} />
+
+      <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-3)' }}>
+        <input
+          ref={inputRef}
+          value={newBottle}
+          onChange={e => setNewBottle(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addBottle()}
+          placeholder="e.g. Blanton's Original"
+          style={{
+            flex:         1,
+            padding:      'var(--sp-2) var(--sp-3)',
+            background:   'var(--bg-base)',
+            border:       '1px solid var(--hairline-2)',
+            borderRadius: 'var(--r-md)',
+            color:        'var(--text-primary)',
+            fontSize:     'var(--fs-body)',
+            fontFamily:   'inherit',
+            outline:      'none',
+            transition:   'border-color var(--t-fast) var(--ease-out)',
+          }}
+          onFocus={e => e.target.style.borderColor = 'var(--copper-500)'}
+          onBlur={e  => e.target.style.borderColor = 'var(--hairline-2)'}
+        />
+        <button
+          onClick={addBottle}
+          disabled={adding || !newBottle.trim()}
+          style={{
+            padding:      '0 var(--sp-4)',
+            background:   'var(--copper-500)',
+            border:       'none',
+            borderRadius: 'var(--r-md)',
+            color:        'var(--text-inverse)',
+            fontWeight:   700,
+            fontSize:     20,
+            lineHeight:   1,
+            cursor:       adding ? 'not-allowed' : 'pointer',
+            opacity:      adding ? 0.45 : 1,
+            fontFamily:   'inherit',
+            transition:   'background var(--t-base) var(--ease-out), transform var(--t-fast) var(--ease-out)',
+          }}
+          onMouseDown={e => e.currentTarget.style.transform = 'scale(0.94)'}
+          onMouseUp={e   => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          +
+        </button>
+      </div>
+
+      {watchlist.length === 0 ? (
+        <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', textAlign: 'center', margin: 'var(--sp-4) 0' }}>
+          No bottles on your watchlist yet
+        </p>
+      ) : (
+        <div>
+          {watchlist.map(bottle => (
+            <div key={bottle} style={row}>
+              <span style={{ fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>{bottle}</span>
+              <button
+                onClick={() => removeBottle(bottle)}
+                style={{
+                  background:   'none',
+                  border:       'none',
+                  color:        'var(--text-dim)',
+                  cursor:       'pointer',
+                  lineHeight:   0,
+                  padding:      'var(--sp-1)',
+                  borderRadius: 'var(--r-sm)',
+                  transition:   'color var(--t-fast) var(--ease-out)',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--red)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dim)'}
+                aria-label={`Remove ${bottle}`}
+              >
+                <X size={14} strokeWidth={2} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', textAlign: 'center', marginTop: 'var(--sp-5)' }}>
+        Watchlist is stored in your account and syncs across devices.
+      </p>
+    </Sheet>
   )
 }
