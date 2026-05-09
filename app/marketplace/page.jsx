@@ -47,41 +47,41 @@ const TYPE_META = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUCTION_CATEGORY_META = {
-  Bourbon:            { color: '#e8943a', bg: 'rgba(232,148,58,0.15)'   },
-  Rye:                { color: '#f87171', bg: 'rgba(248,113,113,0.15)'  },
-  Scotch:             { color: '#60a5fa', bg: 'rgba(96,165,250,0.15)'   },
-  Tennessee:          { color: '#4ade80', bg: 'rgba(74,222,128,0.15)'   },
-  Japanese:           { color: '#c084fc', bg: 'rgba(192,132,252,0.15)'  },
-  Irish:              { color: '#34d399', bg: 'rgba(52,211,153,0.15)'   },
-  American:           { color: '#fbbf24', bg: 'rgba(251,191,36,0.15)'   },
-  Canadian:           { color: '#fb923c', bg: 'rgba(251,146,60,0.15)'   },
-  'Distilled Spirits':{ color: '#a78bfa', bg: 'rgba(167,139,250,0.15)'  },
-  Blended:            { color: '#94a3b8', bg: 'rgba(148,163,184,0.15)'  },
+  Bourbon:            { color: 'var(--copper-500)', bg: 'rgba(217,126,44,0.15)'  },
+  Rye:                { color: 'var(--red)',         bg: 'rgba(248,113,113,0.15)' },
+  Scotch:             { color: 'var(--blue)',        bg: 'rgba(96,165,250,0.15)'  },
+  Tennessee:          { color: 'var(--green)',       bg: 'rgba(74,222,128,0.15)'  },
+  Japanese:           { color: 'var(--violet)',      bg: 'rgba(192,132,252,0.15)' },
+  Irish:              { color: 'var(--green)',       bg: 'rgba(52,211,153,0.15)'  },
+  American:           { color: 'var(--amber)',       bg: 'rgba(251,191,36,0.15)'  },
+  Canadian:           { color: 'var(--copper-400)', bg: 'rgba(251,146,60,0.15)'  },
+  'Distilled Spirits':{ color: 'var(--violet)',     bg: 'rgba(167,139,250,0.15)' },
+  Blended:            { color: 'var(--text-muted)', bg: 'rgba(148,163,184,0.15)' },
 }
 
 function getCatStyle(cat) {
-  return AUCTION_CATEGORY_META[cat] ?? { color: '#9a7c55', bg: 'rgba(154,124,85,0.15)' }
+  return AUCTION_CATEGORY_META[cat] ?? { color: 'var(--text-muted)', bg: 'rgba(154,124,85,0.15)' }
 }
 
 function discountTier(pct) {
-  if (pct == null) return { color: '#9a7c55', label: '—',              glow: false }
-  if (pct >= 50)   return { color: '#22c55e', label: `${pct.toFixed(1)}%`, glow: true  }
-  if (pct >= 30)   return { color: '#4ade80', label: `${pct.toFixed(1)}%`, glow: false }
-  if (pct >= 20)   return { color: '#a3e635', label: `${pct.toFixed(1)}%`, glow: false }
-  if (pct >= 10)   return { color: '#facc15', label: `${pct.toFixed(1)}%`, glow: false }
-  if (pct > 0)     return { color: '#fb923c', label: `${pct.toFixed(1)}%`, glow: false }
-  return               { color: '#f87171', label: `${Math.abs(pct).toFixed(1)}% over`, glow: false }
+  if (pct == null) return { color: 'var(--text-muted)', label: '—',                               glow: false }
+  if (pct >= 50)   return { color: 'var(--green)',      label: `${pct.toFixed(1)}%`,               glow: true  }
+  if (pct >= 30)   return { color: 'var(--green)',      label: `${pct.toFixed(1)}%`,               glow: false }
+  if (pct >= 20)   return { color: 'var(--green)',      label: `${pct.toFixed(1)}%`,               glow: false }
+  if (pct >= 10)   return { color: 'var(--amber)',      label: `${pct.toFixed(1)}%`,               glow: false }
+  if (pct > 0)     return { color: 'var(--copper-400)', label: `${pct.toFixed(1)}%`,               glow: false }
+  return                   { color: 'var(--red)',        label: `${Math.abs(pct).toFixed(1)}% over`, glow: false }
 }
 
 function timeUrgency(endDatetime) {
-  if (!endDatetime) return { label: '—', color: '#9a7c55', urgent: false }
+  if (!endDatetime) return { label: '—',        color: 'var(--text-muted)',  urgent: false }
   const ms = new Date(endDatetime).getTime() - Date.now()
-  if (ms <= 0)         return { label: 'Ended',   color: '#f87171', urgent: false }
+  if (ms <= 0)         return { label: 'Ended',   color: 'var(--red)',         urgent: false }
   const hours = ms / 3600000
-  if (hours < 2)       return { label: fmtMs(ms), color: '#f87171', urgent: true  }
-  if (hours < 12)      return { label: fmtMs(ms), color: '#fb923c', urgent: true  }
-  if (hours < 24)      return { label: fmtMs(ms), color: '#facc15', urgent: false }
-  return                      { label: fmtMs(ms), color: '#9a7c55', urgent: false }
+  if (hours < 2)       return { label: fmtMs(ms), color: 'var(--red)',         urgent: true  }
+  if (hours < 12)      return { label: fmtMs(ms), color: 'var(--copper-400)',  urgent: true  }
+  if (hours < 24)      return { label: fmtMs(ms), color: 'var(--amber)',        urgent: false }
+  return                      { label: fmtMs(ms), color: 'var(--text-muted)',  urgent: false }
 }
 
 function DealCard({ deal, rank }) {
@@ -123,7 +123,10 @@ function DealCard({ deal, rank }) {
           <h3 style={{
             color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.9rem', lineHeight: '1.3',
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          }} className="group-hover:text-[#e8943a] transition-colors">
+          }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--copper-500)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-primary)'}
+          >
             {deal.bottle_name}
           </h3>
         </a>
@@ -158,7 +161,7 @@ function DealCard({ deal, rank }) {
             {timeInfo.urgent && <span style={{ marginRight: 3 }}>⏱</span>}{timeInfo.label}
           </span>
           {deal.reserve_price != null && (
-            <span style={{ fontSize: '0.68rem', fontWeight: 600, color: deal.reserve_met ? '#4ade80' : 'var(--text-muted)' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 600, color: deal.reserve_met ? 'var(--green)' : 'var(--text-muted)' }}>
               {deal.reserve_met ? '✓ Reserve met' : 'No reserve'}
             </span>
           )}
@@ -228,7 +231,7 @@ function AuctionsTab() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Whiskey Lots',   value: data.total_lots?.toLocaleString() ?? '—',            color: 'var(--text-primary)' },
-            { label: 'Below Estimate', value: data.total_with_discount?.toLocaleString() ?? '—',   color: '#4ade80' },
+            { label: 'Below Estimate', value: data.total_with_discount?.toLocaleString() ?? '—',   color: 'var(--green)' },
             { label: 'Showing',        value: `${data.total_filtered ?? deals.length} filtered`,   color: 'var(--copper-400)' },
             { label: 'Data Age',       value: timeAgo(new Date(data.scraped_at).getTime()),         color: 'var(--text-muted)' },
           ].map(({ label, value, color }) => (
@@ -686,7 +689,7 @@ function CreateListingModal({ onClose, onCreated, userEmail, open }) {
                   <img src={url} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--hairline-2)' }} />
                   <button type="button" onClick={() => setPhotos(p => p.filter((_, j) => j !== i))} style={{
                     position: 'absolute', top: -6, right: -6, background: 'var(--red)', border: 'none',
-                    borderRadius: '50%', width: 18, height: 18, color: '#fff', cursor: 'pointer', fontSize: 10, lineHeight: '18px', padding: 0,
+                    borderRadius: '50%', width: 18, height: 18, color: 'var(--text-inverse)', cursor: 'pointer', fontSize: 10, lineHeight: '18px', padding: 0,
                   }}>✕</button>
                 </div>
               ))}
@@ -785,7 +788,7 @@ function ListingCard({ listing, currentUserEmail, onBinClaim, onDeactivate }) {
 
       {/* Photo strip */}
       {listing.photos?.length > 0 && (
-        <div style={{ position: 'relative', height: 160, background: '#0a0603', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', height: 160, background: 'var(--bg-base)', overflow: 'hidden' }}>
           <img src={listing.photos[photoIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           {listing.photos.length > 1 && (
             <div style={{ position: 'absolute', bottom: 6, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 4 }}>

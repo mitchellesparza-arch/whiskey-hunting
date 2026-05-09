@@ -117,7 +117,7 @@ export default function WatchlistPage() {
             </p>
           )}
           {!loading && bottles.length === 0 && (
-            <p style={{ fontSize: 13, color: '#6b5030', textAlign: 'center', padding: '24px 0', lineHeight: 1.6 }}>
+            <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', textAlign: 'center', padding: 'var(--sp-6) 0', lineHeight: 1.6 }}>
               Add a bottle name above to start tracking it.
             </p>
           )}
@@ -145,7 +145,7 @@ export default function WatchlistPage() {
                     disabled={removing === b}
                     style={{
                       background: 'none', border: 'none',
-                      color:      '#6b5030', cursor: 'pointer',
+                      color:      'var(--text-dim)', cursor: 'pointer',
                       fontSize:   18, padding: '0 0 0 8px',
                       lineHeight: 1,
                     }}

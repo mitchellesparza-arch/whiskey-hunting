@@ -133,7 +133,7 @@ export default function BarcodeScanner({ onResult, onClose }) {
           justifyContent: 'space-between',
           background: 'linear-gradient(to bottom, rgba(0,0,0,0.65), transparent)',
         }}>
-          <span style={{ color: '#fff', fontSize: 17, fontWeight: 600, letterSpacing: 0.2 }}>
+          <span style={{ color: 'var(--text-inverse)', fontSize: 17, fontWeight: 600, letterSpacing: 0.2 }}>
             Scan Barcode
           </span>
           <button
@@ -146,7 +146,7 @@ export default function BarcodeScanner({ onResult, onClose }) {
               borderRadius: '50%',
               width:        36,
               height:       36,
-              color:        '#fff',
+              color:        'var(--text-inverse)',
               fontSize:     17,
               cursor:       'pointer',
               display:      'flex',
@@ -177,7 +177,7 @@ export default function BarcodeScanner({ onResult, onClose }) {
                 right:      0,
                 top:        '50%',
                 height:     2,
-                background: 'linear-gradient(90deg, transparent 0%, #e8943a 30%, #f4b96a 50%, #e8943a 70%, transparent 100%)',
+                background: 'linear-gradient(90deg, transparent 0%, var(--copper-500) 30%, var(--copper-400) 50%, var(--copper-500) 70%, transparent 100%)',
                 boxShadow:  '0 0 10px 2px rgba(232,148,58,0.6)',
                 animation:  'wh-scan 1.5s ease-in-out infinite alternate',
               }} />
@@ -186,10 +186,10 @@ export default function BarcodeScanner({ onResult, onClose }) {
 
           {/* Corner brackets — drawn outside the frame box so they're always visible */}
           {[
-            { top: -2, left: -2,   borderTop: '3px solid #e8943a', borderLeft:  '3px solid #e8943a', borderRadius: '10px 0 0 0' },
-            { top: -2, right: -2,  borderTop: '3px solid #e8943a', borderRight: '3px solid #e8943a', borderRadius: '0 10px 0 0' },
-            { bottom: -2, left: -2,  borderBottom: '3px solid #e8943a', borderLeft:  '3px solid #e8943a', borderRadius: '0 0 0 10px' },
-            { bottom: -2, right: -2, borderBottom: '3px solid #e8943a', borderRight: '3px solid #e8943a', borderRadius: '0 0 10px 0' },
+            { top: -2, left: -2,   borderTop: '3px solid var(--copper-500)', borderLeft:  '3px solid var(--copper-500)', borderRadius: '10px 0 0 0' },
+            { top: -2, right: -2,  borderTop: '3px solid var(--copper-500)', borderRight: '3px solid var(--copper-500)', borderRadius: '0 10px 0 0' },
+            { bottom: -2, left: -2,  borderBottom: '3px solid var(--copper-500)', borderLeft:  '3px solid var(--copper-500)', borderRadius: '0 0 0 10px' },
+            { bottom: -2, right: -2, borderBottom: '3px solid var(--copper-500)', borderRight: '3px solid var(--copper-500)', borderRadius: '0 0 10px 0' },
           ].map((s, i) => (
             <div key={i} style={{ position: 'absolute', width: 22, height: 22, ...s }} />
           ))}
@@ -200,7 +200,7 @@ export default function BarcodeScanner({ onResult, onClose }) {
           position:    'relative',
           zIndex:      2,
           marginTop:   20,
-          color:       status === 'error' ? '#f87' : 'rgba(255,255,255,0.75)',
+          color:       status === 'error' ? 'var(--red)' : 'rgba(255,255,255,0.75)',
           fontSize:    13,
           textAlign:   'center',
           letterSpacing: 0.2,
@@ -230,8 +230,8 @@ export default function BarcodeScanner({ onResult, onClose }) {
             <button
               onClick={startCamera}
               style={{
-                background:   '#e8943a',
-                color:        '#fff',
+                background:   'var(--copper-500)',
+                color:        'var(--text-inverse)',
                 border:       'none',
                 borderRadius: 10,
                 padding:      '12px 36px',

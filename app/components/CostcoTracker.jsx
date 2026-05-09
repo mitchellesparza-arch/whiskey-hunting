@@ -30,12 +30,12 @@ function StoreChip({ store, selected, disabled, onClick }) {
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding:      '6px 12px',
+        padding:      'var(--sp-1) var(--sp-3)',
         borderRadius: 999,
-        border:       `1px solid ${selected ? '#e8943a' : '#3d2b10'}`,
-        background:   selected ? '#2a1500' : '#1a1008',
-        color:        selected ? '#e8943a' : disabled ? '#4a3520' : '#9a7c55',
-        fontSize:     12,
+        border:       selected ? '1px solid var(--copper-500)' : '1px solid var(--hairline-2)',
+        background:   selected ? 'rgba(217,126,44,0.12)' : 'var(--bg-elev-2)',
+        color:        selected ? 'var(--copper-500)' : disabled ? 'var(--text-dim)' : 'var(--text-muted)',
+        fontSize:     'var(--fs-meta)',
         fontWeight:   selected ? 700 : 500,
         cursor:       disabled ? 'not-allowed' : 'pointer',
         opacity:      disabled ? 0.5 : 1,
@@ -58,20 +58,20 @@ function AlertRow({ alert, dim, storeLookup }) {
         gridTemplateColumns: 'auto auto 1fr auto',
         alignItems:     'center',
         gap:            10,
-        padding:        '8px 12px',
-        borderBottom:   '1px solid #1f1308',
-        fontSize:       13,
+        padding:        'var(--sp-2) var(--sp-3)',
+        borderBottom:   '1px solid var(--bg-elev-2)',
+        fontSize:       'var(--fs-body)',
         opacity:        dim ? 0.55 : 1,
       }}
     >
       <span style={{ fontSize: 14 }}>{inStock ? '✅' : '❌'}</span>
-      <span style={{ color: '#6b5030', fontSize: 11, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+      <span style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-meta)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
         {timeAgo(alert.observedAt)}
       </span>
-      <span style={{ color: inStock ? '#f5e6cc' : '#9a7c55', fontWeight: inStock ? 600 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={{ color: inStock ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: inStock ? 600 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {alert.productName}
       </span>
-      <span style={{ color: '#9a7c55', fontSize: 11, whiteSpace: 'nowrap' }}>
+      <span style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-meta)', whiteSpace: 'nowrap' }}>
         {label} ({alert.storeNumber})
       </span>
     </div>
@@ -87,24 +87,24 @@ function FavoriteStoreCard({ store, alerts }) {
     <div className="card overflow-hidden">
       <div
         style={{
-          padding:      '10px 14px',
-          borderBottom: '1px solid #2a1c08',
-          background:   '#1f1308',
+          padding:      'var(--sp-2) 14px',
+          borderBottom: '1px solid var(--hairline-2)',
+          background:   'var(--bg-elev-2)',
           display:      'flex',
           alignItems:   'center',
           justifyContent: 'space-between',
         }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#e8943a' }}>
+          <div style={{ fontSize: 'var(--fs-body)', fontWeight: 700, color: 'var(--copper-500)' }}>
             ⭐ {store.name}
           </div>
-          <div style={{ fontSize: 11, color: '#6b5030' }}>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' }}>
             Costco #{store.number}, {store.state}
           </div>
         </div>
         {lastAlert && (
-          <div style={{ fontSize: 11, color: '#6b5030', textAlign: 'right' }}>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', textAlign: 'right' }}>
             <div>last activity</div>
             <div>{timeAgo(lastAlert.observedAt)}</div>
           </div>
@@ -114,18 +114,18 @@ function FavoriteStoreCard({ store, alerts }) {
       {hasAny ? (
         <div>
           {inStockAlerts.map(a => (
-            <div key={a.discordMessageId} style={{ padding: '10px 14px', borderBottom: '1px solid #1f1308' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#f5e6cc', marginBottom: 4 }}>
+            <div key={a.discordMessageId} style={{ padding: 'var(--sp-2) 14px', borderBottom: '1px solid var(--bg-elev-2)' }}>
+              <div style={{ fontSize: 'var(--fs-body)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 'var(--sp-1)' }}>
                 ✅ {a.productName}
               </div>
-              <div style={{ fontSize: 11, color: '#9a7c55' }}>
+              <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
                 Item #{a.itemNumber} · {formatDay(a.observedAt)} · {formatTime(a.observedAt)}
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div style={{ padding: '16px 14px', fontSize: 12, color: '#6b5030', textAlign: 'center' }}>
+        <div style={{ padding: 'var(--sp-4) 14px', fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', textAlign: 'center' }}>
           No recent in-stock alerts at this store
         </div>
       )}
@@ -243,7 +243,7 @@ export default function CostcoTracker() {
           <span className="text-xl">⭐</span>
           <div style={{ flex: 1 }}>
             <h2 className="section-title">Your Favorite Costcos</h2>
-            <p className="text-xs text-[#9a7c55]">
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               Pick up to 3 stores to surface here and (optionally) get push notifications for
             </p>
           </div>
@@ -251,15 +251,15 @@ export default function CostcoTracker() {
             onClick={refresh}
             disabled={refreshing}
             className="btn-primary"
-            style={{ fontSize: 13, padding: '6px 14px' }}
+            style={{ fontSize: 'var(--fs-body)', padding: 'var(--sp-1) 14px' }}
           >
             {refreshing ? 'Refreshing…' : '↺ Refresh'}
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 'var(--sp-4)' }}>
           {stores.length === 0 ? (
-            <div style={{ fontSize: 12, color: '#6b5030', padding: '4px 0' }}>
+            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', padding: 'var(--sp-1) 0' }}>
               Loading store list…
             </div>
           ) : stores.map(store => {
@@ -278,7 +278,7 @@ export default function CostcoTracker() {
         </div>
 
         {favoriteStoreObjects.length === 0 ? (
-          <div className="card px-4 py-6 text-center text-sm text-[#6b5030]">
+          <div className="card px-4 py-6 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
             Pick up to 3 favorite Costco warehouses above to pin them here.
           </div>
         ) : (
@@ -300,7 +300,7 @@ export default function CostcoTracker() {
           <span className="text-xl">📡</span>
           <div>
             <h2 className="section-title">Live Ticker — All Illinois</h2>
-            <p className="text-xs text-[#9a7c55]">
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {lastChecked
                 ? `${alerts.length} recent ${alerts.length === 1 ? 'alert' : 'alerts'} · last update ${timeAgo(lastChecked)}`
                 : 'Most recent alerts across every Illinois Costco we track'}
@@ -309,16 +309,16 @@ export default function CostcoTracker() {
         </div>
 
         {!loaded ? (
-          <div className="card px-4 py-6 text-center text-sm text-[#6b5030]">
+          <div className="card px-4 py-6 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
             Loading…
           </div>
         ) : alerts.length === 0 ? (
-          <div className="card" style={{ padding: '32px 16px', textAlign: 'center' }}>
-            <div style={{ fontSize: 36, marginBottom: 8 }}>🥃</div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#f5e6cc', marginBottom: 6 }}>
+          <div className="card" style={{ padding: 'var(--sp-6) var(--sp-4)', textAlign: 'center' }}>
+            <div style={{ fontSize: 36, marginBottom: 'var(--sp-2)' }}>🥃</div>
+            <div style={{ fontWeight: 700, fontSize: 'var(--fs-h3)', color: 'var(--text-primary)', marginBottom: 6 }}>
               No Costco alerts yet
             </div>
-            <div style={{ fontSize: 12, color: '#9a7c55', maxWidth: 480, margin: '0 auto', lineHeight: 1.6 }}>
+            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', maxWidth: 480, margin: '0 auto', lineHeight: 1.6 }}>
               Once the relay catches a status change in any Illinois Costco, it lands here.
               Make sure your Discord tab is open and the relay userscript is running.
             </div>

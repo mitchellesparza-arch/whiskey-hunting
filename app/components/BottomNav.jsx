@@ -106,7 +106,7 @@ export default function BottomNav() {
                   alignItems:   'center',
                   justifyContent: 'center',
                   background:   'var(--red)',
-                  color:        '#fff',
+                  color:        'var(--text-inverse)',
                   fontSize:     9,
                   fontWeight:   700,
                   borderRadius: 'var(--r-pill)',

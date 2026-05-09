@@ -116,7 +116,7 @@ export default function InstallPrompt() {
       right:      0,
       zIndex:     9999,
       background: 'rgba(20,12,4,0.97)',
-      borderTop:  '1px solid #4a3728',
+      borderTop:  '1px solid var(--hairline-2)',
       padding:    '14px 16px calc(14px + env(safe-area-inset-bottom))',
       display:    'flex',
       alignItems: 'flex-start',
@@ -126,21 +126,21 @@ export default function InstallPrompt() {
       <div style={{ fontSize: 30, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>🥃</div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 14, color: '#f5e6cc' }}>
+        <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>
           Add Tater Tracker to your home screen
         </p>
 
         {platform === 'ios' && (
-          <p style={{ margin: 0, fontSize: 13, color: '#9a7c55', lineHeight: 1.5 }}>
-            Tap the <span style={{ color: '#d4a054' }}>Share</span> button{' '}
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            Tap the <span style={{ color: 'var(--copper-400)' }}>Share</span> button{' '}
             <span style={{ fontSize: 15 }}>⎋</span> at the bottom of Safari, then{' '}
-            <span style={{ color: '#d4a054' }}>"Add to Home Screen"</span>.
+            <span style={{ color: 'var(--copper-400)' }}>"Add to Home Screen"</span>.
           </p>
         )}
 
         {platform === 'android' && (
           <>
-            <p style={{ margin: '0 0 10px', fontSize: 13, color: '#9a7c55' }}>
+            <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted)' }}>
               Install for quick access — works great as an app.
             </p>
             <button
@@ -148,8 +148,8 @@ export default function InstallPrompt() {
               disabled={installing}
               style={{
                 padding:      '7px 18px',
-                background:   '#e8943a',
-                color:        '#fff',
+                background:   'var(--copper-500)',
+                color:        'var(--text-inverse)',
                 border:       'none',
                 borderRadius: 6,
                 fontSize:     13,
@@ -163,9 +163,9 @@ export default function InstallPrompt() {
         )}
 
         {platform === 'android-manual' && (
-          <p style={{ margin: 0, fontSize: 13, color: '#9a7c55', lineHeight: 1.5 }}>
-            Tap the <span style={{ color: '#d4a054' }}>⋮ menu</span> in Chrome, then{' '}
-            <span style={{ color: '#d4a054' }}>"Add to Home screen"</span>.
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            Tap the <span style={{ color: 'var(--copper-400)' }}>⋮ menu</span> in Chrome, then{' '}
+            <span style={{ color: 'var(--copper-400)' }}>"Add to Home screen"</span>.
           </p>
         )}
       </div>
@@ -176,7 +176,7 @@ export default function InstallPrompt() {
         style={{
           background: 'none',
           border:     'none',
-          color:      '#6b5030',
+          color:      'var(--text-dim)',
           fontSize:   20,
           cursor:     'pointer',
           padding:    '0 0 0 4px',

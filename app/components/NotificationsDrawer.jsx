@@ -43,7 +43,7 @@ function Toggle({ on, onChange, disabled }) {
         width:        14,
         height:       14,
         borderRadius: '50%',
-        background:   '#fff',
+        background:   'var(--text-inverse)',
         transition:   'left var(--t-base) var(--ease-spring)',
         boxShadow:    'var(--shadow-1)',
       }} />

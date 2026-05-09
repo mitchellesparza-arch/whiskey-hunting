@@ -13,13 +13,13 @@ function Avatar({ name }) {
       width:          40,
       height:         40,
       borderRadius:   '50%',
-      background:     'linear-gradient(135deg, #3d1f6b, #6b35b8)',
+      background:     'var(--grad-copper)',
       display:        'flex',
       alignItems:     'center',
       justifyContent: 'center',
       fontWeight:     800,
-      fontSize:       14,
-      color:          '#fff',
+      fontSize:       'var(--fs-meta)',
+      color:          'var(--text-inverse)',
       flexShrink:     0,
     }}>
       {initials}
@@ -91,18 +91,18 @@ export default function AdminPage() {
     return (
       <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
         <AppHeader sub="Access Control" />
-        <div style={{ maxWidth: 600, margin: '0 auto', padding: '40px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
-          <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc', marginBottom: 8 }}>Access denied</div>
-          <div style={{ fontSize: 13, color: '#9a7c55', lineHeight: 1.6, marginBottom: 24 }}>
-            You're signed in as <strong style={{ color: '#f5e6cc' }}>{session?.user?.email}</strong>.<br />
-            The <code style={{ color: '#e8943a' }}>ALERT_EMAIL</code> env var on Vercel needs to match this address.
+        <div style={{ maxWidth: 600, margin: '0 auto', padding: 'var(--sp-10) var(--sp-4)', textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 'var(--sp-4)' }}>🔒</div>
+          <div style={{ fontWeight: 800, fontSize: 'var(--fs-h2)', color: 'var(--text-primary)', marginBottom: 'var(--sp-2)' }}>Access denied</div>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 'var(--sp-6)' }}>
+            You're signed in as <strong style={{ color: 'var(--text-primary)' }}>{session?.user?.email}</strong>.<br />
+            The <code style={{ color: 'var(--copper-400)' }}>ALERT_EMAIL</code> env var on Vercel needs to match this address.
           </div>
-          <div style={{ background: '#1a1008', border: '1px solid #3d2b10', borderRadius: 10,
-                        padding: '16px 20px', fontSize: 12, color: '#9a7c55', textAlign: 'left' }}>
-            <strong style={{ color: '#f5e6cc' }}>To fix:</strong> Go to your Vercel project →
-            Settings → Environment Variables → update <code style={{ color: '#e8943a' }}>ALERT_EMAIL</code> to{' '}
-            <code style={{ color: '#e8943a' }}>{session?.user?.email}</code>, then redeploy.
+          <div style={{ background: 'var(--bg-elev-2)', border: '1px solid var(--hairline-2)', borderRadius: 10,
+                        padding: 'var(--sp-4) var(--sp-5)', fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', textAlign: 'left' }}>
+            <strong style={{ color: 'var(--text-primary)' }}>To fix:</strong> Go to your Vercel project →
+            Settings → Environment Variables → update <code style={{ color: 'var(--copper-400)' }}>ALERT_EMAIL</code> to{' '}
+            <code style={{ color: 'var(--copper-400)' }}>{session?.user?.email}</code>, then redeploy.
           </div>
         </div>
       </div>
@@ -110,14 +110,14 @@ export default function AdminPage() {
   }
 
   const tabStyle = active => ({
-    padding:       '8px 18px',
-    borderRadius:  8,
-    fontSize:      13,
+    padding:       'var(--sp-2) var(--sp-4)',
+    borderRadius:  'var(--sp-2)',
+    fontSize:      'var(--fs-meta)',
     fontWeight:    700,
     cursor:        'pointer',
     border:        'none',
-    background:    active ? '#e8943a' : 'transparent',
-    color:         active ? '#fff'    : '#9a7c55',
+    background:    active ? 'var(--copper-400)' : 'transparent',
+    color:         active ? 'var(--text-inverse)' : 'var(--text-muted)',
     transition:    'background 0.15s, color 0.15s',
   })
 
@@ -125,15 +125,15 @@ export default function AdminPage() {
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
       <AppHeader sub="Access Control" />
 
-      <div style={{ maxWidth: 600, margin: '0 auto', padding: '20px 16px' }}>
+      <div style={{ maxWidth: 600, margin: '0 auto', padding: 'var(--sp-5) var(--sp-4)' }}>
 
         {/* Tab bar */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#1a1008', borderRadius: 10, padding: 4 }}>
+        <div style={{ display: 'flex', gap: 'var(--sp-1)', marginBottom: 'var(--sp-5)', background: 'var(--bg-elev-2)', borderRadius: 10, padding: 'var(--sp-1)' }}>
           <button style={tabStyle(tab === 'pending')}  onClick={() => setTab('pending')}>
             Pending
             {pending.length > 0 && (
-              <span style={{ marginLeft: 6, background: '#f87171', color: '#fff', borderRadius: 999,
-                             fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>
+              <span style={{ marginLeft: 'var(--sp-1)', background: 'var(--red)', color: 'var(--text-inverse)', borderRadius: 999,
+                             fontSize: 'var(--fs-overline)', fontWeight: 800, padding: 'var(--sp-px) var(--sp-1)' }}>
                 {pending.length}
               </span>
             )}
@@ -146,32 +146,32 @@ export default function AdminPage() {
         {/* Pending tab */}
         {tab === 'pending' && (
           pending.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 0', color: '#6b5030', fontSize: 14 }}>
+            <div style={{ textAlign: 'center', padding: 'var(--sp-12) 0', color: 'var(--text-dim)', fontSize: 'var(--fs-body)' }}>
               🎉 No pending requests
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
               {pending.map(u => (
                 <div key={u.email} style={{
                   display:      'flex',
                   alignItems:   'center',
-                  gap:          14,
-                  background:   '#1a1008',
-                  border:       '1px solid #3d2b10',
+                  gap:          'var(--sp-3)',
+                  background:   'var(--bg-elev-2)',
+                  border:       '1px solid var(--hairline-2)',
                   borderRadius: 12,
-                  padding:      '14px 16px',
+                  padding:      'var(--sp-3) var(--sp-4)',
                 }}>
                   <Avatar name={u.name} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: '#f5e6cc',
+                    <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)',
                                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {u.name ?? u.email}
                     </div>
-                    <div style={{ fontSize: 12, color: '#9a7c55', marginTop: 2,
+                    <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', marginTop: 'var(--sp-px)',
                                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {u.email}
                     </div>
-                    <div style={{ fontSize: 11, color: '#6b5030', marginTop: 2 }}>
+                    <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', marginTop: 'var(--sp-px)' }}>
                       Requested {timeAgo(u.requestedAt)}
                     </div>
                   </div>
@@ -179,13 +179,13 @@ export default function AdminPage() {
                     onClick={() => approve(u.email)}
                     disabled={approving === u.email}
                     style={{
-                      padding:      '9px 18px',
-                      background:   approving === u.email ? '#1f3a25' : 'linear-gradient(135deg,#166534,#15803d)',
-                      color:        '#fff',
+                      padding:      'var(--sp-2) var(--sp-4)',
+                      background:   approving === u.email ? 'rgba(74,222,128,0.15)' : 'var(--green)',
+                      color:        'var(--text-inverse)',
                       border:       'none',
-                      borderRadius: 8,
+                      borderRadius: 'var(--sp-2)',
                       fontWeight:   700,
-                      fontSize:     13,
+                      fontSize:     'var(--fs-meta)',
                       cursor:       approving === u.email ? 'default' : 'pointer',
                       flexShrink:   0,
                     }}
@@ -200,19 +200,19 @@ export default function AdminPage() {
 
         {/* Approved tab */}
         {tab === 'approved' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
             {approved.map(email => (
               <div key={email} style={{
                 display:      'flex',
                 alignItems:   'center',
-                gap:          12,
-                background:   '#1a1008',
-                border:       '1px solid #2a1c08',
+                gap:          'var(--sp-3)',
+                background:   'var(--bg-elev-2)',
+                border:       '1px solid var(--hairline)',
                 borderRadius: 10,
-                padding:      '12px 16px',
+                padding:      'var(--sp-3) var(--sp-4)',
               }}>
                 <div style={{ fontSize: 16 }}>✅</div>
-                <div style={{ fontSize: 13, color: '#9a7c55',
+                <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)',
                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {email}
                 </div>
