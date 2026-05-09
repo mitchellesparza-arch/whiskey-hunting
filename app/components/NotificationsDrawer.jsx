@@ -47,7 +47,7 @@ function Toggle({ on, onChange, disabled }) {
   )
 }
 
-const DEFAULT_PREFS = { trucks: true, finds: true, watchlist: true, auctions: true, friends: true }
+const DEFAULT_PREFS = { trucks: true, finds: true, watchlist: true, auctions: true, friends: true, costco: true }
 
 // ── Drawer ────────────────────────────────────────────────────────────────────
 export default function NotificationsDrawer({ open, onClose }) {
@@ -61,6 +61,7 @@ export default function NotificationsDrawer({ open, onClose }) {
 
   // Notification preferences (server-backed)
   const [prefs,       setPrefs]       = useState(DEFAULT_PREFS)
+  const [costcoMode,  setCostcoMode]  = useState('all')   // 'all' | 'favorites'
 
   // Push subscription state
   const [pushSupported,  setPushSupported]  = useState(false)
@@ -95,6 +96,9 @@ export default function NotificationsDrawer({ open, onClose }) {
       .then(d => {
         if (d.profile?.notifPrefs) {
           setPrefs(prev => ({ ...DEFAULT_PREFS, ...d.profile.notifPrefs }))
+        }
+        if (d.profile?.costcoMode === 'favorites' || d.profile?.costcoMode === 'all') {
+          setCostcoMode(d.profile.costcoMode)
         }
       })
       .catch(() => {})
@@ -209,6 +213,15 @@ export default function NotificationsDrawer({ open, onClose }) {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ notifPrefs: newPrefs }),
+    }).catch(() => {})
+  }
+
+  async function updateCostcoMode(mode) {
+    setCostcoMode(mode)
+    await fetch('/api/profile', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ costcoMode: mode }),
     }).catch(() => {})
   }
 
@@ -364,6 +377,7 @@ export default function NotificationsDrawer({ open, onClose }) {
 
         {[
           { key: 'trucks',    label: 'Truck deliveries detected' },
+          { key: 'costco',    label: 'Costco bourbon alerts'     },
           { key: 'finds',     label: 'New club finds'            },
           { key: 'friends',   label: 'Friend requests'           },
           { key: 'watchlist', label: 'Watchlist matches'         },
@@ -381,6 +395,56 @@ export default function NotificationsDrawer({ open, onClose }) {
             />
           </div>
         ))}
+
+        {/* ── Costco Alerts scope ─────────────────────────────────────── */}
+        <div style={sectionStyle}>Costco Alert Scope</div>
+
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a1c08' }}>
+          <p style={{ margin: '0 0 10px', fontSize: 12, color: '#9a7c55', lineHeight: 1.5 }}>
+            Choose which Illinois Costco warehouses send you push notifications.
+            Pick favorites on the Tracker → Costco tab.
+          </p>
+          {[
+            { key: 'all',       label: 'All Illinois stores',  desc: 'Every alert from every IL Costco we track' },
+            { key: 'favorites', label: 'Favorites only',       desc: 'Only your pinned stores (max 3)' },
+          ].map(({ key, label, desc }) => {
+            const active = costcoMode === key
+            return (
+              <button
+                key={key}
+                onClick={() => updateCostcoMode(key)}
+                disabled={!pushEnabled || prefs.costco === false}
+                style={{
+                  display:      'flex',
+                  alignItems:   'center',
+                  gap:          10,
+                  width:        '100%',
+                  padding:      '10px 12px',
+                  marginBottom: 6,
+                  background:   active ? '#2a1500' : '#0f0a05',
+                  border:       `1px solid ${active ? '#e8943a' : '#3d2b10'}`,
+                  borderRadius: 8,
+                  cursor:       (!pushEnabled || prefs.costco === false) ? 'not-allowed' : 'pointer',
+                  opacity:      (!pushEnabled || prefs.costco === false) ? 0.5 : 1,
+                  textAlign:    'left',
+                }}
+              >
+                <span style={{
+                  width:        16,
+                  height:       16,
+                  borderRadius: '50%',
+                  border:       `2px solid ${active ? '#e8943a' : '#6b5030'}`,
+                  background:   active ? '#e8943a' : 'transparent',
+                  flexShrink:   0,
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: active ? '#e8943a' : '#f5e6cc' }}>{label}</div>
+                  <div style={{ fontSize: 11, color: '#6b5030', marginTop: 2 }}>{desc}</div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
 
         {/* ── Bottle Watchlist ────────────────────────────────────────── */}
         <div style={sectionStyle}>Bottle Watchlist</div>

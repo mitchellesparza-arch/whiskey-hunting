@@ -1,28 +1,17 @@
-import { NextResponse }     from 'next/server'
-import { sendTateraAlert }  from '../../../../lib/email.js'
-import { postTateraAlert }  from '../../../../lib/discord.js'
-import { sendBroadcast }    from '../../../../lib/push.js'
+import { NextResponse }         from 'next/server'
+import { postTateraAlert }      from '../../../../lib/discord.js'
+import { sendCostcoBroadcast }  from '../../../../lib/push.js'
+import { recordAlert }          from '../../../../lib/costco-history.js'
 
 /**
  * POST /api/ingest/tatera
  *
  * Receives Costco bourbon alerts that a Tampermonkey userscript scrapes from
- * Tatera.io's #illinois Discord channel.  Fans out to email, our own Discord
- * webhook, and web-push subscribers.
+ * Tatera.io's #illinois Discord channel.  Persists to Redis, fans out to our
+ * own Discord webhook (when configured) and to web-push subscribers (filtered
+ * by each user's costcoMode + costcoFavorites).
  *
  * Auth: Bearer token in Authorization header, must equal TATERA_INGEST_SECRET.
- *
- * Payload:
- *   {
- *     productName: string,
- *     itemNumber:  string,
- *     storeName:   string,
- *     storeNumber: string,
- *     state:       string,             // "IL"
- *     status:      "in_stock" | "out_of_stock",
- *     observedAt:  string,             // ISO timestamp
- *     discordMessageId: string         // for dedup / logging
- *   }
  */
 
 const ALLOWED_ORIGIN = 'https://discord.com'
@@ -91,19 +80,35 @@ export async function POST(request) {
     `[ingest/tatera] ${alert.status} · ${alert.productName} · ${alert.storeName} (${alert.storeNumber}), ${alert.state} · msg ${alert.discordMessageId}`
   )
 
+  // ── Persist (atomic dedup + per-store + global lists) ──────────────────────
+  let recorded = false
+  try {
+    recorded = await recordAlert(alert)
+  } catch (err) {
+    console.error('[ingest/tatera] recordAlert failed:', err.message)
+  }
+
+  // Duplicate Discord message — already processed.  Return 200 so the
+  // userscript marks it seen and stops retrying.
+  if (!recorded) {
+    return NextResponse.json(
+      { ok: true, duplicate: true, status: alert.status },
+      { headers: corsHeaders() }
+    )
+  }
+
   // ── Fanout (best-effort, parallel) ─────────────────────────────────────────
-  // Only in_stock transitions trigger user-visible alerts.  out_of_stock is
-  // logged for context but doesn't fan out.
+  // Only in_stock transitions trigger Discord/push.  Out-of-stock is persisted
+  // so it can show up in the live ticker but doesn't notify anyone.
   if (alert.status === 'in_stock') {
     await Promise.allSettled([
-      sendTateraAlert(alert),
       postTateraAlert(alert),
-      sendBroadcast({
+      sendCostcoBroadcast({
         title: `🥃 Costco ${alert.state}: ${alert.productName}`,
         body:  `In stock at ${alert.storeName} (${alert.storeNumber})`,
-        url:   '/tracker',
+        url:   '/tracker?tab=costco',
         tag:   `tatera-${alert.discordMessageId}`,
-      }, 'costco'),
+      }, alert.storeNumber),
     ])
   }
 

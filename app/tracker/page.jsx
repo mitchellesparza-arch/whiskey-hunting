@@ -3,7 +3,10 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import AppHeader from '../components/AppHeader.jsx'
+import CostcoTracker from '../components/CostcoTracker.jsx'
 import { hotlineBottles } from '../../lib/bottles.js'
+
+const TAB_LS_KEY = 'wh:tracker-tab'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -213,6 +216,7 @@ function StoreActivityCard({ storeName, events, isSelected, onSelect, isFavorite
 export default function TrackerPage() {
   const { data: session } = useSession()
 
+  const [tab,            setTab]            = useState('binnys')
   const [truckEvents,    setTruckEvents]    = useState([])
   const [lastCheckedAt,  setLastCheckedAt]  = useState(null)
   const [historyLoaded,  setHistoryLoaded]  = useState(false)
@@ -223,6 +227,24 @@ export default function TrackerPage() {
     if (typeof window === 'undefined') return []
     try { return JSON.parse(localStorage.getItem('wh:fav-stores') ?? '[]') } catch { return [] }
   })
+
+  // Initial tab: ?tab=costco wins, then localStorage, then default 'binnys'
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const fromQuery = params.get('tab')
+    if (fromQuery === 'costco' || fromQuery === 'binnys') {
+      setTab(fromQuery)
+      return
+    }
+    const stored = localStorage.getItem(TAB_LS_KEY)
+    if (stored === 'costco' || stored === 'binnys') setTab(stored)
+  }, [])
+
+  function switchTab(next) {
+    setTab(next)
+    try { localStorage.setItem(TAB_LS_KEY, next) } catch {}
+  }
 
   const loadHistory = useCallback(async () => {
     try {
@@ -286,8 +308,10 @@ export default function TrackerPage() {
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
 
       <AppHeader
-        sub="Chicagoland Binny's · Truck Tracker"
-        action={
+        sub={tab === 'costco'
+          ? 'Illinois Costco · Bourbon Alerts'
+          : "Chicagoland Binny's · Truck Tracker"}
+        action={tab === 'binnys' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {lastCheckedAt && (
               <span style={{ fontSize: 11, color: '#9a7c55' }}>Checked {timeAgo(lastCheckedAt)}</span>
@@ -301,11 +325,56 @@ export default function TrackerPage() {
               {refreshing ? 'Refreshing…' : '↺ Refresh'}
             </button>
           </div>
-        }
+        ) : null}
       />
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-10">
 
+        {/* Source toggle */}
+        <div
+          role="tablist"
+          aria-label="Tracker source"
+          style={{
+            display:      'inline-flex',
+            background:   '#1a1008',
+            border:       '1px solid #3d2b10',
+            borderRadius: 999,
+            padding:      4,
+            gap:          2,
+          }}
+        >
+          {[
+            { key: 'binnys', label: "🚛 Binny's" },
+            { key: 'costco', label: '🥃 Costco'  },
+          ].map(({ key, label }) => {
+            const active = tab === key
+            return (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={active}
+                onClick={() => switchTab(key)}
+                style={{
+                  padding:      '7px 18px',
+                  borderRadius: 999,
+                  border:       'none',
+                  background:   active ? '#e8943a' : 'transparent',
+                  color:        active ? '#0f0a05' : '#9a7c55',
+                  fontWeight:   active ? 800 : 600,
+                  fontSize:     13,
+                  cursor:       'pointer',
+                  transition:   'all 0.15s',
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+
+        {tab === 'costco' && <CostcoTracker />}
+
+        {tab === 'binnys' && <>
         {/* Store Activity Summary */}
         {historyLoaded && storeNames.length > 0 && (
           <section>
@@ -471,11 +540,14 @@ export default function TrackerPage() {
             ))}
           </div>
         </section>
+        </>}
 
       </main>
 
       <footer className="border-t border-[#2a1a08] mt-16 py-6 text-center text-xs text-[#6b5030]">
-        Tater Tracker · Jon and the Juice · Checked 6× daily: 7 AM · 9 AM · 11 AM · 1 PM · 3 PM · 5 PM CDT
+        {tab === 'costco'
+          ? 'Tater Tracker · Costco alerts relayed live from the Tatera Illinois feed'
+          : 'Tater Tracker · Jon and the Juice · Checked 6× daily: 7 AM · 9 AM · 11 AM · 1 PM · 3 PM · 5 PM CDT'}
       </footer>
 
     </div>
