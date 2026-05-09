@@ -301,7 +301,7 @@ export default function CostcoTracker() {
               No Costco alerts yet
             </div>
             <div style={{ fontSize: 12, color: '#9a7c55', maxWidth: 480, margin: '0 auto', lineHeight: 1.6 }}>
-              Once the Tatera relay catches a status change in any Illinois Costco, it lands here.
+              Once the relay catches a status change in any Illinois Costco, it lands here.
               Make sure your Discord tab is open and the relay userscript is running.
             </div>
           </div>

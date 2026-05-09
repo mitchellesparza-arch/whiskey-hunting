@@ -546,7 +546,7 @@ export default function TrackerPage() {
 
       <footer className="border-t border-[#2a1a08] mt-16 py-6 text-center text-xs text-[#6b5030]">
         {tab === 'costco'
-          ? 'Tater Tracker · Costco alerts relayed live from the Tatera Illinois feed'
+          ? 'Tater Tracker · Live Costco alerts across Illinois'
           : 'Tater Tracker · Jon and the Juice · Checked 6× daily: 7 AM · 9 AM · 11 AM · 1 PM · 3 PM · 5 PM CDT'}
       </footer>
 
