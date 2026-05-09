@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tater Tracker — Tatera Illinois relay
 // @namespace    https://whiskey-hunter.vercel.app/
-// @version      0.1.0
+// @version      0.2.0
 // @description  Watch the Tatera.io #illinois Discord channel for Costco bourbon alerts and POST them to Tater Tracker's /api/ingest/tatera endpoint.
 // @match        https://discord.com/channels/*
 // @match        https://canary.discord.com/channels/*
@@ -35,11 +35,12 @@ const CONFIG = {
 ;(function () {
   'use strict'
 
-  const LOG_TAG     = '[tatera-relay]'
-  const SEEN_PREFIX = 'tatera-il-seen:'
-  const SEEN_TTL_MS = 14 * 24 * 60 * 60 * 1000   // 14 days
-  const log         = (...a) => console.log(LOG_TAG, ...a)
-  const warn        = (...a) => console.warn(LOG_TAG, ...a)
+  const LOG_TAG          = '[tatera-relay]'
+  const SEEN_PREFIX      = 'tatera-il-seen:'
+  const SEEN_TTL_MS      = 14 * 24 * 60 * 60 * 1000   // 14 days
+  const BACKFILL_AGE_MS  = 60 * 60 * 1000             // process messages from last hour on attach
+  const log              = (...a) => console.log(LOG_TAG, ...a)
+  const warn             = (...a) => console.warn(LOG_TAG, ...a)
 
   // ── Channel match ─────────────────────────────────────────────────────────
   const channelPath = (() => {
@@ -179,13 +180,33 @@ const CONFIG = {
     }
   }
 
-  // ── Backfill: when first attaching to a channel, treat existing messages
-  //    as "already seen" without firing alerts.  Avoids blasting old alerts.
-  function backfillSeen(root) {
-    root.querySelectorAll('li[id^="chat-messages-"]').forEach(li => {
+  // ── Backfill: when first attaching to a channel, walk every visible message.
+  //    Messages older than BACKFILL_AGE_MS are silently marked as seen so we
+  //    don't blast historical alerts.  Recent messages get processed normally
+  //    — the server's atomic dedup (SET NX on the discord message id) prevents
+  //    double fanout if the same message was already handled in another tab
+  //    or session.  This way, if Discord refreshes during the day, we don't
+  //    lose alerts that arrived while the tab was reloading.
+  async function backfillProcess(root) {
+    const cutoff = Date.now() - BACKFILL_AGE_MS
+    const items  = root.querySelectorAll('li[id^="chat-messages-"]')
+    let recent = 0, old = 0
+    for (const li of items) {
       const m = li.id.match(/^chat-messages-(?:\d+)-(\d+)$/)
-      if (m) markSeen(m[1])
-    })
+      if (!m) continue
+      const messageId = m[1]
+      const timeEl    = li.querySelector('time[datetime]')
+      const ts        = timeEl?.getAttribute('datetime')
+      const ageOk     = ts && new Date(ts).getTime() >= cutoff
+      if (ageOk) {
+        recent++
+        await processNode(li)   // server dedup keeps duplicates safe
+      } else {
+        old++
+        markSeen(messageId)
+      }
+    }
+    log(`backfill: ${old} marked seen (>1h old), ${recent} processed (recent)`)
   }
 
   // ── MutationObserver — watch for new <li id="chat-messages-..."> insertions
@@ -209,8 +230,8 @@ const CONFIG = {
     const root = document.querySelector('ol[data-list-id="chat-messages"]')
     if (!root) return  // not yet rendered, retry on next tick
 
-    backfillSeen(root)
     log('observing chat for new alerts (channel:', location.pathname, ')')
+    backfillProcess(root)   // fires async, doesn't block observer attach
 
     observer = new MutationObserver(records => {
       for (const r of records) {
