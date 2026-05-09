@@ -4,6 +4,8 @@ import { useRouter }  from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link           from 'next/link'
 import AppHeader      from '../components/AppHeader.jsx'
+import StatTile       from '../components/ui/StatTile.jsx'
+import Card           from '../components/ui/Card.jsx'
 
 function initials(name) {
   if (!name) return '?'
@@ -11,22 +13,6 @@ function initials(name) {
   return parts.length >= 2
     ? (parts[0][0] + parts[1][0]).toUpperCase()
     : name.slice(0, 2).toUpperCase()
-}
-
-function StatBox({ label, value }) {
-  return (
-    <div style={{
-      flex:         1,
-      textAlign:    'center',
-      padding:      '14px 8px',
-      background:   '#1f1308',
-      borderRadius: 10,
-      border:       '1px solid #2a1c08',
-    }}>
-      <div style={{ fontWeight: 800, fontSize: 22, color: '#f5e6cc', lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 10, color: '#9a7c55', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-    </div>
-  )
 }
 
 const TILES = [
@@ -129,22 +115,22 @@ export default function ProfilePage() {
             width:          60,
             height:         60,
             borderRadius:   '50%',
-            background:     'linear-gradient(135deg, #e8943a, #b05a10)',
+            background:     'var(--grad-copper)',
             display:        'flex',
             alignItems:     'center',
             justifyContent: 'center',
             fontWeight:     800,
             fontSize:       22,
-            color:          '#fff',
+            color:          'var(--text-inverse)',
             flexShrink:     0,
           }}>
             {initials(displayName)}
           </div>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 20, color: '#f5e6cc', lineHeight: 1.2 }}>
+            <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--text-primary)', lineHeight: 1.2 }}>
               {displayName}
             </div>
-            <div style={{ fontSize: 12, color: '#9a7c55', marginTop: 3 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
               Jon and the Juice · Member
             </div>
           </div>
@@ -152,17 +138,17 @@ export default function ProfilePage() {
 
         {/* Stats Row */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-          <StatBox label="Bottles"   value={collectionLoaded ? totalBottles  : '—'} />
-          <StatBox label="Friends"   value={friendCount !== null ? friendCount : '—'} />
-          <StatBox label="Tastings"  value={collectionLoaded ? totalTastings : '—'} />
-          <StatBox label="Top Score" value={collectionLoaded && topScore > 0 ? topScore.toFixed(0) : '—'} />
+          <StatTile label="Bottles"   value={collectionLoaded ? totalBottles  : '—'} />
+          <StatTile label="Friends"   value={friendCount !== null ? friendCount : '—'} />
+          <StatTile label="Tastings"  value={collectionLoaded ? totalTastings : '—'} />
+          <StatTile label="Top Score" value={collectionLoaded && topScore > 0 ? topScore.toFixed(0) : '—'} />
         </div>
 
         {/* Top Bottle Callout */}
         {collectionLoaded && topBottle && topBottle.tastings > 0 && (
           <div style={{
-            background:   'linear-gradient(135deg, #2a1505 0%, #1a1008 100%)',
-            border:       '1px solid #7c3a0a',
+            background:   'linear-gradient(135deg, var(--copper-900) 0%, var(--bg-elev-2) 100%)',
+            border:       '1px solid var(--copper-700)',
             borderRadius: 12,
             padding:      '14px 16px',
             marginBottom: 20,
@@ -172,11 +158,11 @@ export default function ProfilePage() {
           }}>
             <span style={{ fontSize: 28 }}>🏆</span>
             <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#e8943a', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--copper-400)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>
                 Your Top Bottle
               </div>
-              <div style={{ fontWeight: 800, fontSize: 15, color: '#f5e6cc' }}>{topBottle.name}</div>
-              <div style={{ fontSize: 12, color: '#9a7c55', marginTop: 2 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>{topBottle.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                 Blind score: {topBottle.blindScore?.toFixed(1)}
               </div>
             </div>
@@ -190,22 +176,9 @@ export default function ProfilePage() {
             const badge     = isFriends && pendingRequests > 0 ? pendingRequests : 0
 
             const content = (
-              <div style={{
-                background:   '#1a1008',
-                border:       '1px solid #3d2b10',
-                borderRadius: 12,
-                padding:      '18px 16px',
-                height:       '100%',
-                display:      'flex',
-                flexDirection:'column',
-                gap:          6,
-                cursor:       tile.href ? 'pointer' : 'default',
-                opacity:      tile.href ? 1 : 0.5,
-                transition:   'border-color 0.15s',
-                position:     'relative',
-              }}
-              onMouseEnter={e => { if (tile.href) e.currentTarget.style.borderColor = '#e8943a' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#3d2b10' }}
+              <Card
+                hover={!!tile.href}
+                style={{ height: '100%', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 6, position: 'relative', ...(tile.href ? {} : { opacity: 0.5 }) }}
               >
                 {/* Pending request badge on Friends tile */}
                 {badge > 0 && (
@@ -213,8 +186,8 @@ export default function ProfilePage() {
                     position:     'absolute',
                     top:          10,
                     right:        10,
-                    background:   '#f87171',
-                    color:        '#fff',
+                    background:   'var(--red)',
+                    color:        'var(--text-inverse)',
                     fontSize:     10,
                     fontWeight:   700,
                     borderRadius: 999,
@@ -225,17 +198,17 @@ export default function ProfilePage() {
                   </div>
                 )}
                 <div style={{ fontSize: 30 }}>{tile.icon}</div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: '#f5e6cc' }}>{tile.title}</div>
-                <div style={{ fontSize: 12, color: '#9a7c55', lineHeight: 1.4 }}>{tile.subtitle}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{tile.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>{tile.subtitle}</div>
                 {tile.href && (
-                  <div style={{ marginTop: 'auto', fontSize: 12, color: '#e8943a', fontWeight: 600 }}>
+                  <div style={{ marginTop: 'auto', fontSize: 12, color: 'var(--copper-400)', fontWeight: 600 }}>
                     Open →
                   </div>
                 )}
                 {!tile.href && (
-                  <div style={{ marginTop: 'auto', fontSize: 11, color: '#6b5030' }}>Coming soon</div>
+                  <div style={{ marginTop: 'auto', fontSize: 11, color: 'var(--text-dim)' }}>Coming soon</div>
                 )}
-              </div>
+              </Card>
             )
 
             return tile.href ? (
@@ -251,26 +224,26 @@ export default function ProfilePage() {
         {/* Mule Scoreboard */}
         {muleBoard.length > 0 && (
           <div style={{ marginTop: 20 }}>
-            <div style={{ fontWeight: 800, fontSize: 14, color: '#f5e6cc', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontWeight: 800, fontSize: 'var(--fs-h3)', color: 'var(--text-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
               🫏 Mule Scoreboard
-              <span style={{ fontSize: 11, fontWeight: 400, color: '#9a7c55' }}>— who&apos;s delivered the most samples</span>
+              <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-muted)' }}>— who&apos;s delivered the most samples</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {muleBoard.slice(0, 5).map(({ name, count }, i) => (
                 <div key={name} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '10px 14px',
-                  background: '#1a1008', border: '1px solid #2a1c08', borderRadius: 10,
+                  background: 'var(--bg-elev-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 18 }}>{['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</span>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: '#f5e6cc' }}>{name}</span>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{name}</span>
                   </div>
                   <span style={{
                     fontSize: 12, fontWeight: 700,
-                    color: '#e8943a',
-                    background: 'rgba(232,148,58,0.1)',
-                    border: '1px solid rgba(232,148,58,0.2)',
+                    color: 'var(--copper-400)',
+                    background: 'rgba(217,126,44,0.10)',
+                    border: '1px solid rgba(217,126,44,0.25)',
                     borderRadius: 999, padding: '2px 10px',
                   }}>
                     {count} mule{count !== 1 ? 's' : ''}

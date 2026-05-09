@@ -2,8 +2,11 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import { Truck } from 'lucide-react'
 import AppHeader from '../components/AppHeader.jsx'
 import CostcoTracker from '../components/CostcoTracker.jsx'
+import SectionHeader from '../components/ui/SectionHeader.jsx'
+import EmptyState from '../components/ui/EmptyState.jsx'
 import { hotlineBottles } from '../../lib/bottles.js'
 
 const TAB_LS_KEY = 'wh:tracker-tab'
@@ -30,12 +33,32 @@ function formatDate(iso) {
 
 // Distributor brand colors
 const DIST_COLOR = {
-  'Breakthru Beverage': { bg: '#1a0e05', border: '#7c3a0a', text: '#e8943a', badge: '#2a1500' },
-  "Southern Glazer's":  { bg: '#0d1a0d', border: '#2d5a2d', text: '#4ade80', badge: '#0f2010' },
-  'RNDC':               { bg: '#0d0d1a', border: '#2d2d7c', text: '#818cf8', badge: '#10102a' },
-  'BC Merchants':       { bg: '#1a0d1a', border: '#5a2d7c', text: '#c084fc', badge: '#1e0f26' },
+  'Breakthru Beverage': {
+    bg:     'rgba(217,126,44,0.06)',
+    border: 'rgba(217,126,44,0.25)',
+    text:   'var(--dist-breakthru)',
+    badge:  'rgba(217,126,44,0.10)',
+  },
+  "Southern Glazer's": {
+    bg:     'rgba(93,211,158,0.06)',
+    border: 'rgba(93,211,158,0.25)',
+    text:   'var(--dist-southern)',
+    badge:  'rgba(93,211,158,0.10)',
+  },
+  'RNDC': {
+    bg:     'rgba(143,181,255,0.06)',
+    border: 'rgba(143,181,255,0.25)',
+    text:   'var(--dist-rndc)',
+    badge:  'rgba(143,181,255,0.10)',
+  },
+  'BC Merchants': {
+    bg:     'rgba(185,164,255,0.06)',
+    border: 'rgba(185,164,255,0.25)',
+    text:   'var(--dist-bcm)',
+    badge:  'rgba(185,164,255,0.10)',
+  },
 }
-const DEFAULT_COLOR = { bg: '#1a1208', border: '#3d2b10', text: '#9a7c55', badge: '#1f1508' }
+const DEFAULT_COLOR = { bg: 'var(--bg-elev-2)', border: 'var(--hairline-2)', text: 'var(--text-muted)', badge: 'var(--bg-elev-3)' }
 
 function distColor(distributor) {
   return DIST_COLOR[distributor] ?? DEFAULT_COLOR
@@ -79,12 +102,22 @@ function DistributorMapColumn({ distributor, bottles }) {
       style={{ background: col.bg, border: `1px solid ${col.border}` }}
     >
       <div
-        className="px-4 py-3 font-bold text-sm"
-        style={{ background: col.badge, color: col.text, borderBottom: `1px solid ${col.border}` }}
+        style={{
+          background:   col.badge,
+          color:        col.text,
+          borderBottom: `1px solid ${col.border}`,
+          padding:      'var(--sp-3) var(--sp-4)',
+          fontWeight:   700,
+          fontSize:     'var(--fs-body)',
+          display:      'flex',
+          alignItems:   'center',
+          gap:          6,
+        }}
       >
-        🚛 {distributor}
+        <Truck size={14} color={col.text} />
+        {distributor}
       </div>
-      <div className="px-4 py-3 space-y-4">
+      <div style={{ padding: 'var(--sp-3) var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
         {tiers.map(({ tier, names }) => (
           <div key={tier}>
             <div className="text-xs font-semibold mb-1.5" style={{ color: col.text, opacity: 0.7 }}>
@@ -92,7 +125,7 @@ function DistributorMapColumn({ distributor, bottles }) {
             </div>
             <ul className="space-y-1">
               {names.map(name => (
-                <li key={name} className="text-xs text-[#9a7c55]">· {name}</li>
+                <li key={name} style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)' }}>· {name}</li>
               ))}
             </ul>
           </div>
@@ -118,14 +151,14 @@ function TruckCard({ event }) {
         style={{ background: col.badge, borderBottom: `1px solid ${col.border}` }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm font-bold" style={{ color: col.text }}>
-            🚛 {event.distributor}
+          <span className="text-sm font-bold flex items-center gap-1.5" style={{ color: col.text }}>
+            <Truck size={13} /> {event.distributor}
           </span>
-          <span className="text-xs text-[#9a7c55] truncate">
+          <span className="truncate" style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)' }}>
             — Binny&apos;s {storeName}
           </span>
         </div>
-        <div className="text-xs text-[#6b5030] text-right leading-snug shrink-0">
+        <div className="text-right leading-snug shrink-0" style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>
           <div>{date}</div>
           <div>{time}</div>
         </div>
@@ -133,21 +166,21 @@ function TruckCard({ event }) {
 
       <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <p className="text-xs text-[#6b5030] uppercase tracking-wide mb-1.5">Triggered by</p>
-          <ul className="space-y-0.5">
+          <p className="uppercase tracking-wide mb-1.5" style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>Triggered by</p>
+          <ul style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {(event.triggeredBy ?? []).map((name, j) => (
-              <li key={j} className="text-xs text-[#9a7c55]">· {name}</li>
+              <li key={j} style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)' }}>· {name}</li>
             ))}
           </ul>
         </div>
         <div>
-          <p className="text-xs text-[#6b5030] uppercase tracking-wide mb-1.5">Allocated bottles from this distributor</p>
-          <ul className="space-y-0.5">
+          <p className="uppercase tracking-wide mb-1.5" style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>Allocated bottles from this distributor</p>
+          <ul style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {flatCheckFor.slice(0, 8).map((name, j) => (
-              <li key={j} className="text-xs text-[#c9a87a]">· {name}</li>
+              <li key={j} style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-2)' }}>· {name}</li>
             ))}
             {flatCheckFor.length > 8 && (
-              <li className="text-xs text-[#6b5030]">· +{flatCheckFor.length - 8} more</li>
+              <li style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>· +{flatCheckFor.length - 8} more</li>
             )}
           </ul>
         </div>
@@ -165,13 +198,13 @@ function StoreActivityCard({ storeName, events, isSelected, onSelect, isFavorite
   return (
     <div
       className="card p-4 text-left w-full transition-all"
-      style={isSelected ? { borderColor: '#e8943a', boxShadow: '0 0 0 1px #e8943a' } : {}}
+      style={isSelected ? { borderColor: 'var(--copper-500)', boxShadow: 'var(--shadow-glow)' } : {}}
     >
       <div className="flex items-start justify-between gap-2 mb-3">
         <button onClick={onSelect} className="text-left flex-1 min-w-0">
-          <p className="text-sm font-bold text-[#f5e6cc]">
+          <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
             📍 Binny&apos;s {storeName}
-            {isSelected && <span className="ml-2 text-xs font-normal text-[#e8943a]">● filtered</span>}
+            {isSelected && <span className="ml-2 text-xs font-normal" style={{ color: 'var(--copper-400)' }}>● filtered</span>}
           </p>
         </button>
         <button
@@ -198,12 +231,12 @@ function StoreActivityCard({ storeName, events, isSelected, onSelect, isFavorite
             return (
               <div key={dist} className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold" style={{ color: col.text }}>{dist}</span>
-                <span className="text-xs text-[#9a7c55]">{timeAgo(event.timestamp)}</span>
+                <span style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)' }}>{timeAgo(event.timestamp)}</span>
               </div>
             )
           })}
           {!Object.keys(byDist).length && (
-            <p className="text-xs text-[#6b5030]">No trucks detected yet</p>
+            <p style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>No trucks detected yet</p>
           )}
         </div>
       </button>
@@ -314,7 +347,7 @@ export default function TrackerPage() {
         action={tab === 'binnys' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {lastCheckedAt && (
-              <span style={{ fontSize: 11, color: '#9a7c55' }}>Checked {timeAgo(lastCheckedAt)}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Checked {timeAgo(lastCheckedAt)}</span>
             )}
             <button
               onClick={refresh}
@@ -336,8 +369,8 @@ export default function TrackerPage() {
           aria-label="Tracker source"
           style={{
             display:      'inline-flex',
-            background:   '#1a1008',
-            border:       '1px solid #3d2b10',
+            background:   'var(--bg-elev-2)',
+            border:       '1px solid var(--hairline-2)',
             borderRadius: 999,
             padding:      4,
             gap:          2,
@@ -358,8 +391,8 @@ export default function TrackerPage() {
                   padding:      '7px 18px',
                   borderRadius: 999,
                   border:       'none',
-                  background:   active ? '#e8943a' : 'transparent',
-                  color:        active ? '#0f0a05' : '#9a7c55',
+                  background:   active ? 'var(--copper-500)' : 'transparent',
+                  color:        active ? 'var(--text-inverse)' : 'var(--text-muted)',
                   fontWeight:   active ? 800 : 600,
                   fontSize:     13,
                   cursor:       'pointer',
@@ -378,17 +411,12 @@ export default function TrackerPage() {
         {/* Store Activity Summary */}
         {historyLoaded && storeNames.length > 0 && (
           <section>
-            <div className="section-header">
-              <span className="text-xl">📍</span>
-              <div>
-                <h2 className="section-title">Store Activity</h2>
-                <p className="text-xs text-[#9a7c55]">
-                  Latest truck detection per distributor at each location
-                </p>
-              </div>
-            </div>
+            <SectionHeader overline="Store Activity" title="" />
+            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-meta)', marginTop: 'var(--sp-1)', marginBottom: 'var(--sp-3)' }}>
+              Latest truck detection per distributor at each location
+            </p>
             {favoriteStores.length > 0 && (
-              <p className="text-xs text-[#9a7c55] mb-2">
+              <p style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', marginBottom: 'var(--sp-2)' }}>
                 ⭐ {favoriteStores.length} favorite store{favoriteStores.length > 1 ? 's' : ''} pinned · tap ☆ on any card to save up to 3
               </p>
             )}
@@ -411,24 +439,30 @@ export default function TrackerPage() {
 
         {/* Truck History */}
         <section>
-          <div className="section-header">
-            <span className="text-xl">🚛</span>
-            <div>
-              <h2 className="section-title">Truck History</h2>
-              <p className="text-xs text-[#9a7c55]">
-                {selectedStore
-                  ? `Binny's ${selectedStore} · ${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}`
-                  : `All Chicagoland locations · ${truckEvents.length} event${truckEvents.length !== 1 ? 's' : ''} · checked 6× daily`}
-              </p>
-            </div>
-          </div>
+          <SectionHeader overline="Truck History" title="" />
+          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-meta)', marginTop: 'var(--sp-1)', marginBottom: 'var(--sp-3)' }}>
+            {selectedStore
+              ? `Binny's ${selectedStore} · ${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}`
+              : `All Chicagoland locations · ${truckEvents.length} event${truckEvents.length !== 1 ? 's' : ''} · checked 6× daily`}
+          </p>
 
           {historyLoaded && storeNames.length > 0 && (
             <div className="flex items-center gap-2 mb-4">
               <select
                 value={selectedStore ?? ''}
                 onChange={e => { setSelectedStore(e.target.value || null); setShowAllEvents(false) }}
-                className="flex-1 sm:flex-none sm:w-64 bg-[#0f0a05] border border-[#3d2b10] rounded-lg px-3 py-2 text-sm text-[#f5e6cc] focus:outline-none focus:border-[#e8943a] appearance-none cursor-pointer"
+                style={{
+                  background:  'var(--bg-base)',
+                  border:      '1px solid var(--hairline-2)',
+                  borderRadius: 'var(--r-md)',
+                  padding:     'var(--sp-2) var(--sp-3)',
+                  fontSize:    'var(--fs-body)',
+                  color:       'var(--text-primary)',
+                  cursor:      'pointer',
+                  appearance:  'none',
+                  outline:     'none',
+                }}
+                className="flex-1 sm:flex-none sm:w-64"
               >
                 <option value="">All Stores</option>
                 {storeNames.map(name => (
@@ -440,7 +474,15 @@ export default function TrackerPage() {
               {selectedStore && (
                 <button
                   onClick={() => setSelectedStore(null)}
-                  className="text-xs text-[#9a7c55] hover:text-[#f5e6cc] border border-[#3d2b10] rounded-lg px-3 py-2 transition-colors"
+                  style={{
+                    fontSize:     'var(--fs-meta)',
+                    color:        'var(--text-muted)',
+                    border:       '1px solid var(--hairline-2)',
+                    borderRadius: 'var(--r-md)',
+                    padding:      'var(--sp-2) var(--sp-3)',
+                    background:   'none',
+                    cursor:       'pointer',
+                  }}
                 >
                   ✕ Clear
                 </button>
@@ -449,54 +491,33 @@ export default function TrackerPage() {
           )}
 
           {!historyLoaded ? (
-            <div className="card px-4 py-6 text-center text-sm text-[#6b5030]">
+            <div className="card px-4 py-6 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
               Loading…
             </div>
           ) : truckEvents.length === 0 ? (
             /* Empty state */
             <div>
-              <div style={{
-                background:   'linear-gradient(160deg, #1e1004 0%, #0f0a05 60%)',
-                padding:      '32px 16px 28px',
-                borderBottom: '1px solid #2a1c08',
-                textAlign:    'center',
-                borderRadius: 12,
-                marginBottom: 16,
-              }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>🚛</div>
-                <div style={{ fontWeight: 800, fontSize: 22, color: '#f5e6cc', letterSpacing: '-0.02em', marginBottom: 8 }}>
-                  No truck deliveries detected yet
-                </div>
-                <div style={{ fontSize: 14, color: '#9a7c55', lineHeight: 1.6, marginBottom: 20, maxWidth: 520, margin: '0 auto 20px' }}>
-                  The tracker checks Binny&apos;s inventory 6× daily — at 7, 9, 11 AM and 1, 3, 5 PM CDT.
-                  When a delivery truck is detected at any Chicagoland location, it shows up here.
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                  {['All 20+ Binny\'s stores monitored', '6× daily cadence'].map(label => (
-                    <span key={label} style={{
-                      fontSize: 12, color: '#9a7c55',
-                      background: '#1a1008', border: '1px solid #3d2b10',
-                      borderRadius: 999, padding: '4px 12px',
-                    }}>{label}</span>
-                  ))}
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+              <EmptyState
+                icon="Truck"
+                title="No truck deliveries detected yet"
+                body="Checked 6× daily — 7, 9, 11 AM and 1, 3, 5 PM CDT. When a delivery truck is detected at any Chicagoland location, it shows up here."
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 16 }}>
                 {[
                   { step: '1', label: 'Canary scan',    desc: 'Every 6h, the tracker checks if high-volume bottles (Old Forester, Benchmark, etc.) have restocked at each store.' },
                   { step: '2', label: 'Truck detected', desc: 'A sudden restock of canary bottles means a delivery truck likely just visited. We flag it and log which distributor.' },
                   { step: '3', label: 'Check the map',  desc: 'Use the Distributor Map below to know which allocated bottles may be on that truck — then head to the store.' },
                 ].map(s => (
-                  <div key={s.step} className="card" style={{ padding: 14 }}>
-                    <div style={{ fontWeight: 800, fontSize: 28, color: '#e8943a', opacity: 0.3, marginBottom: 4 }}>{s.step}</div>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: '#f5e6cc', marginBottom: 4 }}>{s.label}</div>
-                    <div style={{ fontSize: 12, color: '#9a7c55', lineHeight: 1.6 }}>{s.desc}</div>
+                  <div key={s.step} className="card" style={{ padding: 'var(--sp-4)' }}>
+                    <div style={{ fontWeight: 800, fontSize: 28, color: 'var(--copper-500)', opacity: 0.3, marginBottom: 4 }}>{s.step}</div>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>{s.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>{s.desc}</div>
                   </div>
                 ))}
               </div>
             </div>
           ) : filteredEvents.length === 0 ? (
-            <div className="card px-4 py-6 text-center text-sm text-[#6b5030]">
+            <div className="card px-4 py-6 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
               No truck events recorded for Binny&apos;s {selectedStore} yet.
             </div>
           ) : (
@@ -507,8 +528,8 @@ export default function TrackerPage() {
               {filteredEvents.length > 10 && (
                 <button
                   onClick={() => setShowAllEvents(v => !v)}
-                  className="w-full text-center text-xs py-3 border border-[#3d2b10] rounded-lg transition-colors"
-                  style={{ color: '#9a7c55', background: '#1f1308', cursor: 'pointer' }}
+                  className="w-full text-center py-3 rounded-lg transition-colors"
+                  style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', background: 'var(--bg-elev-3)', border: '1px solid var(--hairline-2)', cursor: 'pointer' }}
                 >
                   {showAllEvents
                     ? '▲ Show less'
@@ -521,15 +542,10 @@ export default function TrackerPage() {
 
         {/* Distributor Map */}
         <section>
-          <div className="section-header">
-            <span className="text-xl">📋</span>
-            <div>
-              <h2 className="section-title">Distributor Map</h2>
-              <p className="text-xs text-[#9a7c55]">
-                Which truck brings which allocated bottles — reference when a delivery is detected
-              </p>
-            </div>
-          </div>
+          <SectionHeader overline="Distributor Map" title="" />
+          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-meta)', marginTop: 'var(--sp-1)', marginBottom: 'var(--sp-3)' }}>
+            Which truck brings which allocated bottles — reference when a delivery is detected
+          </p>
           <div className="flex flex-wrap gap-3">
             {distOrder.map(dist => (
               <DistributorMapColumn
@@ -544,7 +560,10 @@ export default function TrackerPage() {
 
       </main>
 
-      <footer className="border-t border-[#2a1a08] mt-16 py-6 text-center text-xs text-[#6b5030]">
+      <footer
+        className="mt-16 py-6 text-center"
+        style={{ borderTop: '1px solid', borderColor: 'var(--hairline)', fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' }}
+      >
         {tab === 'costco'
           ? 'Tater Tracker · Live Costco alerts across Illinois'
           : 'Tater Tracker · Jon and the Juice · Checked 6× daily: 7 AM · 9 AM · 11 AM · 1 PM · 3 PM · 5 PM CDT'}

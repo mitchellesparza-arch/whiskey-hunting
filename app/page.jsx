@@ -4,14 +4,19 @@ import dynamic        from 'next/dynamic'
 import { useSession } from 'next-auth/react'
 import { useRouter }  from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import { ThumbsUp, ThumbsDown, ChevronDown, ChevronUp } from 'lucide-react'
 import BarcodeScanner    from './finds/BarcodeScanner.jsx'
 import AppHeader         from './components/AppHeader.jsx'
 import BottleDetailSheet from './components/BottleDetailSheet.jsx'
 import StoreHistorySheet from './components/StoreHistorySheet.jsx'
+import Chip              from './components/ui/Chip.jsx'
+import Button            from './components/ui/Button.jsx'
+import Card              from './components/ui/Card.jsx'
+import EmptyState        from './components/ui/EmptyState.jsx'
 
 // Leaflet map — SSR disabled (window is required)
 const FindsMap = dynamic(() => import('./finds/FindsMap.jsx'), { ssr: false, loading: () => (
-  <div style={{ height: 380, background: '#111', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+  <div style={{ height: 380, background: 'var(--bg-elev-2)', borderRadius: 'var(--r-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
     Loading map…
   </div>
 ) })
@@ -40,22 +45,8 @@ function fmtTimeAgo(ts) {
 function FreshnessBadge({ timestamp }) {
   if (!timestamp) return null
   const hoursOld = (Date.now() - timestamp) / 3600000
-  if (hoursOld < 6) return (
-    <span style={{
-      display: 'inline-block', fontSize: 11, fontWeight: 700,
-      padding: '2px 8px', borderRadius: 999,
-      color: '#4ade80', background: 'rgba(74,222,128,0.1)',
-      border: '1px solid rgba(74,222,128,0.3)',
-    }}>🔥 Fresh</span>
-  )
-  if (hoursOld > 20) return (
-    <span style={{
-      display: 'inline-block', fontSize: 11, fontWeight: 700,
-      padding: '2px 8px', borderRadius: 999,
-      color: '#6b5030', background: 'transparent',
-      border: '1px solid #3d2b10',
-    }}>⏰ Aging</span>
-  )
+  if (hoursOld < 6)  return <Chip tone="green" size="sm">🔥 Fresh</Chip>
+  if (hoursOld > 20) return <Chip tone="neutral" size="sm">⏰ Aging</Chip>
   return null
 }
 
@@ -400,12 +391,12 @@ export default function FindsPage() {
 
   const inputStyle = {
     width:        '100%',
-    padding:      '9px 12px',
+    padding:      'var(--sp-2) var(--sp-3)',
     background:   'var(--bg-base)',
-    border:       '1px solid var(--border)',
-    borderRadius: 8,
+    border:       '1px solid var(--hairline-2)',
+    borderRadius: 'var(--r-md)',
     color:        'var(--text-primary)',
-    fontSize:     14,
+    fontSize:     'var(--fs-body)',
     boxSizing:    'border-box',
     fontFamily:   'inherit',
     outline:      'none',
@@ -413,16 +404,16 @@ export default function FindsPage() {
 
   const labelStyle = {
     display:       'block',
-    fontSize:      11,
+    fontSize:      'var(--fs-overline)',
     fontWeight:    700,
     color:         'var(--text-muted)',
-    marginBottom:  5,
-    marginTop:     14,
+    marginBottom:  'var(--sp-1)',
+    marginTop:     'var(--sp-4)',
     textTransform: 'uppercase',
-    letterSpacing: '0.06em',
+    letterSpacing: '0.08em',
   }
 
-  const MEDAL_COLOR = ['#fbbf24', '#94a3b8', '#b45309']
+  const MEDAL_COLOR = ['var(--amber)', 'var(--text-muted)', 'var(--copper-600)']
 
   function FindCard({ find, isArchived = false, onBottleClick, onStoreClick }) {
     const userEmail = session?.user?.email ?? ''
@@ -435,14 +426,14 @@ export default function FindsPage() {
 
     return (
       <div className="card" style={{ padding: 0, opacity: isArchived ? 0.6 : 1 }}>
-        <div style={{ padding: '12px 14px', borderBottom: '1px solid #2a1c08' }}>
+        <div style={{ padding: 'var(--sp-3) var(--sp-4)', borderBottom: '1px solid var(--hairline)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
             <button
               onClick={() => onBottleClick?.(find.bottleName)}
               style={{
                 background: 'none', border: 'none', padding: 0, cursor: 'pointer',
                 textAlign: 'left', fontFamily: 'inherit',
-                fontWeight: 700, fontSize: 15, color: 'var(--text-primary)',
+                fontWeight: 700, fontSize: 'var(--fs-h3)', color: 'var(--text-primary)',
                 lineHeight: 1.3, fontStyle: isArchived ? 'italic' : 'normal',
               }}
             >
@@ -453,28 +444,28 @@ export default function FindsPage() {
               <button
                 onClick={() => handleDelete(find.id)}
                 disabled={deletingId === find.id}
-                style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 16, padding: 0 }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 16, padding: 0 }}
               >
                 {deletingId === find.id ? '⏳' : '✕'}
               </button>
             </div>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginBottom: 2 }}>
             <button
               onClick={() => find.store?.placeId && onStoreClick?.(find.store)}
               style={{
                 background: 'none', border: 'none', padding: 0, fontFamily: 'inherit',
-                fontSize: 12, cursor: find.store?.placeId ? 'pointer' : 'default',
-                color: find.store?.placeId ? '#c9a87a' : 'var(--text-muted)',
+                fontSize: 'var(--fs-meta)', cursor: find.store?.placeId ? 'pointer' : 'default',
+                color: find.store?.placeId ? 'var(--text-2)' : 'var(--text-muted)',
               }}
             >📍 {find.store?.name ?? '—'}</button>
-            {find.store?.address && <span style={{ color: '#6b5030' }}> · {find.store.address}</span>}
+            {find.store?.address && <span style={{ color: 'var(--text-dim)' }}> · {find.store.address}</span>}
           </div>
-          <div style={{ fontSize: 11, color: '#6b5030', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <span>{fmtDate(find.timestamp)}{find.timestamp && ` · ${fmtTimeAgo(find.timestamp)}`}</span>
-            {find.price && <span style={{ color: '#e8943a', fontWeight: 700 }}>${Number(find.price).toFixed(2)}</span>}
-            <span style={{ color: '#6b5030' }}>by {find.submitterName}</span>
-            {isArchived && <span style={{ fontStyle: 'italic' }}>— archived after 24h</span>}
+            {find.price && <span style={{ color: 'var(--copper-400)', fontWeight: 700 }}>${Number(find.price).toFixed(2)}</span>}
+            <span style={{ color: 'var(--text-dim)' }}>by {find.submitterName}</span>
+            {isArchived && <span style={{ fontStyle: 'italic', color: 'var(--text-dim)' }}>— archived after 24h</span>}
           </div>
         </div>
 
@@ -482,48 +473,60 @@ export default function FindsPage() {
           <img
             src={find.photoUrl}
             alt="bottle"
-            style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block', borderBottom: '1px solid #2a1c08' }}
+            style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block', borderBottom: '1px solid var(--hairline)' }}
           />
         )}
 
         {find.notes && (
-          <div style={{ padding: '10px 14px', fontSize: 12, color: '#c9a87a', fontStyle: 'italic', borderBottom: '1px solid #2a1c08' }}>
+          <div style={{ padding: 'var(--sp-3) var(--sp-4)', fontSize: 'var(--fs-meta)', color: 'var(--text-2)', fontStyle: 'italic', borderBottom: '1px solid var(--hairline)' }}>
             &ldquo;{find.notes}&rdquo;
           </div>
         )}
 
         {/* Vote buttons — not shown on archived finds */}
         {!isArchived && (
-          <div style={{ padding: '9px 14px', display: 'flex', gap: 8 }}>
+          <div style={{ padding: 'var(--sp-2) var(--sp-4)', display: 'flex', gap: 8 }}>
             <button
               onClick={() => handleVote(find.id, 'up')}
+              onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+              onMouseUp={e => { e.currentTarget.style.transform = '' }}
               style={{
-                padding:      '5px 13px',
-                borderRadius: 6,
-                border:       myVote === 'up' ? '1px solid rgba(74,222,128,0.4)' : '1px solid #2a1c08',
+                display:      'flex',
+                alignItems:   'center',
+                gap:          4,
+                padding:      'var(--sp-1) var(--sp-3)',
+                borderRadius: 'var(--r-sm)',
+                border:       myVote === 'up' ? '1px solid rgba(93,211,158,0.4)' : '1px solid var(--hairline)',
                 cursor:       'pointer',
-                background:   myVote === 'up' ? 'rgba(74,222,128,0.1)' : '#1f1308',
-                color:        myVote === 'up' ? '#4ade80' : '#6b5030',
-                fontSize:     12,
+                background:   myVote === 'up' ? 'var(--green-bg)' : 'var(--bg-elev-3)',
+                color:        myVote === 'up' ? 'var(--green)' : 'var(--text-dim)',
+                fontSize:     'var(--fs-meta)',
                 fontWeight:   700,
+                transition:   'var(--t-fast)',
               }}
             >
-              👍 Still There{upCount > 0 ? ` (${upCount})` : ''}
+              <ThumbsUp size={13} /> Still There{upCount > 0 ? ` (${upCount})` : ''}
             </button>
             <button
               onClick={() => handleVote(find.id, 'down')}
+              onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+              onMouseUp={e => { e.currentTarget.style.transform = '' }}
               style={{
-                padding:      '5px 13px',
-                borderRadius: 6,
-                border:       myVote === 'down' ? '1px solid rgba(248,113,113,0.4)' : '1px solid #2a1c08',
+                display:      'flex',
+                alignItems:   'center',
+                gap:          4,
+                padding:      'var(--sp-1) var(--sp-3)',
+                borderRadius: 'var(--r-sm)',
+                border:       myVote === 'down' ? '1px solid rgba(248,113,113,0.4)' : '1px solid var(--hairline)',
                 cursor:       'pointer',
-                background:   myVote === 'down' ? 'rgba(248,113,113,0.1)' : '#1f1308',
-                color:        myVote === 'down' ? '#f87171' : '#6b5030',
-                fontSize:     12,
+                background:   myVote === 'down' ? 'var(--red-bg)' : 'var(--bg-elev-3)',
+                color:        myVote === 'down' ? 'var(--red)' : 'var(--text-dim)',
+                fontSize:     'var(--fs-meta)',
                 fontWeight:   700,
+                transition:   'var(--t-fast)',
               }}
             >
-              👎 Gone{downCount > 0 ? ` (${downCount})` : ''}
+              <ThumbsDown size={13} /> Gone{downCount > 0 ? ` (${downCount})` : ''}
             </button>
           </div>
         )}
@@ -536,11 +539,11 @@ export default function FindsPage() {
 
       <AppHeader sub="Community Finds · Chicagoland" />
 
-      <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 12px' }}>
+      <div style={{ maxWidth: 700, margin: '0 auto', padding: 'var(--sp-4) var(--sp-3)' }}>
 
         {/* Submit Form */}
-        <div className="card p-5 mb-5">
-          <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)', marginBottom: 14 }}>
+        <Card style={{ padding: 'var(--sp-5)', marginBottom: 'var(--sp-5)' }}>
+          <div style={{ fontWeight: 800, fontSize: 'var(--fs-h3)', color: 'var(--text-primary)', marginBottom: 14 }}>
             📍 Report a Find
           </div>
 
@@ -556,13 +559,13 @@ export default function FindsPage() {
                 disabled={labelScanning}
                 style={{
                   flex:         1,
-                  padding:      '9px 0',
-                  background:   showScanner ? 'var(--accent)' : 'var(--bg-card)',
-                  border:       '1px solid var(--border)',
-                  borderRadius: 8,
-                  color:        showScanner ? '#fff' : 'var(--accent)',
+                  padding:      'var(--sp-2) 0',
+                  background:   showScanner ? 'var(--copper-500)' : 'var(--bg-elev-3)',
+                  border:       '1px solid var(--hairline-2)',
+                  borderRadius: 'var(--r-md)',
+                  color:        showScanner ? 'var(--text-inverse)' : 'var(--copper-400)',
                   cursor:       labelScanning ? 'not-allowed' : 'pointer',
-                  fontSize:     13,
+                  fontSize:     'var(--fs-body)',
                   fontWeight:   700,
                   opacity:      labelScanning ? 0.5 : 1,
                 }}
@@ -575,13 +578,13 @@ export default function FindsPage() {
                 disabled={labelScanning}
                 style={{
                   flex:         1,
-                  padding:      '9px 0',
-                  background:   'var(--bg-card)',
-                  border:       '1px solid var(--border)',
-                  borderRadius: 8,
-                  color:        '#c084fc',
+                  padding:      'var(--sp-2) 0',
+                  background:   'var(--bg-elev-3)',
+                  border:       '1px solid var(--hairline-2)',
+                  borderRadius: 'var(--r-md)',
+                  color:        'var(--violet)',
                   cursor:       labelScanning ? 'not-allowed' : 'pointer',
-                  fontSize:     13,
+                  fontSize:     'var(--fs-body)',
                   fontWeight:   700,
                   opacity:      labelScanning ? 0.5 : 1,
                 }}
@@ -619,17 +622,17 @@ export default function FindsPage() {
               {/* Autocomplete dropdown */}
               {showSuggestions && suggestions.length > 0 && (
                 <div style={{
-                  position:   'absolute',
-                  top:        '100%',
-                  left:       0,
-                  right:      0,
-                  zIndex:     50,
-                  background: '#1a1008',
-                  border:     '1px solid #3d2b10',
-                  borderRadius: 8,
-                  marginTop:  4,
-                  overflow:   'hidden',
-                  boxShadow:  '0 4px 16px rgba(0,0,0,0.5)',
+                  position:     'absolute',
+                  top:          '100%',
+                  left:         0,
+                  right:        0,
+                  zIndex:       50,
+                  background:   'var(--bg-elev-2)',
+                  border:       '1px solid var(--hairline-2)',
+                  borderRadius: 'var(--r-md)',
+                  marginTop:    4,
+                  overflow:     'hidden',
+                  boxShadow:    'var(--shadow-2)',
                 }}>
                   {suggestions.map((name, i) => (
                     <button
@@ -637,17 +640,17 @@ export default function FindsPage() {
                       type="button"
                       onMouseDown={() => selectSuggestion(name)}
                       style={{
-                        display:    'block',
-                        width:      '100%',
-                        padding:    '9px 12px',
-                        background: 'none',
-                        border:     'none',
-                        borderBottom: i < suggestions.length - 1 ? '1px solid #2a1c08' : 'none',
-                        color:      '#f5e6cc',
-                        fontSize:   13,
-                        textAlign:  'left',
-                        cursor:     'pointer',
-                        fontFamily: 'inherit',
+                        display:      'block',
+                        width:        '100%',
+                        padding:      'var(--sp-2) var(--sp-3)',
+                        background:   'none',
+                        border:       'none',
+                        borderBottom: i < suggestions.length - 1 ? '1px solid var(--hairline)' : 'none',
+                        color:        'var(--text-primary)',
+                        fontSize:     'var(--fs-body)',
+                        textAlign:    'left',
+                        cursor:       'pointer',
+                        fontFamily:   'inherit',
                       }}
                     >
                       🥃 {name}
@@ -659,18 +662,18 @@ export default function FindsPage() {
 
             {upc && (
               <div style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 12, color: '#6b5030', fontFamily: "'DM Mono', monospace" }}>UPC: {upc}</span>
-                {upcLooking && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>🔍 Looking up…</span>}
-                {!upcLooking && upcStatus === 'found'     && <span style={{ fontSize: 12, color: 'var(--green)' }}>✓ Name filled from barcode</span>}
+                <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', fontFamily: "'DM Mono', monospace" }}>UPC: {upc}</span>
+                {upcLooking && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>🔍 Looking up…</span>}
+                {!upcLooking && upcStatus === 'found'     && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--green)' }}>✓ Name filled from barcode</span>}
                 {!upcLooking && upcStatus === 'not-found' && (
-                  <span style={{ fontSize: 12, color: '#fb923c' }}>
+                  <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--amber)' }}>
                     Not in database — try Scan Label above
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={() => { setUpc(''); setUpcStatus(null) }}
-                  style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 12 }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 'var(--fs-meta)' }}
                 >✕ clear</button>
               </div>
             )}
@@ -692,7 +695,7 @@ export default function FindsPage() {
               autoComplete="off"
             />
             {store && (
-              <p style={{ fontSize: 11, color: 'var(--green)', margin: '4px 0 0' }}>
+              <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--green)', margin: 'var(--sp-1) 0 0' }}>
                 ✓ {store.name} — {store.address}
               </p>
             )}
@@ -720,16 +723,16 @@ export default function FindsPage() {
             <label style={{
               display:      'block',
               background:   'var(--bg-base)',
-              border:       '1px dashed var(--border)',
-              borderRadius: 8,
-              padding:      12,
+              border:       '1px dashed var(--hairline-2)',
+              borderRadius: 'var(--r-md)',
+              padding:      'var(--sp-3)',
               cursor:       'pointer',
               textAlign:    'center',
-              color:        '#6b5030',
-              fontSize:     13,
+              color:        'var(--text-dim)',
+              fontSize:     'var(--fs-body)',
             }}>
               {photoPreview
-                ? <img src={photoPreview} alt="preview" style={{ maxHeight: 120, borderRadius: 6, maxWidth: '100%' }} />
+                ? <img src={photoPreview} alt="preview" style={{ maxHeight: 120, borderRadius: 'var(--r-sm)', maxWidth: '100%' }} />
                 : '📸 Tap to attach a photo'
               }
               <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: 'none' }} />
@@ -738,29 +741,24 @@ export default function FindsPage() {
               <button
                 type="button"
                 onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
-                style={{ background: 'none', border: 'none', color: '#6b5030', cursor: 'pointer', fontSize: 12, marginTop: 4 }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 'var(--fs-meta)', marginTop: 'var(--sp-1)' }}
               >✕ Remove photo</button>
             )}
 
-            {photoError  && <p style={{ color: '#fb923c', fontSize: 12, margin: '6px 0 0' }}>⚠️ {photoError}</p>}
-            {submitError && <p style={{ color: 'var(--red)', fontSize: 13, margin: '10px 0 0' }}>{submitError}</p>}
-            {submitted   && <p style={{ color: 'var(--green)', fontSize: 13, margin: '10px 0 0' }}>✓ Find submitted! Thanks for looking out for the club.</p>}
+            {photoError  && <p style={{ color: 'var(--amber)', fontSize: 'var(--fs-meta)', margin: 'var(--sp-2) 0 0' }}>⚠️ {photoError}</p>}
+            {submitError && <p style={{ color: 'var(--red)', fontSize: 'var(--fs-body)', margin: 'var(--sp-3) 0 0' }}>{submitError}</p>}
+            {submitted   && <p style={{ color: 'var(--green)', fontSize: 'var(--fs-body)', margin: 'var(--sp-3) 0 0' }}>✓ Find submitted! Thanks for looking out for the club.</p>}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="btn-primary"
-              style={{ marginTop: 16, width: '100%', padding: '11px', fontSize: 15, opacity: submitting ? 0.6 : 1 }}
-            >
-              {submitting ? '⏳ Submitting…' : '📍 Submit Find'}
-            </button>
+            <Button type="submit" disabled={submitting} variant="primary" fullWidth style={{ marginTop: 'var(--sp-4)', fontSize: 'var(--fs-h3)' }}>
+              📍 {submitting ? 'Submitting…' : 'Submit Find'}
+            </Button>
           </form>
-        </div>
+        </Card>
 
         {/* Leaderboard */}
         {leaderboard.length > 0 && (
-          <div className="card p-4 mb-5">
-            <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', marginBottom: 12 }}>
+          <Card style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-5)' }}>
+            <div style={{ fontWeight: 800, fontSize: 'var(--fs-h3)', color: 'var(--text-primary)', marginBottom: 12 }}>
               🏆 This Month
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -769,28 +767,28 @@ export default function FindsPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 16 }}>{['🥇','🥈','🥉'][i] ?? '🎯'}</span>
                     <span style={{
-                      fontSize:   13,
+                      fontSize:   'var(--fs-body)',
                       fontWeight: 600,
                       color:      [MEDAL_COLOR[0], MEDAL_COLOR[1], MEDAL_COLOR[2]][i] ?? 'var(--text-muted)',
                     }}>
                       {name}
                     </span>
                   </div>
-                  <span className={i === 0 ? 'badge-in-stock' : ''} style={i !== 0 ? { fontSize: 12, color: 'var(--text-muted)' } : {}}>
+                  <span className={i === 0 ? 'badge-in-stock' : ''} style={i !== 0 ? { fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' } : {}}>
                     {count} find{count !== 1 ? 's' : ''}
                   </span>
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Finds Display */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)' }}>
+            <div style={{ fontWeight: 800, fontSize: 'var(--fs-h2)', color: 'var(--text-primary)' }}>
               Club Finds{' '}
-              <span style={{ fontSize: 13, color: '#6b5030', fontWeight: 400 }}>
+              <span style={{ fontSize: 'var(--fs-body)', color: 'var(--text-dim)', fontWeight: 400 }}>
                 ({finds.length} active{archived.length > 0 ? ` · ${archived.length} archived` : ''})
               </span>
             </div>
@@ -800,13 +798,13 @@ export default function FindsPage() {
                   key={v}
                   onClick={() => setView(v)}
                   style={{
-                    padding:      '5px 13px',
-                    borderRadius: 6,
+                    padding:      'var(--sp-1) var(--sp-3)',
+                    borderRadius: 'var(--r-sm)',
                     border:       'none',
                     cursor:       'pointer',
-                    background:   view === v ? 'var(--accent)' : 'var(--bg-card)',
-                    color:        view === v ? '#fff' : 'var(--text-muted)',
-                    fontSize:     12,
+                    background:   view === v ? 'var(--copper-500)' : 'var(--bg-elev-3)',
+                    color:        view === v ? 'var(--text-inverse)' : 'var(--text-muted)',
+                    fontSize:     'var(--fs-meta)',
                     fontWeight:   600,
                   }}
                 >
@@ -816,12 +814,10 @@ export default function FindsPage() {
             </div>
           </div>
 
-          {loading && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading finds…</p>}
+          {loading && <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-body)' }}>Loading finds…</p>}
 
           {!loading && finds.length === 0 && archived.length === 0 && (
-            <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>
-              No finds yet — be the first to report one!
-            </p>
+            <EmptyState icon="MapPin" title="No finds yet" body="Be the first to report one!" />
           )}
 
           {!loading && finds.length > 0 && view === 'map' && <FindsMap finds={finds} />}
@@ -829,9 +825,7 @@ export default function FindsPage() {
           {!loading && view === 'list' && (
             <>
               {finds.length === 0 && (
-                <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-                  No active finds — check archived below or be the first to report!
-                </p>
+                <EmptyState icon="MapPin" title="No active finds" body="Check archived below or be the first to report!" />
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {finds.map(find => (
@@ -845,12 +839,12 @@ export default function FindsPage() {
                     onClick={() => setShowArchived(s => !s)}
                     style={{
                       display:    'flex', alignItems: 'center', gap: 8,
-                      background: 'none', border: 'none', color: '#6b5030',
-                      cursor:     'pointer', fontSize: 13, fontWeight: 600,
-                      padding:    '8px 0', width: '100%', textAlign: 'left',
+                      background: 'none', border: 'none', color: 'var(--text-dim)',
+                      cursor:     'pointer', fontSize: 'var(--fs-body)', fontWeight: 600,
+                      padding:    'var(--sp-2) 0', width: '100%', textAlign: 'left',
                     }}
                   >
-                    <span>{showArchived ? '▾' : '▸'}</span>
+                    {showArchived ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
                     Archived ({archived.length}) — older than 24h
                   </button>
                   {showArchived && (

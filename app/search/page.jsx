@@ -3,6 +3,9 @@ import { useSession }  from 'next-auth/react'
 import { useRouter }   from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import BarcodeScanner    from '../finds/BarcodeScanner.jsx'
+import AppHeader from '../components/AppHeader.jsx'
+import Button from '../components/ui/Button.jsx'
+import { Camera, X } from 'lucide-react'
 
 function bottleHref(name) {
   return `/bottle/${encodeURIComponent(name)}`
@@ -202,62 +205,33 @@ export default function SearchPage() {
     }}>
 
       {/* Header */}
-      <div style={{
-        padding:      '14px 16px 10px',
-        paddingTop:   'calc(14px + env(safe-area-inset-top))',
-        background:   '#0f0a05',
-        borderBottom: '1px solid #2a1c08',
-      }}>
-        <div style={{ fontWeight: 800, fontSize: 18, color: '#f5e6cc' }}>Search</div>
-        <div style={{ fontSize: 12, color: '#6b5030', marginTop: 2 }}>
-          Look up pricing and community sightings — type, scan, or photograph the label.
-        </div>
-      </div>
+      <AppHeader sub="Search bottles" />
 
       <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {/* Dual scan buttons — same pattern as Add to Collection / Report a Find */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="md"
+            icon={<Camera size={16} strokeWidth={1.75} />}
             onClick={() => { setShowScanner(s => !s); setScanMsg(null) }}
             disabled={scanning}
-            style={{
-              flex:         1,
-              padding:      '10px 0',
-              background:   showScanner ? 'var(--accent)' : 'var(--bg-card)',
-              border:       '1px solid var(--border)',
-              borderRadius: 8,
-              color:        showScanner ? '#fff' : 'var(--accent)',
-              cursor:       scanning ? 'not-allowed' : 'pointer',
-              fontSize:     13,
-              fontWeight:   700,
-              opacity:      scanning ? 0.6 : 1,
-              fontFamily:   'inherit',
-            }}
+            fullWidth
           >
-            {showScanner ? '✕ Close Scanner' : '📷 Scan Barcode'}
-          </button>
-          <button
-            type="button"
+            {showScanner ? 'Close Scanner' : 'Scan Barcode'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="md"
+            icon={<Camera size={16} strokeWidth={1.75} />}
             onClick={() => photoInputRef.current?.click()}
             disabled={scanning}
-            style={{
-              flex:         1,
-              padding:      '10px 0',
-              background:   'var(--bg-card)',
-              border:       '1px solid var(--border)',
-              borderRadius: 8,
-              color:        '#c084fc',
-              cursor:       scanning ? 'not-allowed' : 'pointer',
-              fontSize:     13,
-              fontWeight:   700,
-              opacity:      scanning ? 0.6 : 1,
-              fontFamily:   'inherit',
-            }}
+            fullWidth
+            style={{ color: 'var(--violet)' }}
           >
-            {scanning ? '⏳ Reading…' : '🏷️ Scan Label'}
-          </button>
+            {scanning ? 'Reading…' : 'Scan Label'}
+          </Button>
           <input
             ref={photoInputRef}
             type="file"
@@ -273,12 +247,12 @@ export default function SearchPage() {
           <div style={{
             fontSize:     12,
             color:        scanMsg.includes('failed') || scanMsg.includes('not in') || scanMsg.includes('Could not')
-                            ? '#fb923c'
+                            ? 'var(--amber)'
                             : 'var(--text-muted)',
             padding:      '8px 10px',
-            background:   '#0f0a05',
+            background:   'var(--bg-base)',
             borderRadius: 6,
-            border:       '1px solid #2a1c08',
+            border:       '1px solid var(--hairline)',
           }}>
             {scanMsg}
           </div>
@@ -298,8 +272,8 @@ export default function SearchPage() {
             style={{
               width:        '100%',
               padding:      '10px 36px 10px 12px',
-              background:   '#1a1008',
-              border:       '1px solid #3d2b10',
+              background:   'var(--bg-elev-2)',
+              border:       '1px solid var(--hairline-2)',
               borderRadius: 10,
               color:        'var(--text-primary)',
               fontSize:     16,
@@ -307,6 +281,8 @@ export default function SearchPage() {
               outline:      'none',
               boxSizing:    'border-box',
             }}
+            onFocus={e => { e.target.style.borderColor = 'var(--copper-500)' }}
+            onBlur={e => { e.target.style.borderColor = 'var(--hairline-2)' }}
           />
           {query.length > 0 && (
             <button
@@ -318,13 +294,13 @@ export default function SearchPage() {
                 transform:  'translateY(-50%)',
                 background: 'none',
                 border:     'none',
-                color:      '#6b5030',
+                color:      'var(--text-dim)',
                 fontSize:   16,
                 cursor:     'pointer',
                 padding:    0,
                 lineHeight: 1,
               }}
-            >✕</button>
+            ><X size={14} /></button>
           )}
         </div>
       </div>
@@ -333,7 +309,7 @@ export default function SearchPage() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px' }}>
 
         {query.trim().length < 2 && results.length === 0 && !scanMsg && (
-          <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', marginTop: 24 }}>
+          <p style={{ color: 'var(--text-dim)', fontSize: 13, textAlign: 'center', marginTop: 24 }}>
             Start typing, scan a barcode, or photograph a label.
           </p>
         )}
@@ -345,7 +321,7 @@ export default function SearchPage() {
         )}
 
         {!searching && query.trim().length >= 2 && results.length === 0 && !aiLoading && aiSuggestions.length === 0 && aiQuery !== query && (
-          <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', marginTop: 24 }}>
+          <p style={{ color: 'var(--text-dim)', fontSize: 13, textAlign: 'center', marginTop: 24 }}>
             No local results for &ldquo;{query}&rdquo;
           </p>
         )}
@@ -362,10 +338,10 @@ export default function SearchPage() {
               width:        '100%',
               marginTop:    12,
               padding:      '10px 0',
-              background:   'rgba(251,191,36,0.08)',
-              border:       '1px dashed rgba(251,191,36,0.4)',
+              background:   'rgba(245,184,58,0.08)',
+              border:       '1px dashed rgba(245,184,58,0.4)',
               borderRadius: 8,
-              color:        '#fbbf24',
+              color:        'var(--amber)',
               fontSize:     13,
               fontWeight:   700,
               cursor:       'pointer',
@@ -389,13 +365,13 @@ export default function SearchPage() {
               gap:          6,
               fontSize:     10,
               fontWeight:   700,
-              color:        '#fbbf24',
+              color:        'var(--amber)',
               textTransform:'uppercase',
               letterSpacing:'0.06em',
               marginBottom: 6,
             }}>
               <span>✨ AI-Identified</span>
-              <span style={{ color: '#3d2b10', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
+              <span style={{ color: 'var(--text-dim)', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
                 — verify before saving
               </span>
             </div>
@@ -405,7 +381,7 @@ export default function SearchPage() {
               </p>
             )}
             {!aiLoading && aiSuggestions.length === 0 && aiQuery === query && (
-              <p style={{ color: '#6b5030', fontSize: 13, textAlign: 'center', marginTop: 16 }}>
+              <p style={{ color: 'var(--text-dim)', fontSize: 13, textAlign: 'center', marginTop: 16 }}>
                 No matches found anywhere for &ldquo;{query}&rdquo;.
               </p>
             )}
@@ -418,24 +394,24 @@ export default function SearchPage() {
                   width:        '100%',
                   padding:      '10px 12px',
                   marginTop:    i === 0 ? 0 : 6,
-                  background:   'rgba(251,191,36,0.06)',
-                  border:       '1px solid rgba(251,191,36,0.25)',
+                  background:   'rgba(245,184,58,0.06)',
+                  border:       '1px solid rgba(245,184,58,0.25)',
                   borderRadius: 8,
                   textAlign:    'left',
                   cursor:       'pointer',
                   fontFamily:   'inherit',
                 }}
               >
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#f5e6cc', marginBottom: 2 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
                   🥃 {s.name}
                 </div>
-                <div style={{ fontSize: 11, color: '#9a7c55' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                   {[s.distillery, s.category, s.proof ? `${s.proof}°` : null, s.age ? `${s.age}yr` : null]
                     .filter(Boolean).join(' · ')}
                   {s.msrp ? ` · $${s.msrp} MSRP` : ''}
                 </div>
                 {s.note && (
-                  <div style={{ fontSize: 11, color: '#6b5030', marginTop: 4, fontStyle: 'italic' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4, fontStyle: 'italic' }}>
                     {s.note}
                   </div>
                 )}
@@ -457,7 +433,7 @@ export default function SearchPage() {
                 padding:      '12px 10px',
                 background:   'none',
                 border:       'none',
-                borderBottom: i < results.length - 1 ? '1px solid #1f1308' : 'none',
+                borderBottom: i < results.length - 1 ? '1px solid var(--hairline)' : 'none',
                 color:        'var(--text-primary)',
                 fontSize:     14,
                 fontWeight:   600,
