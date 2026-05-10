@@ -55,26 +55,52 @@ function AlertRow({ alert, dim, storeLookup }) {
   return (
     <div
       style={{
-        display:        'grid',
-        gridTemplateColumns: 'auto auto 1fr auto',
-        alignItems:     'center',
-        gap:            10,
-        padding:        'var(--sp-2) var(--sp-3)',
-        borderBottom:   '1px solid var(--bg-elev-2)',
-        fontSize:       'var(--fs-body)',
-        opacity:        dim ? 0.55 : 1,
+        padding:      'var(--sp-3) var(--sp-3)',
+        borderBottom: '1px solid var(--bg-elev-2)',
+        opacity:      dim ? 0.55 : 1,
       }}
     >
-      <span style={{ fontSize: 14 }}>{inStock ? '✅' : '❌'}</span>
-      <span style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-meta)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-        {timeAgo(alert.observedAt)}
-      </span>
-      <span style={{ color: inStock ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: inStock ? 600 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {alert.productName}
-      </span>
-      <span style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-meta)', whiteSpace: 'nowrap' }}>
-        {label} ({alert.storeNumber})
-      </span>
+      {/* Line 1 — status icon + full product name (wraps if needed) */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <span style={{ fontSize: 14, lineHeight: 1.35, flexShrink: 0 }}>
+          {inStock ? '✅' : '❌'}
+        </span>
+        <span
+          style={{
+            flex:       1,
+            minWidth:   0,
+            color:      inStock ? 'var(--text-primary)' : 'var(--text-muted)',
+            fontWeight: inStock ? 600 : 500,
+            fontSize:   'var(--fs-body)',
+            lineHeight: 1.35,
+            wordBreak:  'break-word',
+          }}
+        >
+          {alert.productName}
+        </span>
+      </div>
+
+      {/* Line 2 — timestamp · store (indented under the product name) */}
+      <div
+        style={{
+          marginTop:    4,
+          paddingLeft:  22,
+          display:      'flex',
+          alignItems:   'center',
+          gap:          6,
+          flexWrap:     'wrap',
+          fontSize:     'var(--fs-meta)',
+          color:        'var(--text-dim)',
+        }}
+      >
+        <span style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+          {timeAgo(alert.observedAt)}
+        </span>
+        <span style={{ opacity: 0.5 }}>·</span>
+        <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          {label} ({alert.storeNumber})
+        </span>
+      </div>
     </div>
   )
 }
