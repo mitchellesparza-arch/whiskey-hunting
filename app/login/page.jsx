@@ -30,7 +30,7 @@ function LoginContent() {
 
         {/* Logo pill */}
         <img
-          src="/tater-icon.png"
+          src="/icon-512.png"
           alt="Tater Tracker"
           style={{
             width:        80,

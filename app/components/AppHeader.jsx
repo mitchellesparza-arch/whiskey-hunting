@@ -48,7 +48,7 @@ export default function AppHeader({ sub, action, unreadCount = 0 }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', minWidth: 0 }}>
             {/* App icon */}
             <img
-              src="/tater-icon.png"
+              src="/icon-512.png"
               alt=""
               style={{
                 width:        28,
