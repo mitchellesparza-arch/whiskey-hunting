@@ -189,7 +189,10 @@ function AuctionsTab() {
     setLoading(true); setError(null)
     try {
       const params = new URLSearchParams({
-        limit: '100',
+        // Pull deep so post-filter views (Reserve, Category, Min Bid) still
+        // have a populated list — the default sort skews top results toward
+        // "reserve not met", so a small limit empties the filtered set.
+        limit: '1000',
         sort,
         ...(category ? { category } : {}),
         ...(minBid > 0 ? { minBid: String(minBid) } : {}),

@@ -40,7 +40,7 @@ async function loadData() {
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
-  const limit    = Math.min(parseInt(searchParams.get('limit')  ?? '20'), 100)
+  const limit    = Math.min(parseInt(searchParams.get('limit')  ?? '20'), 1000)
   const category = searchParams.get('category') ?? ''
   const minBid   = parseFloat(searchParams.get('minBid') ?? '0')
   const sort     = searchParams.get('sort') ?? 'discount'   // 'discount' | 'closing'
