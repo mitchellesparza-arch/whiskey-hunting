@@ -3,7 +3,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter }  from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link           from 'next/link'
-import { Archive, Users, Lamp, Dices, EyeOff } from 'lucide-react'
+import { ShelvingUnit, Users, ListTodo, Dices, EyeOff } from 'lucide-react'
 import AppHeader      from '../components/AppHeader.jsx'
 import StatTile       from '../components/ui/StatTile.jsx'
 import Card           from '../components/ui/Card.jsx'
@@ -18,7 +18,7 @@ function initials(name) {
 
 const TILES = [
   {
-    Icon:     Archive,
+    Icon:     ShelvingUnit,
     title:    'My Collection',
     subtitle: 'Track your bottles with prices and scores',
     href:     '/profile/collection',
@@ -30,7 +30,7 @@ const TILES = [
     href:     '/profile/friends',
   },
   {
-    Icon:     Lamp,
+    Icon:     ListTodo,
     title:    'Wishlist',
     subtitle: 'Track bottles you\'re hunting with rarity and price targets',
     href:     '/profile/wishlist',
