@@ -31,7 +31,7 @@ export async function GET(request) {
       .map(([date, val]) => {
         try {
           const p = typeof val === 'string' ? JSON.parse(val) : val
-          return { date, avg: p.avg, low: p.low, high: p.high }
+          return { date, avg: p.avg, low: p.low, high: p.high, source: p.source ?? null, count: p.count ?? 1 }
         } catch { return null }
       })
       .filter(Boolean)

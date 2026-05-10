@@ -300,6 +300,98 @@ def generate_report(listings: list[dict], run_id: int) -> Path:
     return REPORT_PATH
 
 
+def push_price_history_to_redis(completed_sales: list[dict]) -> None:
+    """
+    Push completed auction sale prices into Redis price-history hashes.
+
+    Each sale: { name, price, source, date (ISO string or None) }
+    Redis schema: wh:price-history:{normKey}  →  hash field=YYYY-MM, value=JSON
+    """
+    import re
+    from collections import defaultdict
+
+    url   = os.getenv("UPSTASH_REDIS_REST_URL", "").rstrip("/")
+    token = os.getenv("UPSTASH_REDIS_REST_TOKEN", "")
+    if not (url and token):
+        print("Redis not configured — skipping price history push")
+        return
+
+    def _norm(name: str) -> str:
+        s = (name or "").lower()
+        s = re.sub(r"['‘’‚‛′‵]", "", s)
+        s = re.sub(r"[^a-z0-9\s]", " ", s)
+        s = re.sub(r"\s+", " ", s).strip()
+        return s
+
+    # Group prices by (redis_key, YYYY-MM)
+    buckets: dict[tuple[str, str], list[float]] = defaultdict(list)
+    for sale in completed_sales:
+        name  = sale.get("name", "")
+        price = sale.get("price")
+        if not name or not price or float(price) <= 0:
+            continue
+        nk = _norm(name)
+        if not nk:
+            continue
+        date_raw = sale.get("date") or ""
+        try:
+            month = str(date_raw)[:7]
+            if len(month) < 7 or month[4] != "-":
+                raise ValueError
+        except (ValueError, TypeError):
+            month = datetime.now(timezone.utc).strftime("%Y-%m")
+        buckets[(f"wh:price-history:{nk}", month)].append(float(price))
+
+    if not buckets:
+        print("No valid completed sales to push to price history")
+        return
+
+    # Aggregate per bucket → group by redis_key for one HSET per key
+    key_months: dict[str, dict[str, str]] = defaultdict(dict)
+    for (redis_key, month), prices in buckets.items():
+        key_months[redis_key][month] = json.dumps({
+            "avg":    round(sum(prices) / len(prices)),
+            "low":    round(min(prices)),
+            "high":   round(max(prices)),
+            "count":  len(prices),
+            "source": "auction",
+        })
+
+    # Build pipeline: one HSET command per key
+    pipeline = []
+    for redis_key, months in key_months.items():
+        cmd = ["HSET", redis_key]
+        for month, value_json in months.items():
+            cmd += [month, value_json]
+        pipeline.append(cmd)
+
+    # Send in batches of 100 keys
+    total_pushed = 0
+    for i in range(0, len(pipeline), 100):
+        batch = pipeline[i : i + 100]
+        try:
+            payload = json.dumps(batch).encode("utf-8")
+            req = urllib.request.Request(
+                f"{url}/pipeline",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                json.loads(resp.read())  # consume response
+                total_pushed += len(batch)
+        except Exception as exc:
+            print(f"Warning: price history batch push failed: {exc}")
+
+    print(
+        f"Price history: pushed {total_pushed} key updates "
+        f"for {len(buckets)} (bottle, month) buckets"
+    )
+
+
 def write_json_export(listings: list[dict], run_id: int, total_lots: int) -> Path:
     """
     Write latest_deals.json for the Next.js frontend.

@@ -107,6 +107,17 @@ query GetActiveAuctions {
 }
 """
 
+GET_ENDED_AUCTIONS_QUERY = """
+query GetEndedAuctions {
+  auctions(filter: { state: { _in: ["ended", "closed", "completed"] } }, limit: 5) {
+    uuid
+    name
+    endDatetime
+    state
+  }
+}
+"""
+
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -282,15 +293,17 @@ async def _get_active_auction_uuids() -> list[dict]:
 
 # ── GraphQL lot scraper ───────────────────────────────────────────────────────
 
-def _fetch_whiskey_lots_for_auction(auction: dict) -> tuple[list[dict], list[str]]:
+def _fetch_whiskey_lots_for_auction(auction: dict) -> tuple[list[dict], list[dict], list[str]]:
     """
     Paginate through ALL whiskey categories for a given auction via GraphQL.
-    Returns (listings, errors).
+    Returns (active_listings, completed_sales, errors).
+    completed_sales are lots with state='sold' — used for price history.
     """
     uuid     = auction["uuid"]
     auc_name = auction.get("name", uuid[:8])
-    listings: list[dict] = []
-    errors:   list[str]  = []
+    listings:         list[dict] = []
+    completed_sales:  list[dict] = []
+    errors:           list[str]  = []
     seen_lot_uuids: set[str] = set()
 
     for category in sorted(WHISKEY_CATEGORIES):
@@ -336,9 +349,25 @@ def _fetch_whiskey_lots_for_auction(auction: dict) -> tuple[list[dict], list[str
                     continue
                 seen_lot_uuids.add(lot_uuid)
 
-                # Skip lots that aren't active/open
                 state = (lot.get("state") or "").lower()
-                if state in ("sold", "passed", "withdrawn", "cancelled"):
+
+                # Capture sold lots as completed-sale price data points
+                if state == "sold":
+                    bid_obj     = lot.get("currentBid") or {}
+                    final_price = bid_obj.get("amount")
+                    if final_price and final_price > 0:
+                        completed_sales.append({
+                            "name":       lot.get("title", ""),
+                            "price":      final_price,
+                            "category":   lot.get("category", ""),
+                            "date":       lot.get("endDatetime") or auction.get("endDatetime"),
+                            "lot_url":    _lot_url(uuid, lot_uuid),
+                            "source":     "auction",
+                        })
+                    continue
+
+                # Skip other non-active states
+                if state in ("passed", "withdrawn", "cancelled"):
                     continue
 
                 bid_obj  = lot.get("currentBid") or {}
@@ -396,7 +425,7 @@ def _fetch_whiskey_lots_for_auction(auction: dict) -> tuple[list[dict], list[str
             offset += 1
             time.sleep(DELAY_SECONDS)
 
-    return listings, errors
+    return listings, completed_sales, errors
 
 
 def _fmt_time_remaining(end_datetime_str: str | None) -> str:
@@ -436,6 +465,33 @@ def _infer_distillery(title: str) -> str:
     return " ".join(words[:3]) if words else ""
 
 
+# ── completed-auction discovery ───────────────────────────────────────────────
+
+def _get_recently_ended_auction_uuids() -> list[dict]:
+    """
+    Query UA GraphQL for recently-ended auctions.
+    Returns list of {"uuid": str, "name": str} or empty list if unsupported.
+    """
+    try:
+        resp = _gql_request(GET_ENDED_AUCTIONS_QUERY, {})
+        auctions = (resp.get("data") or {}).get("auctions") or []
+        result = []
+        for a in auctions:
+            uuid = a.get("uuid")
+            if uuid:
+                result.append({
+                    "uuid":        uuid,
+                    "name":        a.get("name") or f"Auction {uuid[:8]}",
+                    "endDatetime": a.get("endDatetime"),
+                })
+        if result:
+            log.info("Found %d recently-ended auction(s) for price history", len(result))
+        return result
+    except Exception as exc:
+        log.debug("Could not fetch ended auctions (may not be supported): %s", exc)
+        return []
+
+
 # ── main orchestrator ─────────────────────────────────────────────────────────
 
 async def run_scraper(debug: bool = False) -> int:
@@ -466,12 +522,23 @@ async def run_scraper(debug: bool = False) -> int:
 
         # Step 2: fetch whiskey lots via GraphQL (no browser needed)
         log.info("\nFetching whiskey lots via GraphQL API...")
+        all_completed_sales: list[dict] = []
         for auction in auctions:
             log.info("\nAuction: %s (%s)", auction["name"], auction["uuid"][:8])
-            sec_listings, sec_errors = _fetch_whiskey_lots_for_auction(auction)
+            sec_listings, completed, sec_errors = _fetch_whiskey_lots_for_auction(auction)
             all_listings.extend(sec_listings)
+            all_completed_sales.extend(completed)
             all_errors.extend(sec_errors)
-            log.info("  => %d whiskey lots found", len(sec_listings))
+            log.info("  => %d active lots, %d completed sales", len(sec_listings), len(completed))
+
+        # Step 2b: also scrape recently-ended auctions for price history data
+        ended_auctions = _get_recently_ended_auction_uuids()
+        for auction in ended_auctions:
+            log.info("\nEnded auction: %s (%s)", auction["name"], auction["uuid"][:8])
+            _, completed, end_errors = _fetch_whiskey_lots_for_auction(auction)
+            all_completed_sales.extend(completed)
+            all_errors.extend(end_errors)
+            log.info("  => %d completed sales found", len(completed))
 
     except Exception as exc:
         all_errors.append(f"Fatal error: {exc}")
@@ -489,6 +556,12 @@ async def run_scraper(debug: bool = False) -> int:
     report_listings = get_run_listings(run_id)
     report_path = generate_report(report_listings, run_id)
     write_json_export(all_listings, run_id, len(all_listings))
+
+    # Step 5: push completed sale prices to Redis price history
+    if all_completed_sales:
+        log.info("\nPushing %d completed sale prices to Redis price history...", len(all_completed_sales))
+        from report import push_price_history_to_redis
+        push_price_history_to_redis(all_completed_sales)
 
     _print_summary(all_listings, report_path)
     _maybe_send_email(report_path)

@@ -3,7 +3,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter }  from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link           from 'next/link'
-import { ShelvingUnit, Users, ListTodo, Dices, EyeOff } from 'lucide-react'
+import { ShelvingUnit, Users, ListTodo, Dices, EyeOff, BarChart2 } from 'lucide-react'
 import AppHeader      from '../components/AppHeader.jsx'
 import StatTile       from '../components/ui/StatTile.jsx'
 import Card           from '../components/ui/Card.jsx'
@@ -46,6 +46,12 @@ const TILES = [
     title:    'Battle of the Blinds',
     subtitle: 'Run a blind tasting and rank by ELO',
     href:     '/profile/blind',
+  },
+  {
+    Icon:     BarChart2,
+    title:    'Market Index',
+    subtitle: 'Secondary market prices by category, top premiums, unicorn values',
+    href:     '/market',
   },
 ]
 

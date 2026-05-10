@@ -3,6 +3,7 @@ import { getToken }        from 'next-auth/jwt'
 import { getListings, addListing, claimBin, deactivateListing, deleteListing } from '../../../lib/marketplace.js'
 import { getUserProfile }  from '../../../lib/friends.js'
 import { sendToUser }      from '../../../lib/push.js'
+import { recordPricePoint } from '../../../lib/price-history.js'
 
 /**
  * GET /api/marketplace?type=selling|trading|iso&activeOnly=1
@@ -86,6 +87,19 @@ export async function PATCH(request) {
         url:   '/marketplace',
         tag:   'marketplace-bin',
       }).catch(() => {})
+
+      // Record BIN price as a confirmed secondary market data point
+      if (updated.binPrice && updated.type === 'selling') {
+        const bottles = updated.bottles ?? []
+        const pricePerBottle = bottles.length > 1
+          ? Math.round(updated.binPrice / bottles.length)
+          : updated.binPrice
+        for (const bottle of bottles) {
+          if (bottle?.name) {
+            recordPricePoint(bottle.name, pricePerBottle, 'marketplace').catch(() => {})
+          }
+        }
+      }
 
       return NextResponse.json({ ok: true, listing: updated })
     }

@@ -2,7 +2,7 @@
 import { useSession }     from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState }  from 'react'
-import { ChevronLeft, Eye, Check, Plus, MapPin, Search, ArrowLeftRight, DollarSign } from 'lucide-react'
+import { ChevronLeft, Eye, Check, Plus, MapPin, Search, ArrowLeftRight, DollarSign, BarChart2 } from 'lucide-react'
 import Sparkline           from '../../components/Sparkline.jsx'
 import PriceHistoryChart   from '../../components/PriceHistoryChart.jsx'
 import Button              from '../../components/ui/Button.jsx'
@@ -72,6 +72,57 @@ function deriveStoreHistory(allFinds, bottleName) {
     .sort((a, b) => b.lastSeen - a.lastSeen)
 }
 
+// ── Fair Price Widget ─────────────────────────────────────────────────────────
+
+function FairPriceWidget({ price, low, high, avg }) {
+  const totalSpan = (high * 1.5) || 1
+  const fairStart = Math.round((low  / totalSpan) * 100)
+  const fairWidth = Math.round(((high - low) / totalSpan) * 100)
+  const markerPct = Math.min(100, Math.max(0, Math.round((price / totalSpan) * 100)))
+
+  let verdict, verdictColor
+  if (price < low)        { verdict = 'Great deal';       verdictColor = 'var(--green)' }
+  else if (price <= high) { verdict = 'Fair market price'; verdictColor = 'var(--amber)' }
+  else                    { verdict = 'Above market';      verdictColor = 'var(--red)'   }
+
+  return (
+    <div style={{ marginTop: 'var(--sp-2)' }}>
+      <div style={{ fontWeight: 700, color: verdictColor, fontSize: 'var(--fs-body)', marginBottom: 'var(--sp-3)' }}>
+        {verdict}
+      </div>
+      {/* Bar */}
+      <div style={{ position: 'relative', height: 8, background: 'var(--bg-elev-2)', borderRadius: 4, marginBottom: 'var(--sp-3)' }}>
+        <div style={{
+          position:     'absolute',
+          left:         `${fairStart}%`,
+          width:        `${fairWidth}%`,
+          height:       '100%',
+          background:   'rgba(93,211,158,0.35)',
+          borderRadius: 2,
+        }} />
+        <div style={{
+          position:     'absolute',
+          left:         `${markerPct}%`,
+          top:          '50%',
+          transform:    'translate(-50%, -50%)',
+          width:        12,
+          height:       12,
+          borderRadius: '50%',
+          background:   verdictColor,
+          border:       '2px solid var(--bg-base)',
+          boxShadow:    `0 0 0 1px ${verdictColor}44`,
+        }} />
+      </div>
+      {/* Scale labels */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>
+        <span>${low} low</span>
+        {avg != null && <span>${avg} avg</span>}
+        <span>${high} high</span>
+      </div>
+    </div>
+  )
+}
+
 const divider = { borderBottom: '1px solid var(--hairline)', padding: 'var(--sp-4) var(--sp-4)' }
 const overlineStyle = {
   fontSize: 'var(--fs-overline)', fontWeight: 700, color: 'var(--text-dim)',
@@ -98,12 +149,19 @@ export default function BottleDetailPage() {
   const [listings, setListings] = useState([])
   const [holders,  setHolders]  = useState([])
   const [loading,  setLoading]  = useState(true)
-  const [watched,  setWatched]  = useState(false)
-  const [watching, setWatching] = useState(false)
+  const [watched,      setWatched]      = useState(false)
+  const [watching,     setWatching]     = useState(false)
+  const [yearVariants, setYearVariants] = useState([])
+  const [fairInput,    setFairInput]    = useState('')
+  const [fairOpen,     setFairOpen]     = useState(false)
 
   useEffect(() => {
     if (!bottleName) return
     const enc = encodeURIComponent(bottleName)
+    // Derive base name for year-variant lookup (strip trailing 4-digit year)
+    const baseName = bottleName.replace(/\s+\d{4}$/, '').trim()
+    const baseEnc  = encodeURIComponent(baseName)
+
     Promise.all([
       fetch(`/api/market-price?name=${enc}`).then(r => r.json()).catch(() => ({})),
       fetch(`/api/price-history?name=${enc}`).then(r => r.json()).catch(() => ({})),
@@ -112,7 +170,8 @@ export default function BottleDetailPage() {
       fetch(`/api/reviews/breaking-bourbon?name=${enc}`).then(r => r.json()).catch(() => ({ found: false })),
       fetch(`/api/marketplace?activeOnly=1`).then(r => r.json()).catch(() => ({ listings: [] })),
       fetch(`/api/bottles/holders?name=${enc}`).then(r => r.json()).catch(() => ({ holders: [] })),
-    ]).then(([priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes]) => {
+      fetch(`/api/catalog/search?q=${baseEnc}&limit=25`).then(r => r.json()).catch(() => ({ results: [] })),
+    ]).then(([priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes, catRes]) => {
       setPrice(priceRes.price ?? null)
       setHistory(histRes.history ?? [])
       setImageUrl(imgRes.imageUrl ?? (reviewRes?.found ? reviewRes.image : null) ?? null)
@@ -122,6 +181,9 @@ export default function BottleDetailPage() {
       const all = mktRes?.listings ?? []
       setListings(all.filter(l => (l.bottles ?? []).some(b => nameMatches(b?.name ?? '', bottleName))))
       setHolders(holdRes?.holders ?? [])
+      // Year variants: catalog entries that have a `year` field and share the same base name
+      const variants = (catRes.results ?? []).filter(r => r.year != null)
+      if (variants.length > 1) setYearVariants(variants)
     }).finally(() => setLoading(false))
   }, [bottleName])
 
@@ -268,9 +330,57 @@ export default function BottleDetailPage() {
         </Button>
       </div>
 
+      {/* Year / Vintage selector */}
+      {yearVariants.length > 1 && (
+        <div style={divider}>
+          <div style={overlineStyle}>Vintage</div>
+          <div style={{ display: 'flex', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
+            {yearVariants.map(v => (
+              <button
+                key={v.year}
+                onClick={() => router.push(`/bottle/${encodeURIComponent(v.name)}`)}
+                onMouseDown={e => e.currentTarget.style.transform = 'scale(0.94)'}
+                onMouseUp={e   => e.currentTarget.style.transform = 'scale(1)'}
+                style={{
+                  padding:      'var(--sp-1) var(--sp-3)',
+                  borderRadius: 'var(--r-pill)',
+                  border:       'none',
+                  cursor:       'pointer',
+                  fontWeight:   700,
+                  fontSize:     'var(--fs-body)',
+                  background:   v.name === bottleName ? 'var(--copper-500)' : 'var(--bg-elev-2)',
+                  color:        v.name === bottleName ? 'var(--text-inverse)' : 'var(--text-muted)',
+                  transition:   'background var(--t-base) var(--ease-out), transform var(--t-fast) var(--ease-out)',
+                }}
+              >
+                {v.year}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Pricing */}
       <div style={divider}>
-        <div style={overlineStyle}>Pricing</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
+          <div style={{ ...overlineStyle, margin: 0 }}>Pricing</div>
+          <button
+            onClick={() => router.push('/market')}
+            style={{
+              display:    'flex',
+              alignItems: 'center',
+              gap:        'var(--sp-1)',
+              background: 'none',
+              border:     'none',
+              color:      'var(--text-dim)',
+              fontSize:   'var(--fs-overline)',
+              cursor:     'pointer',
+              padding:    'var(--sp-1)',
+            }}
+          >
+            <BarChart2 size={11} strokeWidth={1.75} /> Market Index
+          </button>
+        </div>
         {loading ? (
           <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' }}>Loading price data…</div>
         ) : price ? (
@@ -304,15 +414,93 @@ export default function BottleDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* Price history chart */}
             {history.length >= 3 && (
               <div style={{ marginTop: 'var(--sp-4)' }}>
-                <div style={{ ...overlineStyle, marginBottom: 'var(--sp-2)' }}>{history.length}-month price history</div>
+                <div style={{ ...overlineStyle, marginBottom: 'var(--sp-2)' }}>
+                  {history.length}-month price history
+                  {history.some(h => h.source === 'auction') && (
+                    <span style={{ marginLeft: 'var(--sp-2)', color: 'var(--copper-400)', fontWeight: 600 }}>
+                      · Unicorn Auctions data
+                    </span>
+                  )}
+                  {history.some(h => h.source === 'marketplace') && (
+                    <span style={{ marginLeft: 'var(--sp-2)', color: 'var(--green)', fontWeight: 600 }}>
+                      · Confirmed sales
+                    </span>
+                  )}
+                </div>
                 <PriceHistoryChart data={history} />
               </div>
             )}
+
+            {/* Source + data confidence */}
             <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', marginTop: 'var(--sp-3)' }}>
               {price.source} · updated {price.lastUpdated}
             </div>
+
+            {/* Is this price fair? widget */}
+            {price.low != null && price.high != null && (
+              <div style={{ marginTop: 'var(--sp-4)', borderTop: '1px solid var(--hairline)', paddingTop: 'var(--sp-4)' }}>
+                <button
+                  onClick={() => { setFairOpen(v => !v); setFairInput('') }}
+                  style={{
+                    display:    'flex',
+                    alignItems: 'center',
+                    gap:        'var(--sp-2)',
+                    background: 'none',
+                    border:     '1px solid var(--hairline-2)',
+                    borderRadius: 'var(--r-md)',
+                    color:      'var(--text-muted)',
+                    fontSize:   'var(--fs-body)',
+                    fontWeight: 600,
+                    cursor:     'pointer',
+                    padding:    'var(--sp-2) var(--sp-3)',
+                    fontFamily: 'inherit',
+                    width:      '100%',
+                    justifyContent: 'center',
+                    transition: 'background var(--t-base) var(--ease-out)',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elev-1)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                >
+                  Is this price fair?
+                </button>
+                {fairOpen && (
+                  <div style={{ marginTop: 'var(--sp-3)' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      value={fairInput}
+                      onChange={e => setFairInput(e.target.value)}
+                      placeholder="Enter a price…"
+                      autoFocus
+                      style={{
+                        width:        '100%',
+                        padding:      'var(--sp-2) var(--sp-3)',
+                        background:   'var(--bg-elev-1)',
+                        border:       '1px solid var(--hairline-2)',
+                        borderRadius: 'var(--r-md)',
+                        color:        'var(--text-primary)',
+                        fontSize:     'var(--fs-body)',
+                        fontFamily:   'inherit',
+                        outline:      'none',
+                        boxSizing:    'border-box',
+                      }}
+                    />
+                    {fairInput && Number(fairInput) > 0 && (
+                      <FairPriceWidget
+                        price={Number(fairInput)}
+                        low={price.low}
+                        high={price.high}
+                        avg={price.avg}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', fontStyle: 'italic' }}>
