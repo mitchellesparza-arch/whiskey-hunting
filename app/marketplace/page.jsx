@@ -1052,26 +1052,55 @@ export default function MarketplacePage() {
   const { data: session } = useSession()
   const [tab, setTab]     = useState('auctions')
 
-  const headerAction = (
-    <div style={{ display: 'flex', gap: 6 }}>
-      {['auctions', 'marketplace'].map(t => (
-        <button key={t} onClick={() => setTab(t)} style={{
-          padding: '5px 14px', borderRadius: 'var(--r-pill)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
-          background:   tab === t ? 'rgba(217,126,44,0.2)' : 'transparent',
-          border:       `1px solid ${tab === t ? 'rgba(217,126,44,0.6)' : 'var(--hairline-2)'}`,
-          color:        tab === t ? 'var(--copper-400)' : 'var(--text-dim)',
-          transition:   'all 0.15s',
-        }}>
-          {t === 'auctions' ? '🦄 Auctions' : '🥃 Marketplace'}
-        </button>
-      ))}
-    </div>
-  )
-
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
-      <AppHeader sub={tab === 'auctions' ? 'Unicorn Auctions · Live Deals' : 'Buy · Sell · Trade'} action={headerAction} />
+      <AppHeader sub={tab === 'auctions' ? 'Unicorn Auctions · Live Deals' : 'Buy · Sell · Trade'} />
       <div className="max-w-6xl mx-auto px-4 py-6">
+
+        {/* Source toggle — same pattern as Tracker */}
+        <div
+          role="tablist"
+          aria-label="Marketplace section"
+          style={{
+            display:      'inline-flex',
+            background:   'var(--bg-elev-2)',
+            border:       '1px solid var(--hairline-2)',
+            borderRadius: 'var(--r-pill)',
+            padding:      4,
+            gap:          2,
+            marginBottom: 'var(--sp-6)',
+          }}
+        >
+          {[
+            { key: 'auctions',    label: '🦄 Auctions'   },
+            { key: 'marketplace', label: '🥃 Marketplace' },
+          ].map(({ key, label }) => {
+            const active = tab === key
+            return (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(key)}
+                style={{
+                  padding:      '7px 18px',
+                  borderRadius: 'var(--r-pill)',
+                  border:       'none',
+                  background:   active ? 'var(--copper-500)' : 'transparent',
+                  color:        active ? 'var(--text-inverse)' : 'var(--text-muted)',
+                  fontWeight:   active ? 800 : 600,
+                  fontSize:     'var(--fs-meta)',
+                  cursor:       'pointer',
+                  transition:   'all var(--t-fast) var(--ease-out)',
+                  fontFamily:   'inherit',
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+
         {tab === 'auctions'
           ? <AuctionsTab />
           : <MarketplaceTab userEmail={session?.user?.email} />

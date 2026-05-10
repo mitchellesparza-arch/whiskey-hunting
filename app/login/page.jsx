@@ -29,19 +29,19 @@ function LoginContent() {
       }}>
 
         {/* Logo pill */}
-        <div style={{
-          width:          64,
-          height:         64,
-          borderRadius:   'var(--r-xl)',
-          background:     'var(--grad-copper)',
-          display:        'grid',
-          placeItems:     'center',
-          fontSize:       32,
-          margin:         '0 auto var(--sp-5)',
-          boxShadow:      'var(--shadow-glow)',
-        }}>
-          🥃
-        </div>
+        <img
+          src="/tater-icon.png"
+          alt="Tater Tracker"
+          style={{
+            width:        80,
+            height:       80,
+            borderRadius: 'var(--r-xl)',
+            display:      'block',
+            margin:       '0 auto var(--sp-5)',
+            boxShadow:    'var(--shadow-glow)',
+            objectFit:    'cover',
+          }}
+        />
 
         <h1 style={{
           margin:        0,

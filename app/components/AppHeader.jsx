@@ -46,20 +46,19 @@ export default function AppHeader({ sub, action, unreadCount = 0 }) {
 
           {/* Left: logo pill + title + breadcrumb subtitle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', minWidth: 0 }}>
-            {/* Copper gradient pill */}
-            <div style={{
-              width:        28,
-              height:       28,
-              borderRadius: 'var(--r-pill)',
-              background:   'var(--grad-copper)',
-              display:      'grid',
-              placeItems:   'center',
-              flexShrink:   0,
-              boxShadow:    'var(--shadow-1)',
-              fontSize:     14,
-            }}>
-              🥃
-            </div>
+            {/* App icon */}
+            <img
+              src="/tater-icon.png"
+              alt=""
+              style={{
+                width:        28,
+                height:       28,
+                borderRadius: 'var(--r-pill)',
+                flexShrink:   0,
+                boxShadow:    'var(--shadow-1)',
+                objectFit:    'cover',
+              }}
+            />
 
             <div style={{ minWidth: 0 }}>
               <div style={{
