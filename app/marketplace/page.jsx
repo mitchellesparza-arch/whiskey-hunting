@@ -162,7 +162,7 @@ function DealCard({ deal, rank }) {
           </span>
           {deal.reserve_price != null && (
             <span style={{ fontSize: '0.68rem', fontWeight: 600, color: deal.reserve_met ? 'var(--green)' : 'var(--text-muted)' }}>
-              {deal.reserve_met ? '✓ Reserve met' : 'No reserve'}
+              {deal.reserve_met ? '✓ Reserve met' : 'Reserve not met'}
             </span>
           )}
         </div>
