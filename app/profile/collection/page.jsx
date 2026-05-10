@@ -6,7 +6,7 @@ import Link           from 'next/link'
 import {
   ArrowLeft, Plus, X, Camera, Tag, ChevronRight, Gavel,
   Star, Wine, FlaskConical, BarChart2, Image as ImageIcon,
-  CheckCircle, SkipForward, RefreshCw, Pencil, Loader,
+  CheckCircle, SkipForward, RefreshCw, Pencil, Loader, Eye, EyeOff,
 } from 'lucide-react'
 import BarcodeScanner from '../../finds/BarcodeScanner.jsx'
 import Button         from '../../components/ui/Button.jsx'
@@ -1404,6 +1404,7 @@ export default function CollectionPage() {
   const [samplesLoaded, setSamplesLoaded] = useState(false)
   const [showAddSample, setShowAddSample] = useState(false)
   const [removingSample,setRemovingSample]= useState(null)
+  const [showValue,     setShowValue]     = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login')
@@ -1535,7 +1536,31 @@ export default function CollectionPage() {
         {/* Summary Strip */}
         <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-4)' }}>
           <StatTile label="Bottles"   value={totalBottles} />
-          <StatTile label="Est. Value" value={estValue > 0 ? Math.round(estValue).toLocaleString() : '—'} prefix={estValue > 0 ? '$' : ''} />
+          <button
+            onClick={() => setShowValue(v => !v)}
+            style={{
+              flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--sp-1)',
+              padding: 'var(--sp-4)', background: 'var(--bg-elev-2)',
+              border: '1px solid var(--hairline-2)', borderRadius: 'var(--r-lg)',
+              minWidth: 0, cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            <span style={{
+              fontSize: 'var(--fs-overline)', fontWeight: 700,
+              letterSpacing: 'var(--tracking-overline)', textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+            }}>Est. Value</span>
+            {showValue ? (
+              <span style={{
+                fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600,
+                fontSize: 28, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '-0.02em',
+              }}>
+                {estValue > 0 ? `$${Math.round(estValue).toLocaleString()}` : '—'}
+              </span>
+            ) : (
+              <EyeOff size={22} strokeWidth={1.5} color="var(--text-dim)" style={{ marginTop: 2 }} />
+            )}
+          </button>
           <StatTile label="Avg Score" value={avgScore} />
         </div>
 
