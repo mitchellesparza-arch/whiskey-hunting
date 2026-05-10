@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tater Tracker — Tatera Illinois relay
 // @namespace    https://whiskey-hunter.vercel.app/
-// @version      0.2.0
+// @version      0.3.0
 // @description  Watch the Tatera.io #illinois Discord channel for Costco bourbon alerts and POST them to Tater Tracker's /api/ingest/tatera endpoint.
 // @match        https://discord.com/channels/*
 // @match        https://canary.discord.com/channels/*
@@ -36,7 +36,10 @@ const CONFIG = {
   'use strict'
 
   const LOG_TAG          = '[tatera-relay]'
-  const SEEN_PREFIX      = 'tatera-il-seen:'
+  // v0.3.0 bumped the prefix so that messages incorrectly marked-seen by
+  // the broken v0.1.0/v0.2.0 status parser can be re-processed.  Old
+  // 'tatera-il-seen:' keys still exist in localStorage but are ignored.
+  const SEEN_PREFIX      = 'tatera-il-seen-v2:'
   const SEEN_TTL_MS      = 14 * 24 * 60 * 60 * 1000   // 14 days
   const BACKFILL_AGE_MS  = 60 * 60 * 1000             // process messages from last hour on attach
   const log              = (...a) => console.log(LOG_TAG, ...a)
@@ -86,13 +89,30 @@ const CONFIG = {
     const title   = titleEl?.textContent?.trim() ?? ''
     if (!/costco/i.test(title)) return null
 
-    // Status from leading emoji on the title (✅ vs ❌)
+    // Status detection.  Discord renders Unicode emoji as Twemoji <img alt="…">
+    // elements, so textContent strips them and `title.startsWith('✅')` is
+    // always false in practice.  Strategy:
+    //   1. Read the first <img alt> inside the title element (works for
+    //      Twemoji rendering, the common case).
+    //   2. Fall back to the title text starting with a literal Unicode emoji,
+    //      in case Discord changes back to text rendering.
+    //   3. Fall back to the embed description text ("Now Available" /
+    //      "No Longer Available"), which Tatera's bot always includes.
     let status = null
-    if (title.startsWith('✅')) status = 'in_stock'
-    else if (title.startsWith('❌')) status = 'out_of_stock'
+    const titleImgAlt = titleEl?.querySelector('img[alt]')?.getAttribute('alt') ?? ''
+    if (titleImgAlt === '✅' || title.startsWith('✅')) status = 'in_stock'
+    else if (titleImgAlt === '❌' || title.startsWith('❌')) status = 'out_of_stock'
+
+    if (!status) {
+      const descText = node.querySelector('[class*="embedDescription"]')?.textContent?.toLowerCase() ?? ''
+      if (descText.includes('now available'))         status = 'in_stock'
+      else if (descText.includes('no longer available')) status = 'out_of_stock'
+    }
     if (!status) return null
 
-    // Product name = title minus leading emoji + "Costco:" prefix
+    // Product name = title minus any leading emoji + "Costco:" prefix.  The
+    // Twemoji <img> renders to empty textContent so the emoji-strip is a
+    // no-op in the common case, but we still handle the literal-emoji form.
     const productName = title
       .replace(/^[✅❌]\s*/, '')
       .replace(/^Costco:\s*/i, '')
