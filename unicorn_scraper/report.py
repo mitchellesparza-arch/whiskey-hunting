@@ -395,7 +395,11 @@ def push_price_history_to_redis(completed_sales: list[dict]) -> None:
 def write_json_export(listings: list[dict], run_id: int, total_lots: int) -> Path:
     """
     Write latest_deals.json for the Next.js frontend.
-    Includes top 100 deals sorted by discount % so the UI can filter/paginate.
+    Includes top 1000 deals sorted by discount % so the UI can filter and
+    paginate.  The 100-cap previously here caused the Reserve filter to
+    surface zero lots — the deepest discounts skew heavily toward
+    "reserve not met" (low bid vs estimate), so the top 100 was effectively
+    a single bucket.  1000 gives every filter combo a real population.
     """
     sorted_deals = sorted(
         [l for l in listings if l.get("discount_vs_estimate") is not None],
@@ -410,7 +414,7 @@ def write_json_export(listings: list[dict], run_id: int, total_lots: int) -> Pat
         cat_counts[cat] = cat_counts.get(cat, 0) + 1
 
     deals_out = []
-    for l in sorted_deals[:100]:
+    for l in sorted_deals[:1000]:
         deals_out.append({
             "lot_number":           l.get("lot_number"),
             "lot_url":              l.get("lot_url", ""),
