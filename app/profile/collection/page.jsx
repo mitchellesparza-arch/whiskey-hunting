@@ -163,6 +163,7 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
         {bottle.photoUrl ? (
           <div style={{
             width:       64,
+            height:      80,
             flexShrink:  0,
             position:    'relative',
             background:  'var(--bg-base)',
@@ -172,7 +173,7 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
             <img
               src={bottle.photoUrl}
               alt={bottle.name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', minHeight: 80 }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               onError={e => { e.target.style.display = 'none' }}
             />
             {score != null && (

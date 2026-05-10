@@ -3,6 +3,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter }  from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link           from 'next/link'
+import { Archive, Users, Lamp, Dices, EyeOff } from 'lucide-react'
 import AppHeader      from '../components/AppHeader.jsx'
 import StatTile       from '../components/ui/StatTile.jsx'
 import Card           from '../components/ui/Card.jsx'
@@ -17,31 +18,31 @@ function initials(name) {
 
 const TILES = [
   {
-    icon:     '🥃',
+    Icon:     Archive,
     title:    'My Collection',
     subtitle: 'Track your bottles with prices and scores',
     href:     '/profile/collection',
   },
   {
-    icon:     '👥',
+    Icon:     Users,
     title:    'Friends',
     subtitle: 'See the club, view collections, compare scores',
     href:     '/profile/friends',
   },
   {
-    icon:     '🎯',
+    Icon:     Lamp,
     title:    'Wishlist',
     subtitle: 'Track bottles you\'re hunting with rarity and price targets',
     href:     '/profile/wishlist',
   },
   {
-    icon:     '🎲',
+    Icon:     Dices,
     title:    'Pick My Pour',
     subtitle: "Can't decide? Let the app choose",
     href:     '/profile/pour',
   },
   {
-    icon:     '🙈',
+    Icon:     EyeOff,
     title:    'Battle of the Blinds',
     subtitle: 'Run a blind tasting and rank by ELO',
     href:     '/profile/blind',
@@ -197,7 +198,7 @@ export default function ProfilePage() {
                     {badge} new
                   </div>
                 )}
-                <div style={{ fontSize: 30 }}>{tile.icon}</div>
+                <tile.Icon size={28} strokeWidth={1.5} color="var(--copper-400)" />
                 <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{tile.title}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>{tile.subtitle}</div>
                 {tile.href && (
