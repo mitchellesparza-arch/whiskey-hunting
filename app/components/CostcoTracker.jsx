@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -143,6 +144,7 @@ export default function CostcoTracker() {
   const [favorites,     setFavorites]     = useState([])
   const [savingFavs,    setSavingFavs]    = useState(false)
   const [lastChecked,   setLastChecked]   = useState(null)
+  const [pickerOpen,    setPickerOpen]    = useState(false)
 
   const loadAlerts = useCallback(async () => {
     try {
@@ -248,6 +250,19 @@ export default function CostcoTracker() {
             </p>
           </div>
           <button
+            onClick={() => setPickerOpen(o => !o)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontSize: 'var(--fs-meta)', fontWeight: 600,
+              color: 'var(--text-muted)', background: 'none',
+              border: '1px solid var(--hairline-2)', borderRadius: 'var(--r-sm)',
+              padding: '5px 10px', cursor: 'pointer',
+            }}
+          >
+            {pickerOpen ? <ChevronUp size={14} strokeWidth={2} /> : <ChevronDown size={14} strokeWidth={2} />}
+            {pickerOpen ? 'Done' : 'Edit Stores'}
+          </button>
+          <button
             onClick={refresh}
             disabled={refreshing}
             className="btn-primary"
@@ -257,25 +272,27 @@ export default function CostcoTracker() {
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 'var(--sp-4)' }}>
-          {stores.length === 0 ? (
-            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', padding: 'var(--sp-1) 0' }}>
-              Loading store list…
-            </div>
-          ) : stores.map(store => {
-            const isFav = favorites.includes(store.number)
-            const atMax = !isFav && favorites.length >= 3
-            return (
-              <StoreChip
-                key={store.number}
-                store={store}
-                selected={isFav}
-                disabled={atMax || savingFavs}
-                onClick={() => toggleFavorite(store.number)}
-              />
-            )
-          })}
-        </div>
+        {pickerOpen && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 'var(--sp-4)' }}>
+            {stores.length === 0 ? (
+              <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', padding: 'var(--sp-1) 0' }}>
+                Loading store list…
+              </div>
+            ) : stores.map(store => {
+              const isFav = favorites.includes(store.number)
+              const atMax = !isFav && favorites.length >= 3
+              return (
+                <StoreChip
+                  key={store.number}
+                  store={store}
+                  selected={isFav}
+                  disabled={atMax || savingFavs}
+                  onClick={() => toggleFavorite(store.number)}
+                />
+              )
+            })}
+          </div>
+        )}
 
         {favoriteStoreObjects.length === 0 ? (
           <div className="card px-4 py-6 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
