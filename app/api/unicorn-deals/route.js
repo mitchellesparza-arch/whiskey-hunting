@@ -43,7 +43,8 @@ export async function GET(request) {
   const limit    = Math.min(parseInt(searchParams.get('limit')  ?? '20'), 100)
   const category = searchParams.get('category') ?? ''
   const minBid   = parseFloat(searchParams.get('minBid') ?? '0')
-  const sort     = searchParams.get('sort') ?? 'discount'  // 'discount' | 'closing'
+  const sort     = searchParams.get('sort') ?? 'discount'   // 'discount' | 'closing'
+  const reserve  = searchParams.get('reserve') ?? ''        // '' | 'met-or-none'
 
   const data = await loadData()
 
@@ -61,6 +62,11 @@ export async function GET(request) {
   }
   if (minBid > 0) {
     deals = deals.filter(d => (d.current_bid ?? 0) >= minBid)
+  }
+  if (reserve === 'met-or-none') {
+    // Eligible to buy at current bid: either reserve has been met, or there
+    // is no reserve at all (reserve_price 0 / null).
+    deals = deals.filter(d => d.reserve_met === true || !d.reserve_price)
   }
 
   if (sort === 'closing') {

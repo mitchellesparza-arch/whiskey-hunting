@@ -176,28 +176,35 @@ function DealCard({ deal, rank }) {
 }
 
 function AuctionsTab() {
-  const [data,      setData]      = useState(null)
-  const [loading,   setLoading]   = useState(true)
-  const [error,     setError]     = useState(null)
-  const [category,  setCategory]  = useState('')
-  const [sort,      setSort]      = useState('discount')
-  const [minBid,    setMinBid]    = useState(0)
-  const [showCount, setShowCount] = useState(20)
+  const [data,           setData]           = useState(null)
+  const [loading,        setLoading]        = useState(true)
+  const [error,          setError]          = useState(null)
+  const [category,       setCategory]       = useState('')
+  const [sort,           setSort]           = useState('discount')
+  const [minBid,         setMinBid]         = useState(0)
+  const [reserveFilter,  setReserveFilter]  = useState('')    // '' | 'met-or-none'
+  const [showCount,      setShowCount]      = useState(20)
 
   const fetchDeals = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const params = new URLSearchParams({ limit: '100', sort, ...(category ? { category } : {}), ...(minBid > 0 ? { minBid: String(minBid) } : {}) })
+      const params = new URLSearchParams({
+        limit: '100',
+        sort,
+        ...(category ? { category } : {}),
+        ...(minBid > 0 ? { minBid: String(minBid) } : {}),
+        ...(reserveFilter ? { reserve: reserveFilter } : {}),
+      })
       const res  = await fetch(`/api/unicorn-deals?${params}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Unknown error')
       setData(json)
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
-  }, [category, sort, minBid])
+  }, [category, sort, minBid, reserveFilter])
 
   useEffect(() => { fetchDeals() }, [fetchDeals])
-  useEffect(() => setShowCount(20), [category, sort, minBid])
+  useEffect(() => setShowCount(20), [category, sort, minBid, reserveFilter])
 
   const deals        = data?.deals ?? []
   const visibleDeals = deals.slice(0, showCount)
@@ -263,6 +270,13 @@ function AuctionsTab() {
               {v === 0 ? 'Any' : `$${v.toLocaleString()}+`}
             </Chip>
           ))}
+        </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reserve</span>
+          <Chip tone={!reserveFilter ? 'copper' : 'neutral'} onClick={() => setReserveFilter('')}>Any</Chip>
+          <Chip tone={reserveFilter === 'met-or-none' ? 'copper' : 'neutral'} onClick={() => setReserveFilter(reserveFilter === 'met-or-none' ? '' : 'met-or-none')}>
+            Met or no reserve
+          </Chip>
         </div>
       </div>
 
