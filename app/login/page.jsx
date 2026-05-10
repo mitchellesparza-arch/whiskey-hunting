@@ -28,20 +28,27 @@ function LoginContent() {
         textAlign:    'center',
       }}>
 
-        {/* Logo pill */}
+        {/* Logo */}
+        <div style={{
+          width:        80,
+          height:       80,
+          borderRadius: 'var(--r-xl)',
+          overflow:     'hidden',
+          background:   '#1e1209',
+          margin:       '0 auto var(--sp-5)',
+          boxShadow:    'var(--shadow-glow)',
+        }}>
         <img
           src="/icon-512.png"
           alt="Tater Tracker"
           style={{
-            width:        80,
-            height:       80,
-            borderRadius: 'var(--r-xl)',
-            display:      'block',
-            margin:       '0 auto var(--sp-5)',
-            boxShadow:    'var(--shadow-glow)',
-            objectFit:    'cover',
+            width:      '100%',
+            height:     '100%',
+            objectFit:  'cover',
+            display:    'block',
           }}
         />
+        </div>
 
         <h1 style={{
           margin:        0,

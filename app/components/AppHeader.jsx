@@ -46,19 +46,18 @@ export default function AppHeader({ sub, action, unreadCount = 0 }) {
 
           {/* Left: logo pill + title + breadcrumb subtitle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', minWidth: 0 }}>
-            {/* App icon */}
-            <img
-              src="/icon-512.png"
-              alt=""
-              style={{
-                width:        28,
-                height:       28,
-                borderRadius: 'var(--r-pill)',
-                flexShrink:   0,
-                boxShadow:    'var(--shadow-1)',
-                objectFit:    'cover',
-              }}
-            />
+            {/* App icon — overflow:hidden clips transparent PNG corners cleanly */}
+            <div style={{
+              width:        28,
+              height:       28,
+              borderRadius: 'var(--r-pill)',
+              overflow:     'hidden',
+              background:   '#1e1209',
+              flexShrink:   0,
+              boxShadow:    'var(--shadow-1)',
+            }}>
+              <img src="/icon-512.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            </div>
 
             <div style={{ minWidth: 0 }}>
               <div style={{
