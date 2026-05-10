@@ -344,21 +344,6 @@ export default function TrackerPage() {
         sub={tab === 'costco'
           ? 'Illinois Costco · Bourbon Alerts'
           : "Chicagoland Binny's · Truck Tracker"}
-        action={tab === 'binnys' ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {lastCheckedAt && (
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Checked {timeAgo(lastCheckedAt)}</span>
-            )}
-            <button
-              onClick={refresh}
-              disabled={refreshing}
-              className="btn-primary"
-              style={{ fontSize: 13, padding: '6px 14px' }}
-            >
-              {refreshing ? 'Refreshing…' : '↺ Refresh'}
-            </button>
-          </div>
-        ) : null}
       />
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-10">
