@@ -552,16 +552,27 @@ async def run_scraper(debug: bool = False) -> int:
 
     finish_run(run_id, len(all_listings), all_errors)
 
-    # Step 4: generate report + JSON export
+    # Step 4: enrich active listings with MSRP from static catalog before export
+    log.info("\nEnriching listings with MSRP from catalog...")
+    from report import enrich_with_msrp
+    enrich_with_msrp(all_listings)
+
+    # Step 5: generate report + JSON export (now includes MSRP where matched)
     report_listings = get_run_listings(run_id)
     report_path = generate_report(report_listings, run_id)
     write_json_export(all_listings, run_id, len(all_listings))
 
-    # Step 5: push completed sale prices to Redis price history
+    # Step 6: push completed sale prices to Redis price history
     if all_completed_sales:
         log.info("\nPushing %d completed sale prices to Redis price history...", len(all_completed_sales))
         from report import push_price_history_to_redis
         push_price_history_to_redis(all_completed_sales)
+
+    # Step 7: upsert all seen bottle names into the shared UA catalog
+    all_bottles = all_listings + all_completed_sales
+    log.info("\nUpserting %d bottles into UA catalog...", len(all_bottles))
+    from report import push_bottle_catalog_to_redis
+    push_bottle_catalog_to_redis(all_bottles)
 
     _print_summary(all_listings, report_path)
     _maybe_send_email(report_path)

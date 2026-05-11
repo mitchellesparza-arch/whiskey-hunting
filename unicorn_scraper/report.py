@@ -300,6 +300,132 @@ def generate_report(listings: list[dict], run_id: int) -> Path:
     return REPORT_PATH
 
 
+def enrich_with_msrp(listings: list[dict]) -> None:
+    """
+    Fuzzy-match each active listing against market-prices-data.json and fill in
+    listing['msrp'] and listing['discount_vs_msrp'] where a match is found.
+    Bottles with no catalog match keep msrp=None; the UI shows secondary avg instead.
+    """
+    import re
+
+    data_path = Path(__file__).parent.parent / "lib" / "market-prices-data.json"
+    if not data_path.exists():
+        print("Warning: market-prices-data.json not found — skipping MSRP enrichment")
+        return
+
+    with open(data_path, encoding="utf-8") as f:
+        catalog = json.load(f)
+
+    def _norm(s: str) -> str:
+        s = (s or "").lower()
+        s = re.sub(r"['''‚‛′‵]", "", s)
+        s = re.sub(r"[^a-z0-9\s]", " ", s)
+        return re.sub(r"\s+", " ", s).strip()
+
+    def _score(query_norm: str, candidate_norm: str) -> float:
+        qw = [w for w in query_norm.split() if len(w) >= 3]
+        cw = [w for w in candidate_norm.split() if len(w) >= 3]
+        if not qw or not cw:
+            return 0.0
+        hits = sum(1 for w in qw if any(w in c or c in w for c in cw))
+        s = hits / max(len(qw), len(cw))
+        if query_norm in candidate_norm or candidate_norm in query_norm:
+            s = max(s, 0.8)
+        return s
+
+    def _best_match(bottle_name: str):
+        q = _norm(bottle_name)
+        best_entry, best_score = None, 0.0
+        for entry in catalog:
+            names = [entry.get("name", "")] + (entry.get("aliases") or [])
+            for name in names:
+                s = _score(q, _norm(name))
+                if s > best_score:
+                    best_score = s
+                    best_entry = entry
+        return best_entry if best_score >= 0.5 else None
+
+    enriched = 0
+    for listing in listings:
+        if listing.get("msrp"):
+            continue
+        match = _best_match(listing.get("bottle_name", ""))
+        if match and match.get("msrp"):
+            msrp = match["msrp"]
+            listing["msrp"] = msrp
+            bid = listing.get("current_bid")
+            if bid and msrp > 0:
+                listing["discount_vs_msrp"] = round((msrp - bid) / msrp * 100, 1)
+            enriched += 1
+
+    print(f"MSRP enrichment: {enriched}/{len(listings)} listings matched")
+
+
+def push_bottle_catalog_to_redis(bottles: list[dict]) -> None:
+    """
+    Upsert unique bottle names seen in this scrape into wh:ua:catalog Redis hash.
+    Field = normalized name, value = JSON {name, category, lastSeen}.
+    Existing fields are overwritten — lastSeen acts as a freshness marker.
+    """
+    import re
+
+    url   = os.getenv("UPSTASH_REDIS_REST_URL", "").rstrip("/")
+    token = os.getenv("UPSTASH_REDIS_REST_TOKEN", "")
+    if not (url and token):
+        print("Redis not configured — skipping catalog push")
+        return
+
+    def _norm(s: str) -> str:
+        s = (s or "").lower()
+        s = re.sub(r"['''‚‛′‵]", "", s)
+        s = re.sub(r"[^a-z0-9\s]", " ", s)
+        return re.sub(r"\s+", " ", s).strip()
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    seen: dict[str, dict] = {}
+
+    for b in bottles:
+        name     = (b.get("bottle_name") or b.get("name") or "").strip()
+        category = b.get("category", "")
+        if not name:
+            continue
+        nk = _norm(name)
+        if nk and nk not in seen:
+            seen[nk] = {"name": name, "category": category, "lastSeen": now_iso}
+
+    if not seen:
+        print("No bottles to push to catalog")
+        return
+
+    items      = list(seen.items())
+    BATCH_SIZE = 200  # fields per HSET command
+
+    total_pushed = 0
+    for i in range(0, len(items), BATCH_SIZE):
+        batch = items[i : i + BATCH_SIZE]
+        cmd   = ["HSET", "wh:ua:catalog"]
+        for nk, meta in batch:
+            cmd += [nk, json.dumps(meta)]
+        try:
+            payload = json.dumps([cmd]).encode("utf-8")
+            req = urllib.request.Request(
+                f"{url}/pipeline",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                json.loads(resp.read())
+                total_pushed += len(batch)
+        except Exception as exc:
+            print(f"Warning: catalog batch push failed: {exc}")
+
+    print(f"UA catalog: pushed {total_pushed} entries to wh:ua:catalog")
+
+
 def push_price_history_to_redis(completed_sales: list[dict]) -> None:
     """
     Push completed auction sale prices into Redis price-history hashes.
@@ -429,6 +555,8 @@ def write_json_export(listings: list[dict], run_id: int, total_lots: int) -> Pat
             "ua_estimate_high":     l.get("ua_estimate_high"),
             "ua_estimate_mid":      l.get("ua_estimate_mid"),
             "ua_estimate_display":  l.get("ua_estimate_display", ""),
+            "msrp":                 l.get("msrp"),
+            "discount_vs_msrp":     l.get("discount_vs_msrp"),
             "discount_vs_estimate": l.get("discount_vs_estimate"),
             "reserve_price":        l.get("reserve_price"),
             "reserve_met":          l.get("reserve_met"),
