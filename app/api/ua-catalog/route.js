@@ -32,12 +32,23 @@ function scoreMatch(queryNorm, candidateNorm) {
  */
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
+  const lookup   = searchParams.get('lookup')?.trim() ?? ''
   const q        = searchParams.get('q')?.trim() ?? ''
   const limit    = Math.min(parseInt(searchParams.get('limit') ?? '20'), 100)
   const category = searchParams.get('category') ?? ''
 
   try {
     const redis = Redis.fromEnv()
+
+    // Direct single-bottle lookup by normalized name — used by bottle detail page
+    // for image resolution. HGET is O(1) vs HGETALL on a large catalog.
+    if (lookup) {
+      const val = await redis.hget(CATALOG_KEY, norm(lookup))
+      if (!val) return NextResponse.json({ result: null })
+      const meta = typeof val === 'string' ? JSON.parse(val) : val
+      return NextResponse.json({ result: meta })
+    }
+
     const raw   = await redis.hgetall(CATALOG_KEY)
 
     if (!raw) return NextResponse.json({ results: [], total: 0 })

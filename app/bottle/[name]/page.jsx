@@ -171,13 +171,21 @@ export default function BottleDetailPage() {
       fetch(`/api/marketplace?activeOnly=1`).then(r => r.json()).catch(() => ({ listings: [] })),
       fetch(`/api/bottles/holders?name=${enc}`).then(r => r.json()).catch(() => ({ holders: [] })),
       fetch(`/api/catalog/search?q=${baseEnc}&limit=25`).then(r => r.json()).catch(() => ({ results: [] })),
-    ]).then(([priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes, catRes]) => {
+      fetch(`/api/ua-catalog?lookup=${enc}`).then(r => r.json()).catch(() => ({ result: null })),
+    ]).then(([priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes, catRes, uaCatRes]) => {
       setPrice(priceRes.price ?? null)
       setHistory(histRes.history ?? [])
-      setImageUrl(imgRes.imageUrl ?? (reviewRes?.found ? reviewRes.image : null) ?? null)
+      // Image priority: Binny's (Algolia) → Unicorn Auctions → nothing.
+      // Breaking Bourbon image intentionally excluded — BB hero images belong to
+      // their review content and often mismatch UA-specific lot titles.
+      const uaImageUrl = uaCatRes?.result?.imageUrl ?? null
+      setImageUrl(imgRes.imageUrl ?? uaImageUrl ?? null)
       setFinds(findsRes.finds ?? [])
       setArchived(findsRes.archived ?? [])
-      setReview(reviewRes?.found ? reviewRes : null)
+      // Suppress BB review for UA-only bottles (no MSRP in catalog = not a
+      // catalogued retail release; BB is likely to match the wrong review)
+      const isUAOnly = !priceRes?.price?.msrp && uaCatRes?.result && !imgRes.imageUrl
+      setReview(reviewRes?.found && !isUAOnly ? reviewRes : null)
       const all = mktRes?.listings ?? []
       setListings(all.filter(l => (l.bottles ?? []).some(b => nameMatches(b?.name ?? '', bottleName))))
       setHolders(holdRes?.holders ?? [])

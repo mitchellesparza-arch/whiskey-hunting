@@ -385,13 +385,19 @@ def push_bottle_catalog_to_redis(bottles: list[dict]) -> None:
     seen: dict[str, dict] = {}
 
     for b in bottles:
-        name     = (b.get("bottle_name") or b.get("name") or "").strip()
-        category = b.get("category", "")
+        name      = (b.get("bottle_name") or b.get("name") or "").strip()
+        category  = b.get("category", "")
+        image_url = b.get("image_url") or None
         if not name:
             continue
         nk = _norm(name)
-        if nk and nk not in seen:
+        if not nk:
+            continue
+        if nk not in seen:
             seen[nk] = {"name": name, "category": category, "lastSeen": now_iso}
+        # Always update imageUrl if we now have one and didn't before
+        if image_url and not seen[nk].get("imageUrl"):
+            seen[nk]["imageUrl"] = image_url
 
     if not seen:
         print("No bottles to push to catalog")
@@ -545,6 +551,7 @@ def write_json_export(listings: list[dict], run_id: int, total_lots: int) -> Pat
             "lot_number":           l.get("lot_number"),
             "lot_url":              l.get("lot_url", ""),
             "lot_id":               l.get("lot_id", ""),
+            "image_url":            l.get("image_url"),
             "bottle_name":          l.get("bottle_name", ""),
             "distillery":           l.get("distillery", ""),
             "category":             l.get("category", ""),

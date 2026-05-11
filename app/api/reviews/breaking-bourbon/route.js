@@ -118,7 +118,16 @@ async function findReviewSlug(name) {
   } catch { return null }
 }
 
-async function fetchReview(slug) {
+// Validate that the review's scraped title is actually about the bottle we searched.
+// Uses the same slug-scoring logic but against the review title instead of the slug,
+// so a review for "Michter's 10 Year" won't show up on a "Michter's 20 Year" search.
+function titleMatchesSearch(searchName, reviewTitle) {
+  if (!reviewTitle) return false
+  const score = scoreSlug(searchName, reviewTitle)
+  return score >= 0.6
+}
+
+async function fetchReview(slug, searchName) {
   try {
     const url = `${REVIEW_BASE}/review/${slug}`
     const res = await fetch(url, FETCH_OPTS)
@@ -130,13 +139,7 @@ async function fetchReview(slug) {
     const author   = stripTags(pickFirst(html, /<h1 class="text-block-2">([\s\S]*?)<\/h1>/i))?.replace(/^Written By:\s*/i, '') ?? null
     const date     = stripTags(pickFirst(html, /<div class="text-block-5">([\s\S]*?)<\/div>/i))
 
-    // Main hero photo — sits inside <div class="main-photo-section"> as a CSS
-    // background-image with HTML-encoded quotes.  Used as the bottle-page hero
-    // fallback when Binny's Algolia catalog has no image for this bottle.
-    const image = pickFirst(html, /main-photo-section[\s\S]*?background-image:url\(&quot;([^&]+)&quot;\)/i)
-
-    // Bottle-info block uses <strong>Field:</strong> Value patterns — pull the few
-    // fields that are useful to display alongside the verdict.
+    // Bottle-info block uses <strong>Field:</strong> Value patterns.
     function infoField(label) {
       const re = new RegExp(`<strong>${label}[^<]*<\\/strong>([\\s\\S]*?)<\\/p>`, 'i')
       const v  = stripTags(pickFirst(html, re))
@@ -147,7 +150,13 @@ async function fetchReview(slug) {
     const msrp       = infoField('MSRP')
 
     if (!title && !verdict) return null
-    return { url, title, verdict, distillery, proof, msrp, author, date, image }
+
+    // Reject if the review title doesn't match what was searched — catches cases
+    // where the slug scored OK but the actual review is for a different product
+    // (e.g. "Michter's 10 Year" review surfacing on a "Michter's 20 Year" search).
+    if (searchName && !titleMatchesSearch(searchName, title)) return null
+
+    return { url, title, verdict, distillery, proof, msrp, author, date }
   } catch { return null }
 }
 
@@ -159,8 +168,8 @@ export async function GET(req) {
   const name = (searchParams.get('name') ?? '').trim()
   if (name.length < 2) return NextResponse.json({ found: false })
 
-  // v4 = numeric tokens (age statements) are now required to match in the slug
-  const cacheKey = `wh:reviews:breaking-bourbon:v4:${normName(name)}`
+  // v5 = title-match validation added; invalidates previously-cached wrong-bottle reviews
+  const cacheKey = `wh:reviews:breaking-bourbon:v5:${normName(name)}`
 
   try {
     const cached = await getRedis().get(cacheKey)
@@ -177,7 +186,7 @@ export async function GET(req) {
     return NextResponse.json(empty)
   }
 
-  const review = await fetchReview(slug)
+  const review = await fetchReview(slug, name)
   if (!review) {
     const empty = { found: false }
     try { await getRedis().set(cacheKey, JSON.stringify(empty), { ex: TTL_SEC }) } catch {}

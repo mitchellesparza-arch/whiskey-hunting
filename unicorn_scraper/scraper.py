@@ -83,6 +83,7 @@ query SearchLots($input: SearchLotInput!) {
       highEstimate
       reservePrice
       reservePriceMet
+      imageUrl
       currentBid {
         amount
         currency
@@ -397,6 +398,7 @@ def _fetch_whiskey_lots_for_auction(auction: dict) -> tuple[list[dict], list[dic
                     "section":             _section_from_tag(lot.get("tagStatus")),
                     "bottle_name":         lot.get("title", ""),
                     "distillery":          _infer_distillery(lot.get("title", "")),
+                    "image_url":           lot.get("imageUrl") or None,
                     "lot_url":             _lot_url(uuid, lot_uuid),
                     "lot_id":              lot_uuid,
                     "lot_number":          lot.get("number"),
