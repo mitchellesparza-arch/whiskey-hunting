@@ -388,6 +388,7 @@ def push_bottle_catalog_to_redis(bottles: list[dict]) -> None:
         name      = (b.get("bottle_name") or b.get("name") or "").strip()
         category  = b.get("category", "")
         image_url = b.get("image_url") or None
+        lot_url   = b.get("lot_url") or None
         if not name:
             continue
         nk = _norm(name)
@@ -395,9 +396,12 @@ def push_bottle_catalog_to_redis(bottles: list[dict]) -> None:
             continue
         if nk not in seen:
             seen[nk] = {"name": name, "category": category, "lastSeen": now_iso}
-        # Always update imageUrl if we now have one and didn't before
         if image_url and not seen[nk].get("imageUrl"):
             seen[nk]["imageUrl"] = image_url
+        # Store lotUrl so the image can be fetched from the lot page even after
+        # the auction ends (lot pages are permanent on UA).
+        if lot_url and not seen[nk].get("lotUrl"):
+            seen[nk]["lotUrl"] = lot_url
 
     if not seen:
         print("No bottles to push to catalog")

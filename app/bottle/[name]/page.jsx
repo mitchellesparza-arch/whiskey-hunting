@@ -172,19 +172,17 @@ export default function BottleDetailPage() {
       fetch(`/api/bottles/holders?name=${enc}`).then(r => r.json()).catch(() => ({ holders: [] })),
       fetch(`/api/catalog/search?q=${baseEnc}&limit=25`).then(r => r.json()).catch(() => ({ results: [] })),
       fetch(`/api/ua-catalog?lookup=${enc}`).then(r => r.json()).catch(() => ({ result: null })),
-    ]).then(([priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes, catRes, uaCatRes]) => {
+      fetch(`/api/ua-image?name=${enc}`).then(r => r.json()).catch(() => ({ imageUrl: null })),
+    ]).then(([priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes, catRes, uaCatRes, uaImgRes]) => {
       setPrice(priceRes.price ?? null)
       setHistory(histRes.history ?? [])
-      // Image priority: Binny's (Algolia) → Unicorn Auctions → nothing.
-      // Breaking Bourbon image intentionally excluded — BB hero images belong to
-      // their review content and often mismatch UA-specific lot titles.
-      const uaImageUrl = uaCatRes?.result?.imageUrl ?? null
-      setImageUrl(imgRes.imageUrl ?? uaImageUrl ?? null)
+      // Image priority: Binny's (Algolia) → Unicorn Auctions (og:image from lot page) → nothing
+      setImageUrl(imgRes.imageUrl ?? uaImgRes?.imageUrl ?? null)
       setFinds(findsRes.finds ?? [])
       setArchived(findsRes.archived ?? [])
-      // Suppress BB review for UA-only bottles (no MSRP in catalog = not a
-      // catalogued retail release; BB is likely to match the wrong review)
-      const isUAOnly = !priceRes?.price?.msrp && uaCatRes?.result && !imgRes.imageUrl
+      // Suppress BB review for UA-only bottles (no Binny's image, in UA catalog,
+      // no MSRP) — BB is likely to match the wrong review for auction-specific lots
+      const isUAOnly = !imgRes.imageUrl && uaCatRes?.result && !priceRes?.price?.msrp
       setReview(reviewRes?.found && !isUAOnly ? reviewRes : null)
       const all = mktRes?.listings ?? []
       setListings(all.filter(l => (l.bottles ?? []).some(b => nameMatches(b?.name ?? '', bottleName))))
