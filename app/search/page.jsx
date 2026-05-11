@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import BarcodeScanner    from '../finds/BarcodeScanner.jsx'
 import AppHeader from '../components/AppHeader.jsx'
 import Button from '../components/ui/Button.jsx'
-import { Camera, X } from 'lucide-react'
+import { Camera, Search, X } from 'lucide-react'
 
 function bottleHref(name) {
   return `/bottle/${encodeURIComponent(name)}`
@@ -20,9 +20,11 @@ export default function SearchPage() {
     if (status === 'authenticated' && session?.user?.approved === false) router.replace('/pending')
   }, [status, session])
 
-  const [query,        setQuery]        = useState('')
-  const [results,      setResults]      = useState([])
-  const [searching,    setSearching]    = useState(false)
+  const [query,          setQuery]          = useState('')
+  const [results,        setResults]        = useState([])
+  const [catalogResults, setCatalogResults] = useState([])
+  const [searching,      setSearching]      = useState(false)
+  const [submitted,      setSubmitted]      = useState(false)  // true after Enter/Search button
 
   // AI fallback (Claude — fires only when local results are empty)
   const [aiSuggestions, setAiSuggestions] = useState([])
@@ -60,21 +62,24 @@ export default function SearchPage() {
     return Math.round(20 + 10 * hits - Math.max(0, nWords.length - hits) * 2)
   }
 
-  async function doSearch(q) {
-    if (q.trim().length < 2) { setResults([]); return }
+  async function doSearch(q, explicit = false) {
+    if (q.trim().length < 2) { setResults([]); setCatalogResults([]); return }
     setSearching(true)
+    const limit = explicit ? 50 : 20
     try {
-      const [algoliaRes, localRes] = await Promise.allSettled([
+      const [algoliaRes, localRes, catalogRes] = await Promise.allSettled([
         fetch(`/api/algolia-search?q=${encodeURIComponent(q)}`).then(r => r.json()),
         fetch(`/api/lookup?search=${encodeURIComponent(q)}`).then(r => r.json()),
+        fetch(`/api/catalog/search?q=${encodeURIComponent(q)}&limit=${limit}`).then(r => r.json()),
       ])
 
-      const algolia = algoliaRes.status === 'fulfilled' ? (algoliaRes.value.results ?? []) : []
-      const local   = localRes.status   === 'fulfilled'
+      const algolia  = algoliaRes.status  === 'fulfilled' ? (algoliaRes.value.results ?? []) : []
+      const local    = localRes.status    === 'fulfilled'
         ? (localRes.value.results ?? []).map(r => (typeof r === 'string' ? r : r.name)).filter(Boolean)
         : []
+      const catalog  = catalogRes.status  === 'fulfilled' ? (catalogRes.value.results ?? []) : []
 
-      // Dedupe + re-rank by relevance to the query, source-agnostic
+      // Dedupe + re-rank Algolia + local results by relevance
       const seen = new Map()
       for (const name of [...algolia, ...local]) {
         const key = name.toLowerCase()
@@ -84,12 +89,21 @@ export default function SearchPage() {
         .map(name => ({ name, score: scoreResult(q, name) }))
         .filter(r => r.score > 0)
         .sort((a, b) => b.score - a.score)
-        .slice(0, 20)
+        .slice(0, limit)
         .map(r => r.name)
 
       setResults(ranked)
+
+      // Catalog results: dedupe against the Algolia/local list, keep richer objects
+      const mainNorms = new Set(ranked.map(n => n.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim()))
+      const filteredCatalog = catalog.filter(entry => {
+        const n = (entry.name ?? '').toLowerCase().replace(/[^a-z0-9]/g, ' ').trim()
+        return !mainNorms.has(n)
+      })
+      setCatalogResults(filteredCatalog)
     } catch {
       setResults([])
+      setCatalogResults([])
     } finally {
       setSearching(false)
     }
@@ -125,18 +139,26 @@ export default function SearchPage() {
     router.push(bottleHref(suggestion.name))
   }
 
+  function handleSubmit() {
+    if (query.trim().length < 2) return
+    clearTimeout(timerRef.current)
+    setSubmitted(true)
+    doSearch(query, true)
+  }
+
   function handleChange(e) {
     const val = e.target.value
     setQuery(val)
+    setSubmitted(false)
     clearTimeout(timerRef.current)
-    // Clear any prior AI section as soon as the query changes — saved-bottle
-    // ranking surfaces previously-confirmed picks at the top of normal results,
-    // and members can opt back into the AI fallback via the explicit button
-    // when they want a wider search.
     setAiSuggestions([])
     setAiQuery(null)
-    if (val.trim().length < 2) { setResults([]); return }
+    if (val.trim().length < 2) { setResults([]); setCatalogResults([]); return }
     timerRef.current = setTimeout(() => doSearch(val), 280)
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter') handleSubmit()
   }
 
   // ── Barcode scan ───────────────────────────────────────────────────────────
@@ -258,50 +280,62 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* Text search input */}
-        <div style={{ position: 'relative', marginTop: 4 }}>
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={handleChange}
-            placeholder="Search any bottle by name…"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            style={{
-              width:        '100%',
-              padding:      '10px 36px 10px 12px',
-              background:   'var(--bg-elev-2)',
-              border:       '1px solid var(--hairline-2)',
-              borderRadius: 10,
-              color:        'var(--text-primary)',
-              fontSize:     16,
-              fontFamily:   'inherit',
-              outline:      'none',
-              boxSizing:    'border-box',
-            }}
-            onFocus={e => { e.target.style.borderColor = 'var(--copper-500)' }}
-            onBlur={e => { e.target.style.borderColor = 'var(--hairline-2)' }}
-          />
-          {query.length > 0 && (
-            <button
-              onClick={() => { setQuery(''); setResults([]); setAiSuggestions([]); setAiQuery(null); inputRef.current?.focus() }}
+        {/* Text search input + Search button */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Search any bottle by name…"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
               style={{
-                position:   'absolute',
-                right:      8,
-                top:        '50%',
-                transform:  'translateY(-50%)',
-                background: 'none',
-                border:     'none',
-                color:      'var(--text-dim)',
-                fontSize:   16,
-                cursor:     'pointer',
-                padding:    0,
-                lineHeight: 1,
+                width:        '100%',
+                padding:      '10px 36px 10px 12px',
+                background:   'var(--bg-elev-2)',
+                border:       '1px solid var(--hairline-2)',
+                borderRadius: 10,
+                color:        'var(--text-primary)',
+                fontSize:     16,
+                fontFamily:   'inherit',
+                outline:      'none',
+                boxSizing:    'border-box',
               }}
-            ><X size={14} /></button>
-          )}
+              onFocus={e => { e.target.style.borderColor = 'var(--copper-500)' }}
+              onBlur={e => { e.target.style.borderColor = 'var(--hairline-2)' }}
+            />
+            {query.length > 0 && (
+              <button
+                onClick={() => { setQuery(''); setResults([]); setCatalogResults([]); setSubmitted(false); setAiSuggestions([]); setAiQuery(null); inputRef.current?.focus() }}
+                style={{
+                  position:   'absolute',
+                  right:      8,
+                  top:        '50%',
+                  transform:  'translateY(-50%)',
+                  background: 'none',
+                  border:     'none',
+                  color:      'var(--text-dim)',
+                  fontSize:   16,
+                  cursor:     'pointer',
+                  padding:    0,
+                  lineHeight: 1,
+                }}
+              ><X size={14} /></button>
+            )}
+          </div>
+          <Button
+            variant="primary"
+            size="md"
+            icon={<Search size={15} strokeWidth={2} />}
+            onClick={handleSubmit}
+            disabled={query.trim().length < 2 || searching}
+          >
+            Search
+          </Button>
         </div>
       </div>
 
@@ -447,6 +481,80 @@ export default function SearchPage() {
             </button>
           ))}
         </div>
+
+        {/* Catalog results — static catalog + UA bottles not in Algolia/local */}
+        {catalogResults.length > 0 && (
+          <div style={{ marginTop: results.length > 0 ? 20 : 0 }}>
+            {results.length > 0 && (
+              <div style={{
+                fontSize:      10,
+                fontWeight:    700,
+                color:         'var(--text-dim)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                marginBottom:  8,
+              }}>
+                Also in catalog
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {catalogResults.map((entry, i) => {
+                const isUA    = entry.source === 'unicorn_auctions'
+                const meta    = [
+                  entry.distillery ?? entry.category,
+                  entry.proof  ? `${entry.proof}°`  : null,
+                  entry.age    ? `${entry.age}yr`   : null,
+                ].filter(Boolean).join(' · ')
+                const priceLabel = entry.msrp
+                  ? `$${entry.msrp} MSRP`
+                  : entry.secondary?.avg
+                    ? `~$${entry.secondary.avg} secondary`
+                    : null
+                return (
+                  <button
+                    key={i}
+                    onClick={() => router.push(bottleHref(entry.name))}
+                    style={{
+                      display:      'flex',
+                      alignItems:   'center',
+                      gap:          10,
+                      width:        '100%',
+                      padding:      '10px 12px',
+                      background:   'var(--bg-elev-1)',
+                      border:       '1px solid var(--hairline)',
+                      borderRadius: 8,
+                      textAlign:    'left',
+                      cursor:       'pointer',
+                      fontFamily:   'inherit',
+                    }}
+                  >
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>{isUA ? '🦄' : '🥃'}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {entry.name}
+                      </div>
+                      {(meta || priceLabel) && (
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                          {[meta, priceLabel].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
+                    </div>
+                    {isUA && (
+                      <span style={{
+                        fontSize:     9,
+                        fontWeight:   700,
+                        color:        'var(--text-dim)',
+                        textTransform:'uppercase',
+                        letterSpacing:'0.05em',
+                        flexShrink:   0,
+                      }}>UA</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Live barcode scanner overlay */}
