@@ -17,10 +17,7 @@ function scoreMatch(queryNorm, candidateNorm) {
   const cw = candidateNorm.split(/\s+/).filter(w => w.length >= 3)
   if (!qw.length || !cw.length) return 0
   const hits = qw.filter(w => cw.some(c => c.includes(w) || w.includes(c))).length
-  const s    = hits / Math.max(qw.length, cw.length)
-  return (queryNorm.includes(candidateNorm) || candidateNorm.includes(queryNorm))
-    ? Math.max(s, 0.8)
-    : s
+  return hits / qw.length
 }
 
 /**
