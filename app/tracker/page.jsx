@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Truck } from 'lucide-react'
+import { Truck, ChevronDown, ChevronUp } from 'lucide-react'
 import AppHeader from '../components/AppHeader.jsx'
 import CostcoTracker from '../components/CostcoTracker.jsx'
 import SectionHeader from '../components/ui/SectionHeader.jsx'
@@ -260,6 +260,12 @@ export default function TrackerPage() {
     if (typeof window === 'undefined') return []
     try { return JSON.parse(localStorage.getItem('wh:fav-stores') ?? '[]') } catch { return [] }
   })
+  const [storesCollapsed, setStoresCollapsed] = useState(false)
+
+  // Auto-collapse store grid when the 3rd favorite is selected
+  useEffect(() => {
+    if (favoriteStores.length === 3) setStoresCollapsed(true)
+  }, [favoriteStores.length])
 
   // Initial tab: ?tab=costco wins, then localStorage, then default 'binnys'
   useEffect(() => {
@@ -329,6 +335,10 @@ export default function TrackerPage() {
     })
   }
 
+  const visibleStoreNames = (favoriteStores.length === 3 && storesCollapsed)
+    ? storeNames.filter(n => favSet.has(n))
+    : storeNames
+
   const lastEvent      = truckEvents[0]
   const filteredEvents = selectedStore
     ? truckEvents.filter(e => (e.storeName ?? e.storeCode ?? 'Orland Park') === selectedStore)
@@ -396,17 +406,35 @@ export default function TrackerPage() {
         {/* Store Activity Summary */}
         {historyLoaded && storeNames.length > 0 && (
           <section>
-            <SectionHeader overline="Store Activity" title="" />
-            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-meta)', marginTop: 'var(--sp-1)', marginBottom: 'var(--sp-3)' }}>
-              Latest truck detection per distributor at each location
-            </p>
-            {favoriteStores.length > 0 && (
-              <p style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', marginBottom: 'var(--sp-2)' }}>
-                ⭐ {favoriteStores.length} favorite store{favoriteStores.length > 1 ? 's' : ''} pinned · tap ☆ on any card to save up to 3
-              </p>
-            )}
+            <div className="section-header">
+              <span className="text-xl">📍</span>
+              <div style={{ flex: 1 }}>
+                <h2 className="section-title">Store Activity</h2>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {favoriteStores.length === 3 && storesCollapsed
+                    ? `Showing your ${favoriteStores.length} favorite stores · tap ☆ to manage`
+                    : 'Latest truck detection per distributor at each location · tap ☆ to save up to 3'}
+                </p>
+              </div>
+              {favoriteStores.length === 3 && (
+                <button
+                  onClick={() => setStoresCollapsed(v => !v)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: 'var(--fs-meta)', fontWeight: 600,
+                    color: 'var(--text-muted)', background: 'none',
+                    border: '1px solid var(--hairline-2)', borderRadius: 'var(--r-sm)',
+                    padding: '5px 10px', cursor: 'pointer',
+                  }}
+                >
+                  {storesCollapsed
+                    ? <><ChevronDown size={14} strokeWidth={2} /> Show All</>
+                    : <><ChevronUp size={14} strokeWidth={2} /> Favorites Only</>}
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {storeNames.map(name => (
+              {visibleStoreNames.map(name => (
                 <StoreActivityCard
                   key={name}
                   storeName={name}
