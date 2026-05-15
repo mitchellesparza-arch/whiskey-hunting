@@ -1,7 +1,6 @@
 import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import { isApproved, addPendingUser, approveUser } from '../../../../lib/auth-users.js'
-import { sendApprovalRequestEmail }                from '../../../../lib/email.js'
+import { isApproved, approveUser } from '../../../../lib/auth-users.js'
 import { registerUser, getUserProfile }            from '../../../../lib/friends.js'
 
 export const authOptions = {

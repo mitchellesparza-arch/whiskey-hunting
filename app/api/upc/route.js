@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getToken }     from 'next-auth/jwt'
 import { Redis }        from '@upstash/redis'
 import { UPC_MAP }      from '../../../lib/whiskey-db.js'
 
@@ -95,6 +96,8 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+    if (!token?.email) return NextResponse.json({ ok: false }, { status: 401 })
     const { code, name } = await request.json()
     const clean = (code ?? '').toString().trim().replace(/\D/g, '')
     if (!clean || !name) return NextResponse.json({ ok: false }, { status: 400 })

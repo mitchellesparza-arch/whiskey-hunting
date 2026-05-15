@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tater Tracker — Brand Refresh Check-In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg-base:#0c0805; --bg-1:#160d07; --bg-2:#1c120a; --bg-3:#22170d; --bg-4:#2a1c10;
+  --hair:rgba(245,230,204,.06); --hair-2:rgba(245,230,204,.10); --hair-3:rgba(245,230,204,.18);
+  --t-1:#f7ead2; --t-2:#cda87a; --t-3:#8d6e48; --t-4:#5d4527;
+  --copper-200:#f4c98d; --copper-400:#e8a154; --copper-500:#d97e2c; --copper-600:#b85f1a; --copper-700:#8e4612;
+  --green:#5dd39e; --red:#f87171; --amber:#f5b83a; --violet:#b9a4ff; --blue:#8fb5ff;
+  --grad-copper:linear-gradient(135deg,#f4c98d 0%,#d97e2c 38%,#8e4612 100%);
+  --grad-pour:linear-gradient(180deg,rgba(217,126,44,.18) 0%,transparent 70%);
+  --shadow-2:0 4px 16px rgba(0,0,0,.35),0 1px 0 rgba(245,230,204,.04) inset;
+  --shadow-3:0 18px 48px rgba(0,0,0,.5),0 1px 0 rgba(245,230,204,.06) inset;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg-base);color:var(--t-1);
+  font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5;}
+body{background:
+  radial-gradient(1200px 600px at 80% -10%, rgba(217,126,44,.08), transparent 60%),
+  radial-gradient(900px 500px at -10% 30%, rgba(184,95,26,.05), transparent 60%),
+  var(--bg-base);
+  background-attachment:fixed;
+}
+a{color:inherit}
+.mono{font-family:'DM Mono',ui-monospace,monospace;letter-spacing:-.01em}
+.serif{font-family:'Fraunces',Georgia,serif;font-feature-settings:"ss01"}
+.over{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t-3)}
+.copper-text{background:var(--grad-copper);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* ─── Layout ─── */
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+.section{padding:96px 0;border-top:1px solid var(--hair)}
+.section:first-of-type{border-top:none}
+.eyebrow{display:flex;align-items:center;gap:10px;color:var(--copper-400);font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.eyebrow::before{content:"";display:block;width:24px;height:1px;background:var(--copper-500)}
+.h-display{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:clamp(40px,5.6vw,68px);
+  line-height:1.02;letter-spacing:-.025em;margin:18px 0 0}
+.h-display em{font-style:italic;color:var(--copper-400)}
+.h1{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:clamp(30px,3.4vw,42px);line-height:1.08;letter-spacing:-.022em;margin:14px 0 14px}
+.h2{font-size:22px;font-weight:700;letter-spacing:-.012em;margin:0 0 14px}
+.h3{font-size:15px;font-weight:700;letter-spacing:-.005em;margin:0 0 6px}
+.lede{font-size:18px;line-height:1.55;color:var(--t-2);max-width:62ch;margin:24px 0 0}
+p{color:var(--t-2);margin:0 0 12px}
+
+/* ─── Cover ─── */
+.cover{padding:88px 0 64px;position:relative}
+.cover-meta{display:flex;gap:18px;align-items:center;color:var(--t-3);font-size:12.5px;margin-top:36px;flex-wrap:wrap}
+.cover-meta span{display:inline-flex;align-items:center;gap:8px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--copper-500)}
+.brand-mark{display:inline-flex;align-items:center;gap:12px;font-weight:700;letter-spacing:-.01em;font-size:14px}
+.brand-mark .glyph{width:32px;height:32px;border-radius:50%;background:var(--grad-copper);
+  display:grid;place-items:center;color:#1a0c04;font-weight:800;box-shadow:var(--shadow-2)}
+
+/* ─── TL;DR cards ─── */
+.tldr{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:36px}
+.tldr-card{background:var(--bg-2);border:1px solid var(--hair-2);border-radius:14px;padding:22px 22px 24px;position:relative;overflow:hidden}
+.tldr-card .num{font-family:'Fraunces',Georgia,serif;font-style:italic;font-size:46px;font-weight:500;color:var(--copper-500);line-height:1;letter-spacing:-.03em}
+.tldr-card h3{margin:14px 0 6px;font-size:15.5px;font-weight:700;color:var(--t-1)}
+.tldr-card p{font-size:13.5px;color:var(--t-2);margin:0;line-height:1.5}
+@media(max-width:880px){.tldr{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.tldr{grid-template-columns:1fr}}
+
+/* ─── Audit two-col ─── */
+.audit-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:start;margin-top:40px}
+.audit-list{display:flex;flex-direction:column;gap:14px}
+.audit-row{display:grid;grid-template-columns:34px 1fr;gap:14px;padding:16px 0;border-bottom:1px solid var(--hair)}
+.audit-row:last-child{border-bottom:none}
+.audit-num{font-family:'Fraunces',Georgia,serif;font-style:italic;color:var(--copper-400);font-size:18px}
+.audit-row h4{margin:0 0 4px;font-size:14.5px;font-weight:700;color:var(--t-1)}
+.audit-row p{margin:0;color:var(--t-2);font-size:13px;line-height:1.55}
+.audit-row.good h4::after{content:" · keep";color:var(--green);font-weight:600;font-size:11px;letter-spacing:.04em}
+.audit-row.evolve h4::after{content:" · evolve";color:var(--copper-400);font-weight:600;font-size:11px;letter-spacing:.04em}
+.audit-row.replace h4::after{content:" · replace";color:var(--red);font-weight:600;font-size:11px;letter-spacing:.04em}
+
+@media(max-width:880px){.audit-grid{grid-template-columns:1fr}}
+
+/* ─── Quote block ─── */
+.quote{margin:40px 0 0;padding:24px 28px;border-left:2px solid var(--copper-500);background:var(--bg-2);border-radius:0 12px 12px 0}
+.quote p{font-family:'Fraunces',Georgia,serif;font-style:italic;font-size:18px;line-height:1.5;color:var(--t-1);margin:0}
+
+/* ─── Principle cards ─── */
+.principles{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:32px}
+.p-card{background:var(--bg-2);border:1px solid var(--hair-2);border-radius:16px;padding:24px;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:10px;min-height:200px}
+.p-card .ref{font-size:11px;color:var(--t-3);letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.p-card h3{font-family:'Fraunces',Georgia,serif;font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;color:var(--t-1)}
+.p-card p{font-size:13.5px;color:var(--t-2);margin:0;line-height:1.55}
+.p-card .demo{margin-top:auto;padding-top:14px}
+@media(max-width:720px){.principles{grid-template-columns:1fr}}
+
+/* ─── Token swatches ─── */
+.swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:24px}
+.sw{aspect-ratio:1/1.05;border-radius:10px;padding:10px;display:flex;flex-direction:column;justify-content:flex-end;border:1px solid var(--hair-2);font-size:10.5px;font-weight:600}
+.sw .name{color:rgba(0,0,0,.6);font-weight:700}
+.sw .hex{font-family:'DM Mono',monospace;font-size:10px;opacity:.55}
+.sw.dark{color:var(--t-2)}
+.sw.dark .name{color:var(--t-1)}
+@media(max-width:720px){.swatches{grid-template-columns:repeat(3,1fr)}}
+
+.type-scale{margin-top:24px;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+.type-row{display:grid;grid-template-columns:120px 1fr 80px;align-items:baseline;padding:18px 0;border-top:1px solid var(--hair);gap:16px}
+.type-row:first-child{border-top:none}
+.type-row .meta{color:var(--t-3);font-size:11px;font-family:'DM Mono',monospace}
+.type-row .specimen{color:var(--t-1)}
+.type-row .px{color:var(--t-3);font-size:11px;font-family:'DM Mono',monospace;text-align:right}
+
+/* ─── Component gallery ─── */
+.gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:28px}
+.demo-card{background:var(--bg-2);border:1px solid var(--hair-2);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:18px}
+.demo-card .label{font-size:11px;color:var(--t-3);letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.demo-card .stage{flex:1;display:flex;flex-direction:column;gap:14px;align-items:flex-start;justify-content:center;padding:14px 0}
+.demo-card .note{color:var(--t-3);font-size:12px;border-top:1px dashed var(--hair-2);padding-top:14px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:10px;font-weight:700;font-size:14px;
+  padding:11px 18px;border:1px solid transparent;cursor:pointer;transition:transform 120ms var(--ease),background 200ms var(--ease),border-color 200ms var(--ease);font-family:inherit}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--copper-500);color:#1a0c04}
+.btn-primary:hover{background:var(--copper-400)}
+.btn-secondary{background:var(--bg-3);color:var(--t-1);border-color:var(--hair-2)}
+.btn-secondary:hover{border-color:var(--hair-3)}
+.btn-ghost{background:transparent;color:var(--t-2)}
+.btn-danger{background:transparent;color:var(--red);border-color:rgba(248,113,113,.3)}
+
+/* Chips */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:11.5px;font-weight:600;border:1px solid;line-height:1}
+.chip-copper{color:var(--copper-400);background:rgba(217,126,44,.12);border-color:rgba(217,126,44,.3)}
+.chip-green{color:var(--green);background:rgba(93,211,158,.10);border-color:rgba(93,211,158,.3)}
+.chip-red{color:var(--red);background:rgba(248,113,113,.10);border-color:rgba(248,113,113,.3)}
+.chip-violet{color:var(--violet);background:rgba(185,164,255,.12);border-color:rgba(185,164,255,.3)}
+.chip-neutral{color:var(--t-2);background:var(--bg-3);border-color:var(--hair-2)}
+
+/* Stat tile */
+.stat{flex:1;display:flex;flex-direction:column;gap:6px;padding:16px 18px;background:var(--bg-2);border:1px solid var(--hair-2);border-radius:14px;min-width:0}
+.stat .v{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:28px;color:var(--t-1);line-height:1;letter-spacing:-.02em}
+.stat .l{font-size:10.5px;color:var(--t-3);text-transform:uppercase;letter-spacing:.1em;font-weight:700}
+.stat .d{font-size:11px;color:var(--green);font-weight:600}
+
+/* ─── Phone frame compare ─── */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:36px;align-items:start}
+.compare-col h4{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;margin:0 0 12px;color:var(--t-3);display:flex;align-items:center;gap:8px}
+.compare-col.before h4::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t-4)}
+.compare-col.after h4::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--copper-500)}
+.compare-col.after h4{color:var(--copper-400)}
+.phone{width:100%;max-width:340px;margin:0 auto;background:#000;border-radius:42px;padding:10px;box-shadow:var(--shadow-3);position:relative}
+.phone::before{content:"";position:absolute;top:18px;left:50%;transform:translateX(-50%);width:96px;height:24px;background:#000;border-radius:14px;z-index:3}
+.screen{aspect-ratio:9/19.5;background:var(--bg-base);border-radius:34px;overflow:hidden;position:relative;display:flex;flex-direction:column;font-size:11px}
+.screen .status{height:38px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 4px;font-size:10.5px;font-weight:600;color:var(--t-1)}
+.screen .status .right{display:flex;gap:5px}
+
+/* mock app surfaces (used by both before/after) */
+.m-header{padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--hair-2);background:rgba(15,10,5,.85);backdrop-filter:blur(8px);position:sticky;top:0;z-index:2}
+.m-brand{display:flex;align-items:center;gap:8px}
+.m-glyph{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800}
+.m-title{font-size:11.5px;font-weight:700;line-height:1}
+.m-sub{font-size:9px;color:var(--t-3);margin-top:2px}
+.m-icons{display:flex;gap:4px}
+.m-ibtn{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:11px}
+.m-body{flex:1;overflow:hidden;padding:12px 12px 56px;display:flex;flex-direction:column;gap:10px}
+.m-tabs{position:absolute;left:0;right:0;bottom:0;display:flex;background:rgba(12,8,5,.97);backdrop-filter:blur(8px);border-top:1px solid var(--hair-2);padding:8px 0 14px}
+.m-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:8.5px;color:var(--t-4);font-weight:600}
+.m-tab .ic{font-size:13px}
+.m-tab.active{color:var(--copper-500)}
+.m-tab .pill{width:14px;height:2px;border-radius:2px;margin-top:1px;background:transparent}
+.m-tab.active .pill{background:var(--copper-500)}
+
+/* before-styled inner pieces */
+.b-card{background:#1a1008;border:1px solid #3d2b10;border-radius:10px;padding:8px 9px;font-size:9px;color:var(--t-2)}
+.b-card .ttl{color:var(--t-1);font-weight:700;font-size:9.5px;display:flex;align-items:center;gap:4px}
+.b-card .meta{color:#6b5030;font-size:8px;margin-top:2px}
+.b-emoji-tab{font-size:13px}
+
+/* after-styled inner pieces */
+.a-card{background:linear-gradient(180deg,var(--bg-2),var(--bg-3));border:1px solid var(--hair-2);border-radius:14px;padding:10px;font-size:9px;color:var(--t-2);box-shadow:var(--shadow-2)}
+.a-card .ttl{color:var(--t-1);font-weight:700;font-size:10px;letter-spacing:-.005em}
+.a-card .row{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.a-card .meta{color:var(--t-3);font-size:8px;margin-top:3px;display:flex;gap:6px}
+.a-bar{height:2px;background:var(--hair);border-radius:2px;overflow:hidden;margin-top:6px}
+.a-bar i{display:block;height:100%;width:62%;background:var(--grad-copper)}
+.a-chip{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:999px;font-size:8.5px;font-weight:700;border:1px solid;line-height:1.4}
+.a-chip.green{color:var(--green);background:rgba(93,211,158,.08);border-color:rgba(93,211,158,.25)}
+.a-chip.copper{color:var(--copper-400);background:rgba(217,126,44,.10);border-color:rgba(217,126,44,.3)}
+.a-chip.violet{color:var(--violet);background:rgba(185,164,255,.10);border-color:rgba(185,164,255,.3)}
+
+/* SVG icon */
+.ic-svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;display:block}
+
+/* annotations under phones */
+.anno{margin-top:18px;display:flex;flex-direction:column;gap:6px}
+.anno-row{display:grid;grid-template-columns:18px 1fr;gap:8px;align-items:start;font-size:12.5px;line-height:1.5;color:var(--t-2)}
+.anno-row b{color:var(--t-1);font-weight:600}
+.anno-num{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--copper-500);color:#1a0c04;font-size:10px;font-weight:800;font-family:'DM Mono',monospace;margin-top:1px}
+
+@media(max-width:880px){.compare{grid-template-columns:1fr}}
+
+/* ─── Roadmap ─── */
+.roadmap{margin-top:32px;display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.day{background:var(--bg-2);border:1px solid var(--hair-2);border-radius:12px;padding:18px 16px;display:flex;flex-direction:column;gap:8px;min-height:180px}
+.day .d-head{display:flex;align-items:baseline;justify-content:space-between}
+.day .d-num{font-family:'Fraunces',Georgia,serif;font-style:italic;color:var(--copper-400);font-size:24px;font-weight:500;letter-spacing:-.02em}
+.day .d-tag{font-size:9.5px;color:var(--t-3);letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.day h4{font-size:13.5px;font-weight:700;margin:2px 0 4px;color:var(--t-1)}
+.day ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px}
+.day li{font-size:11.5px;color:var(--t-2);line-height:1.4;padding-left:10px;position:relative}
+.day li::before{content:"";position:absolute;left:0;top:7px;width:4px;height:4px;border-radius:50%;background:var(--copper-500)}
+@media(max-width:1000px){.roadmap{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.roadmap{grid-template-columns:1fr 1fr}}
+
+/* ─── Handoff prompt ─── */
+.handoff{background:var(--bg-2);border:1px solid var(--hair-2);border-radius:18px;padding:32px;margin-top:32px}
+.handoff h3{margin:0 0 6px;font-size:20px;font-family:'Fraunces',Georgia,serif;font-weight:600;letter-spacing:-.015em}
+.handoff p{color:var(--t-2);margin:0 0 18px;font-size:14px}
+.tree{font-family:'DM Mono',ui-monospace,monospace;font-size:12.5px;color:var(--t-2);background:var(--bg-base);border:1px solid var(--hair);border-radius:12px;padding:18px 20px;line-height:1.7;white-space:pre;overflow-x:auto}
+.tree b{color:var(--copper-400);font-weight:500}
+.copy-btn{margin-top:18px;display:inline-flex;align-items:center;gap:8px;padding:10px 16px;background:var(--bg-3);border:1px solid var(--hair-2);border-radius:10px;color:var(--t-1);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;transition:all 200ms var(--ease)}
+.copy-btn:hover{border-color:var(--copper-500);color:var(--copper-400)}
+.copy-btn.copied{background:rgba(93,211,158,.1);border-color:var(--green);color:var(--green)}
+
+/* ─── Footer ─── */
+.foot{padding:48px 0 64px;border-top:1px solid var(--hair);color:var(--t-3);font-size:12.5px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.foot .l{display:flex;align-items:center;gap:12px}
+
+/* ─── Section nav ─── */
+.tabs{position:sticky;top:0;z-index:50;background:rgba(12,8,5,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--hair);margin-top:-1px}
+.tabs-inner{display:flex;gap:6px;padding:14px 28px;overflow-x:auto;max-width:1080px;margin:0 auto}
+.tabs a{flex-shrink:0;padding:7px 13px;font-size:12px;font-weight:600;color:var(--t-3);border:1px solid var(--hair);border-radius:999px;text-decoration:none;white-space:nowrap;transition:all 160ms var(--ease)}
+.tabs a:hover{color:var(--t-1);border-color:var(--hair-3)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ COVER ═══════════════ -->
+<div class="wrap cover">
+  <div class="brand-mark">
+    <div class="glyph">🥃</div>
+    <div>Tater Tracker · <span style="color:var(--t-3);font-weight:500">Design Check-In v1</span></div>
+  </div>
+  <div class="eyebrow" style="margin-top:48px">Brand refresh sprint · Jon and the Juice</div>
+  <h1 class="h-display">A working club, ready for its <em>finished</em> coat of paint.</h1>
+  <p class="lede">The product has matured fast. Now the seams are showing — five screens, five styles, emoji standing in for icons, hardcoded colors everywhere. This document is the audit, the system, the side-by-side mockups, and the handoff prompt for Claude Code to execute a six-day refresh sprint.</p>
+  <div class="cover-meta">
+    <span><span class="dot"></span> 12 screens audited</span>
+    <span><span class="dot"></span> 6 days · 1 engineer</span>
+    <span><span class="dot"></span> Pixel-only · zero feature scope</span>
+    <span><span class="dot"></span> May 2026</span>
+  </div>
+</div>
+
+<nav class="tabs">
+  <div class="tabs-inner">
+    <a href="#tldr">TL;DR</a>
+    <a href="#audit">Audit</a>
+    <a href="#principles">Principles</a>
+    <a href="#system">Visual system</a>
+    <a href="#components">Components</a>
+    <a href="#screens">Before / After</a>
+    <a href="#roadmap">Roadmap</a>
+    <a href="#handoff">Handoff</a>
+  </div>
+</nav>
+
+<!-- ═══════════════ TL;DR ═══════════════ -->
+<section class="section" id="tldr">
+  <div class="wrap">
+    <div class="eyebrow">The headline</div>
+    <h2 class="h1">Six moves that do most of the work.</h2>
+    <p class="lede">If the sprint stops at six things, do these. They drive 80% of the perceived lift.</p>
+
+    <div class="tldr">
+      <div class="tldr-card"><div class="num">01</div><h3>Real icons in the bottom nav</h3><p>Swap emoji for line icons (lucide). Active state becomes a copper gradient pill above the icon, not a colored emoji. This is the single highest-impact change.</p></div>
+      <div class="tldr-card"><div class="num">02</div><h3>Lift to a real component library</h3><p>Eight UI primitives in <span class="mono">app/components/ui/</span>. No more inline-style sprawl. <span class="mono">&lt;Card&gt;</span>, <span class="mono">&lt;Chip&gt;</span>, <span class="mono">&lt;Button&gt;</span>, <span class="mono">&lt;StatTile&gt;</span> become the new default vocabulary.</p></div>
+      <div class="tldr-card"><div class="num">03</div><h3>Tighten the palette to copper</h3><p>The current orange (#e8943a) reads playful. Shift the brand 8° warmer to a copper #d97e2c, introduce a copper gradient for hero moments, and de-saturate functional colors so they sit calmly on bourbon dark.</p></div>
+      <div class="tldr-card"><div class="num">04</div><h3>Editorial typography</h3><p>Add Fraunces (italic) for hero numbers, scores, and section openers. DM Sans stays for UI. The blind-tasting result screen and the auction discount badges become moments of typographic delight.</p></div>
+      <div class="tldr-card"><div class="num">05</div><h3>Motion as feedback</h3><p>Press states (<span class="mono">scale(.97)</span>), spring sheets, the slot-machine reveal in Pick My Pour, a subtle pulse on auctions ending in &lt; 2h. Nothing flashy — just a system that responds.</p></div>
+      <div class="tldr-card"><div class="num">06</div><h3>Empty states that feel like the club</h3><p>Today's empty states are placeholder text. Replace with hero-treatment empty states using the copper gradient, a hunting-themed line, and a single CTA. This is the front door for new members.</p></div>
+    </div>
+
+    <div class="quote">
+      <p>"Make it feel like a Chicago speakeasy that happens to be a PWA — not a CRUD app with a brown skin."</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ AUDIT ═══════════════ -->
+<section class="section" id="audit">
+  <div class="wrap">
+    <div class="eyebrow">What we found</div>
+    <h2 class="h1">The product works. The system has drift.</h2>
+
+    <div class="audit-grid">
+      <div class="audit-list">
+        <div class="audit-row good">
+          <div class="audit-num">01</div>
+          <div><h4>The bourbon-on-dark direction</h4><p>The warm dark palette is genuinely on-brief and rare in the App Store. Don't pivot to light mode. Refine the ramp, deepen the base, push the accent warmer. The bones are right.</p></div>
+        </div>
+        <div class="audit-row good">
+          <div class="audit-num">02</div>
+          <div><h4>DM Sans + DM Mono</h4><p>Solid pairing. Neutral, modern, monospace works for UPCs and timestamps. We'll keep both and add Fraunces italic for headlines and hero numbers — the "editorial" voice the app is missing.</p></div>
+        </div>
+        <div class="audit-row good">
+          <div class="audit-num">03</div>
+          <div><h4>The information architecture</h4><p>Five tabs is right. Finds-as-home is right. The Profile cluster (Collection, Wishlist, Friends, Pour, Blind) is genuinely well-designed. We're not touching IA.</p></div>
+        </div>
+        <div class="audit-row evolve">
+          <div class="audit-num">04</div>
+          <div><h4>Tokens exist, but aren't used</h4><p>Twelve CSS variables are defined in <span class="mono">globals.css</span>. Every screen still ships with hardcoded hex values — <span class="mono">#1a1008</span>, <span class="mono">#9a7c55</span>, <span class="mono">#e8943a</span> appear ~140× across <span class="mono">app/</span>. This is the work.</p></div>
+        </div>
+        <div class="audit-row evolve">
+          <div class="audit-num">05</div>
+          <div><h4>No shared component layer</h4><p>The "card" pattern is reimplemented inline on every page with slightly different padding, border, hover, radius. Same with chips, badges, stat tiles, sheets. There's a <span class="mono">.card</span> Tailwind class that's used inconsistently.</p></div>
+        </div>
+        <div class="audit-row evolve">
+          <div class="audit-num">06</div>
+          <div><h4>Type scale drifts</h4><p>I count 9 distinct font-sizes across the codebase (10, 11, 11.5, 12, 13, 14, 15, 16, 22). Lock to 7. The body/meta/overline rhythm is what makes a UI feel "considered."</p></div>
+        </div>
+        <div class="audit-row replace">
+          <div class="audit-num">07</div>
+          <div><h4>Emoji as UI furniture</h4><p>🥃📍🔔⚙️🚛🦄🎲🙈 do double-duty as both nav icons and content. The result reads like a 2018 hackathon project. Move emoji to content only — replace nav, button, and chip emoji with lucide line icons.</p></div>
+        </div>
+        <div class="audit-row replace">
+          <div class="audit-num">08</div>
+          <div><h4>Empty states are placeholder text</h4><p>Most "no results" states are a centered gray sentence. The Tracker empty state is the exception (already strong) — make every other empty state match its level.</p></div>
+        </div>
+        <div class="audit-row replace">
+          <div class="audit-num">09</div>
+          <div><h4>No motion language</h4><p>The app has zero hover/press feedback. No spring on the drawers. No animation on Pick My Pour reveal. This is the easiest win for "feels expensive."</p></div>
+        </div>
+      </div>
+
+      <aside style="position:sticky;top:80px">
+        <div class="demo-card" style="background:linear-gradient(180deg,var(--bg-2),var(--bg-3))">
+          <div class="label">By the numbers</div>
+          <div class="stage" style="gap:14px;align-items:stretch">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--hair);padding-bottom:10px">
+              <span style="color:var(--t-2);font-size:13px">Hardcoded color literals</span>
+              <span class="serif" style="color:var(--copper-400);font-size:28px;font-weight:600">~140</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--hair);padding-bottom:10px">
+              <span style="color:var(--t-2);font-size:13px">Distinct font-sizes in use</span>
+              <span class="serif" style="color:var(--copper-400);font-size:28px;font-weight:600">9</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--hair);padding-bottom:10px">
+              <span style="color:var(--t-2);font-size:13px">Emoji used as icons</span>
+              <span class="serif" style="color:var(--copper-400);font-size:28px;font-weight:600">22</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--hair);padding-bottom:10px">
+              <span style="color:var(--t-2);font-size:13px">Card patterns reimplemented</span>
+              <span class="serif" style="color:var(--copper-400);font-size:28px;font-weight:600">7</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span style="color:var(--t-2);font-size:13px">Pages w/ inline styles</span>
+              <span class="serif" style="color:var(--copper-400);font-size:28px;font-weight:600">12 / 12</span>
+            </div>
+          </div>
+          <div class="note">After sprint: zero hardcoded colors, 7 sizes, 0 emoji-as-icons, 1 card primitive, 0 inline-style trees.</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ PRINCIPLES ═══════════════ -->
+<section class="section" id="principles">
+  <div class="wrap">
+    <div class="eyebrow">What "good" looks like</div>
+    <h2 class="h1">Five principles, five references.</h2>
+    <p class="lede">Every redesign decision in this doc traces back to one of these. The references aren't templates — they're the *quality bar* we're targeting in a bourbon-club idiom.</p>
+
+    <div class="principles">
+      <div class="p-card">
+        <div class="ref">Reference · Things 3</div>
+        <h3>Quiet, generous, considered.</h3>
+        <p>The screen tells you what's important by what it omits, not by what it shouts. We adopt this in stat tiles, list rows, and section headers — fewer borders, more whitespace, single-source emphasis.</p>
+        <div class="demo">
+          <div style="display:flex;gap:8px"><div class="stat"><div class="l">Bottles</div><div class="v">42</div></div><div class="stat"><div class="l">Tastings</div><div class="v">18</div></div><div class="stat"><div class="l">Top score</div><div class="v">91.4</div><div class="d">+2.3</div></div></div>
+        </div>
+      </div>
+      <div class="p-card">
+        <div class="ref">Reference · Linear</div>
+        <h3>System over decoration.</h3>
+        <p>One way to make a card. One way to make a chip. One way to make a button. Variants live in props, not in re-implementations. The result is a codebase you can refactor without breaking the design.</p>
+        <div class="demo" style="display:flex;gap:8px;flex-wrap:wrap">
+          <span class="chip chip-copper">● Fresh · 2h</span>
+          <span class="chip chip-green">In stock</span>
+          <span class="chip chip-violet">🦄 Unicorn</span>
+          <span class="chip chip-neutral">5 finds</span>
+          <span class="chip chip-red">Sold</span>
+        </div>
+      </div>
+      <div class="p-card">
+        <div class="ref">Reference · NYT Cooking</div>
+        <h3>Editorial weight where it counts.</h3>
+        <p>Serif italic numbers and headline pull-quotes give the app a magazine voice. Reserved for hero moments: blind-tasting scores, auction discounts, the Pick My Pour reveal, top-bottle callouts.</p>
+        <div class="demo">
+          <div style="display:flex;align-items:baseline;gap:14px">
+            <div class="serif" style="font-size:64px;font-weight:600;color:var(--copper-400);line-height:.9;letter-spacing:-.03em">91.<span style="font-style:italic">4</span></div>
+            <div><div class="over" style="margin-bottom:4px">Blind score</div><div style="color:var(--t-1);font-weight:600">Blanton's Original</div><div style="color:var(--t-3);font-size:12px">+2.3 from last session</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="p-card">
+        <div class="ref">Reference · Strava</div>
+        <h3>Identity through restraint.</h3>
+        <p>Strava picks one accent (orange) and protects it. We do the same with copper. Functional colors stay desaturated so the brand color always wins the visual hierarchy fight.</p>
+        <div class="demo">
+          <div style="height:48px;border-radius:10px;background:var(--grad-copper);display:flex;align-items:center;padding:0 16px;color:#1a0c04;font-weight:700;font-size:14px;box-shadow:var(--shadow-2)">Submit Find <span style="margin-left:auto">→</span></div>
+        </div>
+      </div>
+      <div class="p-card" style="grid-column:span 2">
+        <div class="ref">Reference · Apple Maps + Untappd</div>
+        <h3>Content on top, chrome out of the way.</h3>
+        <p>The map view should fill the screen with the find pins as the hero — not be a 380-px box surrounded by form chrome. Submit form collapses to a floating action button. Auctions and finds use full-bleed photography where available. Chrome (header, nav) gets quieter, content gets louder.</p>
+        <div class="demo" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%">
+          <div style="background:var(--bg-3);border:1px solid var(--hair-2);border-radius:10px;padding:12px;font-size:11px;color:var(--t-3)">Today: form takes 60% · map is 40%</div>
+          <div style="background:var(--grad-pour),var(--bg-3);border:1px solid var(--hair-2);border-radius:10px;padding:12px;font-size:11px;color:var(--copper-400);font-weight:600">After: map is 100% · form is one tap away</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ VISUAL SYSTEM ═══════════════ -->
+<section class="section" id="system">
+  <div class="wrap">
+    <div class="eyebrow">The new shared vocabulary</div>
+    <h2 class="h1">Tokens, type, motion.</h2>
+    <p class="lede">Everything below is in <span class="mono">redesign/tokens.css</span>, ready to drop into <span class="mono">app/globals.css</span>. Existing variable names are preserved so the migration is non-breaking.</p>
+
+    <h3 class="h2" style="margin-top:48px">Surface ramp</h3>
+    <div class="swatches">
+      <div class="sw dark" style="background:#0c0805"><div class="name">bg-base</div><div class="hex">#0c0805</div></div>
+      <div class="sw dark" style="background:#160d07"><div class="name">bg-elev-1</div><div class="hex">#160d07</div></div>
+      <div class="sw dark" style="background:#1c120a"><div class="name">bg-elev-2</div><div class="hex">#1c120a</div></div>
+      <div class="sw dark" style="background:#22170d"><div class="name">bg-elev-3</div><div class="hex">#22170d</div></div>
+      <div class="sw dark" style="background:#2a1c10"><div class="name">bg-elev-4</div><div class="hex">#2a1c10</div></div>
+      <div class="sw dark" style="background:#3a2a18"><div class="name">hairline-3</div><div class="hex">rgba .18</div></div>
+    </div>
+
+    <h3 class="h2" style="margin-top:36px">Brand · copper</h3>
+    <div class="swatches">
+      <div class="sw" style="background:#fdf3e6"><div class="name">copper-50</div><div class="hex">#fdf3e6</div></div>
+      <div class="sw" style="background:#f4c98d"><div class="name">copper-200</div><div class="hex">#f4c98d</div></div>
+      <div class="sw" style="background:#e8a154"><div class="name">copper-400</div><div class="hex">#e8a154</div></div>
+      <div class="sw" style="background:#d97e2c"><div class="name" style="color:#1a0c04">copper-500</div><div class="hex" style="color:rgba(0,0,0,.5)">#d97e2c · brand</div></div>
+      <div class="sw" style="background:#b85f1a;color:rgba(255,255,255,.85)"><div class="name" style="color:#fff">copper-600</div><div class="hex">#b85f1a</div></div>
+      <div class="sw dark" style="background:#3c1d07"><div class="name">copper-900</div><div class="hex">#3c1d07</div></div>
+    </div>
+
+    <h3 class="h2" style="margin-top:36px">Functional</h3>
+    <div class="swatches" style="grid-template-columns:repeat(5,1fr)">
+      <div class="sw" style="background:#5dd39e"><div class="name">green</div><div class="hex">#5dd39e</div></div>
+      <div class="sw" style="background:#f87171"><div class="name">red</div><div class="hex">#f87171</div></div>
+      <div class="sw" style="background:#f5b83a"><div class="name">amber</div><div class="hex">#f5b83a</div></div>
+      <div class="sw" style="background:#b9a4ff"><div class="name">violet</div><div class="hex">#b9a4ff</div></div>
+      <div class="sw" style="background:#8fb5ff"><div class="name">blue</div><div class="hex">#8fb5ff</div></div>
+    </div>
+
+    <h3 class="h2" style="margin-top:48px">Type scale · 7 sizes, locked</h3>
+    <div class="type-scale">
+      <div class="type-row"><div class="meta">--fs-display</div><div class="specimen serif" style="font-size:36px;font-weight:600;letter-spacing:-.022em">Tonight's pour, decided.</div><div class="px">36 px · Fraunces 600</div></div>
+      <div class="type-row"><div class="meta">--fs-h1</div><div class="specimen" style="font-size:22px;font-weight:700;letter-spacing:-.012em">Community Finds</div><div class="px">22 px · DM Sans 700</div></div>
+      <div class="type-row"><div class="meta">--fs-h2</div><div class="specimen" style="font-size:18px;font-weight:700">Truck History</div><div class="px">18 px · DM Sans 700</div></div>
+      <div class="type-row"><div class="meta">--fs-h3</div><div class="specimen" style="font-size:15px;font-weight:700">Blanton's Original Single Barrel</div><div class="px">15 px · DM Sans 700</div></div>
+      <div class="type-row"><div class="meta">--fs-body</div><div class="specimen" style="font-size:14px;color:var(--t-2)">Spotted at Binny's Wilmette · 2 left, $59.99 · "front shelf, second row"</div><div class="px">14 px · DM Sans 400</div></div>
+      <div class="type-row"><div class="meta">--fs-meta</div><div class="specimen" style="font-size:12px;color:var(--t-3)">2h ago · by @whiskeydave · 4 confirmed still there</div><div class="px">12 px · DM Sans 500</div></div>
+      <div class="type-row"><div class="meta">--fs-overline</div><div class="specimen over" style="color:var(--t-3)">Spotted today</div><div class="px">10.5 px · DM Sans 700</div></div>
+    </div>
+
+    <h3 class="h2" style="margin-top:48px">Motion · what springs, what fades, what compresses</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px">
+      <div class="demo-card">
+        <div class="label">Press</div>
+        <div class="stage"><button class="btn btn-primary">Submit Find</button></div>
+        <div class="note">All buttons compress to <span class="mono">scale(.97)</span> on press · 120 ms</div>
+      </div>
+      <div class="demo-card">
+        <div class="label">Spring</div>
+        <div class="stage"><div style="background:var(--bg-3);border:1px solid var(--hair-2);border-radius:14px;padding:14px;width:100%">Sheets &amp; drawers spring in ~ 320 ms with a slight overshoot.</div></div>
+        <div class="note">Used on bottle detail, store history, settings drawer</div>
+      </div>
+      <div class="demo-card">
+        <div class="label">Pulse</div>
+        <div class="stage"><span class="chip chip-red" style="animation:pulse 1.6s ease-in-out infinite">⏱ 38m left</span></div>
+        <div class="note">Auctions ending in &lt; 2h get a subtle 1.6 s pulse</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+</style>
+
+<!-- ═══════════════ COMPONENTS ═══════════════ -->
+<section class="section" id="components">
+  <div class="wrap">
+    <div class="eyebrow">Eight primitives, one place</div>
+    <h2 class="h1">The component library.</h2>
+    <p class="lede">Every screen in the app should be assemblable from these. If a screen needs something new, we add it to <span class="mono">app/components/ui/</span> first — never as an inline style.</p>
+
+    <div class="gallery">
+
+      <div class="demo-card">
+        <div class="label">Button · 4 variants × 3 sizes</div>
+        <div class="stage" style="gap:10px;flex-direction:row;flex-wrap:wrap">
+          <button class="btn btn-primary">
+            <svg class="ic-svg" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Submit Find
+          </button>
+          <button class="btn btn-secondary">Refresh</button>
+          <button class="btn btn-ghost">Cancel</button>
+          <button class="btn btn-danger">Sign out</button>
+        </div>
+        <div class="note">Primary uses copper-500 on bourbon-dark text. No more white-on-orange.</div>
+      </div>
+
+      <div class="demo-card">
+        <div class="label">Chip · 5 tones</div>
+        <div class="stage" style="flex-direction:row;flex-wrap:wrap;gap:8px">
+          <span class="chip chip-copper">Fresh · &lt; 6h</span>
+          <span class="chip chip-green">In stock</span>
+          <span class="chip chip-red">Gone · 2 reports</span>
+          <span class="chip chip-violet">🦄 Unicorn lot</span>
+          <span class="chip chip-neutral">+8 more</span>
+        </div>
+        <div class="note">Pill shape, 11.5 px, semibold. <span class="mono">tone</span> prop drives color set.</div>
+      </div>
+
+      <div class="demo-card">
+        <div class="label">StatTile · row of three or four</div>
+        <div class="stage" style="width:100%">
+          <div style="display:flex;gap:8px;width:100%">
+            <div class="stat"><div class="l">Bottles</div><div class="v">42</div></div>
+            <div class="stat"><div class="l">Friends</div><div class="v">14</div></div>
+            <div class="stat"><div class="l">Tastings</div><div class="v">18</div></div>
+            <div class="stat"><div class="l">Top score</div><div class="v">91.4</div><div class="d">+2.3</div></div>
+          </div>
+        </div>
+        <div class="note">Fraunces 28 px for the value · uppercase 10.5 px label · optional delta.</div>
+      </div>
+
+      <div class="demo-card">
+        <div class="label">Card · padded, hoverable</div>
+        <div class="stage" style="width:100%">
+          <div class="a-card" style="padding:14px;width:100%">
+            <div class="row"><div class="ttl">Blanton's Original Single Barrel</div><span class="a-chip green">Fresh</span></div>
+            <div class="meta"><span>Binny's Wilmette</span><span>$59.99</span><span>2h ago</span></div>
+            <div class="a-bar"><i></i></div>
+          </div>
+        </div>
+        <div class="note">One radius (14 px) · one border (hairline-2) · one elevation (shadow-2).</div>
+      </div>
+
+      <div class="demo-card">
+        <div class="label">EmptyState · hero treatment</div>
+        <div class="stage" style="width:100%;align-items:center;text-align:center;padding:18px;background:var(--grad-pour),var(--bg-2);border-radius:12px">
+          <div style="width:42px;height:42px;border-radius:50%;background:var(--bg-3);display:grid;place-items:center;color:var(--copper-400)">
+            <svg class="ic-svg" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M14 12h5l-3-3M4 6h13a3 3 0 0 1 0 6h-3M3 18h18M6 18v-6m12 6v-6"/></svg>
+          </div>
+          <div style="font-weight:700;color:var(--t-1);margin-top:8px">No trucks detected yet</div>
+          <div style="color:var(--t-2);font-size:13px;max-width:36ch">Next check at 11 AM CDT. Twenty Binny's stores under watch.</div>
+          <button class="btn btn-secondary" style="margin-top:6px">View distributor map</button>
+        </div>
+        <div class="note">Icon (not emoji) · copper-tinted background · single CTA.</div>
+      </div>
+
+      <div class="demo-card">
+        <div class="label">SectionHeader · overline + title + action</div>
+        <div class="stage" style="width:100%">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;width:100%;border-bottom:1px solid var(--hair);padding-bottom:12px">
+            <div><div class="over">Spotted today</div><div style="font-weight:700;font-size:18px;letter-spacing:-.012em;margin-top:2px">Community Finds</div></div>
+            <a class="btn btn-ghost" style="padding:6px 0;color:var(--copper-400)">View all →</a>
+          </div>
+        </div>
+        <div class="note">Same pattern on every screen. No more inline-styled <span class="mono">font-weight: 800</span>.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SCREENS · BEFORE / AFTER ═══════════════ -->
+<section class="section" id="screens">
+  <div class="wrap">
+    <div class="eyebrow">Screen by screen</div>
+    <h2 class="h1">Before and after.</h2>
+    <p class="lede">Three of the most-used screens. Each "AFTER" is built from the components above — no new primitives. Mockups are direction, not pixel-perfect specs; Claude Code will execute final.</p>
+
+    <!-- ── FINDS HOME ── -->
+    <h3 class="h2" style="margin-top:56px;display:flex;align-items:center;gap:14px">
+      <span class="serif" style="font-style:italic;color:var(--copper-400);font-size:30px;font-weight:600">01</span>
+      Finds — Home
+    </h3>
+    <p style="max-width:62ch">The home tab. Today: a tall submit form pushes the map and the list below the fold. Goal: map is the hero, submitting is one tap, finds are scannable.</p>
+
+    <div class="compare">
+      <!-- BEFORE -->
+      <div class="compare-col before">
+        <h4>Before</h4>
+        <div class="phone"><div class="screen">
+          <div class="status"><span>9:41</span><span class="right"><span>●●●</span><span>📶</span><span>🔋</span></span></div>
+          <div class="m-header">
+            <div class="m-brand"><div class="m-glyph" style="background:#e8943a;color:#fff">🥃</div><div><div class="m-title">Tater Tracker</div><div class="m-sub">Community Finds · Chicagoland</div></div></div>
+            <div class="m-icons"><div class="m-ibtn">🔔</div><div class="m-ibtn">⚙️</div></div>
+          </div>
+          <div class="m-body" style="background:var(--bg-base)">
+            <div class="b-card" style="padding:10px 11px"><div class="ttl">📍 Report a Find</div>
+              <div style="display:flex;gap:4px;margin-top:5px"><div style="flex:1;height:18px;border-radius:6px;background:#e8943a;color:#fff;font-size:8px;display:grid;place-items:center;font-weight:700">📷 Scan Barcode</div><div style="flex:1;height:18px;border-radius:6px;background:#1f1308;border:1px solid #3d2b10;color:#c084fc;font-size:8px;display:grid;place-items:center;font-weight:700">🏷️ Scan Label</div></div>
+              <div style="height:16px;background:var(--bg-base);border:1px solid #3d2b10;border-radius:6px;margin-top:5px"></div>
+              <div style="height:16px;background:var(--bg-base);border:1px solid #3d2b10;border-radius:6px;margin-top:4px"></div>
+              <div style="height:16px;background:var(--bg-base);border:1px solid #3d2b10;border-radius:6px;margin-top:4px"></div>
+              <div style="height:18px;background:#e8943a;color:#fff;border-radius:6px;margin-top:5px;display:grid;place-items:center;font-size:8px;font-weight:700">📍 Submit Find</div>
+            </div>
+            <div class="b-card"><div class="ttl">🥃 Blanton's Original</div><div class="meta">📍 Binny's Wilmette · 2h ago · $59.99</div></div>
+            <div class="b-card"><div class="ttl">🥃 Eagle Rare 10yr</div><div class="meta">📍 Binny's Lakeview · 5h ago</div></div>
+          </div>
+          <div class="m-tabs">
+            <div class="m-tab active"><div class="ic b-emoji-tab">📍</div><div>Finds</div><div class="pill"></div></div>
+            <div class="m-tab"><div class="ic b-emoji-tab">🔍</div><div>Search</div><div class="pill"></div></div>
+            <div class="m-tab"><div class="ic b-emoji-tab">🚛</div><div>Tracker</div><div class="pill"></div></div>
+            <div class="m-tab"><div class="ic b-emoji-tab">🏪</div><div>Marketplace</div><div class="pill"></div></div>
+            <div class="m-tab"><div class="ic b-emoji-tab">👤</div><div>Profile</div><div class="pill"></div></div>
+          </div>
+        </div></div>
+        <div class="anno">
+          <div class="anno-row"><div class="anno-num">1</div><div><b>Form dominates the fold.</b> Submit form is ~60% of the first screen, pushing the actual community content below.</div></div>
+          <div class="anno-row"><div class="anno-num">2</div><div><b>Five emoji in the nav.</b> Reads like a hackathon project; not credible next to apps in the App Store.</div></div>
+          <div class="anno-row"><div class="anno-num">3</div><div><b>Cards are flat hex blocks.</b> No elevation, no rhythm — every find looks identical regardless of freshness or value.</div></div>
+        </div>
+      </div>
+
+      <!-- AFTER -->
+      <div class="compare-col after">
+        <h4>After</h4>
+        <div class="phone"><div class="screen">
+          <div class="status"><span>9:41</span><span class="right"><span>●●●</span><span>📶</span><span>🔋</span></span></div>
+          <div class="m-header" style="border-bottom-color:var(--hair)">
+            <div class="m-brand"><div class="m-glyph" style="background:var(--grad-copper);color:#1a0c04">🥃</div><div><div class="m-title">Tater Tracker</div><div class="m-sub" style="color:var(--copper-400);text-transform:uppercase;font-size:8px;letter-spacing:.1em;font-weight:700">Finds · Chicagoland</div></div></div>
+            <div class="m-icons">
+              <div class="m-ibtn" style="color:var(--t-2)"><svg class="ic-svg" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+              <div class="m-ibtn" style="color:var(--t-2)"><svg class="ic-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
+            </div>
+          </div>
+          <div class="m-body" style="padding:0 0 56px;gap:0">
+            <!-- map hero -->
+            <div style="flex:1.4;background:radial-gradient(circle at 30% 40%,#22170d 0%,#0c0805 60%);position:relative;border-bottom:1px solid var(--hair)">
+              <div style="position:absolute;inset:0;background:
+                radial-gradient(3px 3px at 30% 40%, var(--copper-400) 50%, transparent 51%),
+                radial-gradient(3px 3px at 60% 30%, var(--copper-400) 50%, transparent 51%),
+                radial-gradient(3px 3px at 50% 60%, var(--green) 50%, transparent 51%),
+                radial-gradient(3px 3px at 75% 55%, var(--copper-400) 50%, transparent 51%),
+                radial-gradient(3px 3px at 22% 70%, var(--green) 50%, transparent 51%);
+                opacity:.95"></div>
+              <div style="position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);width:38px;height:38px;border-radius:50%;background:var(--grad-copper);box-shadow:0 6px 18px rgba(217,126,44,.4);display:grid;place-items:center;color:#1a0c04;font-size:18px;font-weight:800;z-index:3">+</div>
+              <div style="position:absolute;left:8px;top:8px"><span class="a-chip copper">5 spotted today</span></div>
+            </div>
+            <!-- list section -->
+            <div style="flex:1;padding:14px 12px;display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:flex-end;justify-content:space-between"><div><div style="font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t-3)">Spotted today</div><div style="font-size:11.5px;font-weight:700;color:var(--t-1);letter-spacing:-.005em;margin-top:1px">Community Finds</div></div><span style="font-size:8.5px;color:var(--copper-400);font-weight:700">List →</span></div>
+              <div class="a-card" style="padding:8px 10px"><div class="row"><div class="ttl">Blanton's Original</div><span class="a-chip copper">Fresh</span></div><div class="meta"><span>Binny's Wilmette</span><span>$59.99</span><span>2h</span></div></div>
+              <div class="a-card" style="padding:8px 10px"><div class="row"><div class="ttl">Weller Special Reserve</div><span class="a-chip green">Confirmed ×4</span></div><div class="meta"><span>Binny's Lincoln Park</span><span>5h</span></div></div>
+            </div>
+          </div>
+          <div class="m-tabs" style="border-top-color:var(--hair-2)">
+            <div class="m-tab active"><span style="width:14px;height:2px;border-radius:2px;background:var(--copper-500);margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--copper-500)" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><div>Finds</div></div>
+            <div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><div>Search</div></div>
+            <div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><path d="M14 17H4V6h10v11zM14 8h4l3 3v6h-7M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0M15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0"/></svg><div>Tracker</div></div>
+            <div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><path d="M3 10h18M5 6h14a2 2 0 0 1 2 2v3H3V8a2 2 0 0 1 2-2zM5 11v9h14v-9"/></svg><div>Market</div></div>
+            <div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><div>Profile</div></div>
+          </div>
+        </div></div>
+        <div class="anno">
+          <div class="anno-row"><div class="anno-num">1</div><div><b>Map is the hero.</b> Form collapses to a copper FAB. The community pin density tells the story before any UI does.</div></div>
+          <div class="anno-row"><div class="anno-num">2</div><div><b>Lucide icons in the nav.</b> 1.75-stroke line icons; active state is a copper pill above the icon plus copper fill.</div></div>
+          <div class="anno-row"><div class="anno-num">3</div><div><b>Cards earn their differentiation.</b> Confirmation count, price, freshness all live in chips with color-coded tones.</div></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ── PROFILE ── -->
+    <h3 class="h2" style="margin-top:80px;display:flex;align-items:center;gap:14px">
+      <span class="serif" style="font-style:italic;color:var(--copper-400);font-size:30px;font-weight:600">02</span>
+      Profile
+    </h3>
+    <p style="max-width:62ch">The personal hub. Today: a basic header, four equal stat boxes, a 2×3 tile grid that's all the same weight. Goal: the avatar &amp; top-bottle are the moments; the tiles get a clear visual hierarchy.</p>
+
+    <div class="compare">
+      <!-- BEFORE -->
+      <div class="compare-col before">
+        <h4>Before</h4>
+        <div class="phone"><div class="screen">
+          <div class="status"><span>9:41</span><span class="right"><span>●●●</span><span>📶</span><span>🔋</span></span></div>
+          <div class="m-header"><div class="m-brand"><div class="m-glyph" style="background:#e8943a;color:#fff">🥃</div><div><div class="m-title">Tater Tracker</div><div class="m-sub">Your Collection &amp; Tastings</div></div></div><div class="m-icons"><div class="m-ibtn">🔔</div><div class="m-ibtn">⚙️</div></div></div>
+          <div class="m-body" style="background:var(--bg-base)">
+            <div style="display:flex;align-items:center;gap:8px"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#e8943a,#b05a10);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:800">DJ</div><div><div style="font-size:11px;font-weight:800;color:var(--t-1)">Dave Jones</div><div style="font-size:8px;color:var(--t-3)">Jon and the Juice · Member</div></div></div>
+            <div style="display:flex;gap:3px"><div style="flex:1;text-align:center;padding:6px;background:#1f1308;border:1px solid #2a1c08;border-radius:6px"><div style="font-size:13px;font-weight:800;color:var(--t-1)">42</div><div style="font-size:7px;color:var(--t-3);text-transform:uppercase">Bottles</div></div><div style="flex:1;text-align:center;padding:6px;background:#1f1308;border:1px solid #2a1c08;border-radius:6px"><div style="font-size:13px;font-weight:800;color:var(--t-1)">14</div><div style="font-size:7px;color:var(--t-3);text-transform:uppercase">Friends</div></div><div style="flex:1;text-align:center;padding:6px;background:#1f1308;border:1px solid #2a1c08;border-radius:6px"><div style="font-size:13px;font-weight:800;color:var(--t-1)">18</div><div style="font-size:7px;color:var(--t-3);text-transform:uppercase">Tastings</div></div><div style="flex:1;text-align:center;padding:6px;background:#1f1308;border:1px solid #2a1c08;border-radius:6px"><div style="font-size:13px;font-weight:800;color:var(--t-1)">91</div><div style="font-size:7px;color:var(--t-3);text-transform:uppercase">Top</div></div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <div class="b-card" style="padding:10px"><div style="font-size:18px">🥃</div><div class="ttl">My Collection</div><div class="meta">Track bottles &amp; scores</div></div>
+              <div class="b-card" style="padding:10px"><div style="font-size:18px">👥</div><div class="ttl">Friends</div><div class="meta">View collections</div></div>
+              <div class="b-card" style="padding:10px"><div style="font-size:18px">🎯</div><div class="ttl">Wishlist</div><div class="meta">Hunt by rarity</div></div>
+              <div class="b-card" style="padding:10px"><div style="font-size:18px">🎲</div><div class="ttl">Pick My Pour</div><div class="meta">Random tonight</div></div>
+              <div class="b-card" style="padding:10px"><div style="font-size:18px">🙈</div><div class="ttl">Battle Blinds</div><div class="meta">ELO tasting</div></div>
+            </div>
+          </div>
+          <div class="m-tabs">
+            <div class="m-tab"><div class="ic b-emoji-tab">📍</div><div>Finds</div><div class="pill"></div></div>
+            <div class="m-tab"><div class="ic b-emoji-tab">🔍</div><div>Search</div><div class="pill"></div></div>
+            <div class="m-tab"><div class="ic b-emoji-tab">🚛</div><div>Tracker</div><div class="pill"></div></div>
+            <div class="m-tab"><div class="ic b-emoji-tab">🏪</div><div>Market</div><div class="pill"></div></div>
+            <div class="m-tab active"><div class="ic b-emoji-tab">👤</div><div>Profile</div><div class="pill"></div></div>
+          </div>
+        </div></div>
+        <div class="anno">
+          <div class="anno-row"><div class="anno-num">1</div><div><b>The avatar is tiny</b> — and the most personal element of the screen, an emoji-tile-grid look-alike.</div></div>
+          <div class="anno-row"><div class="anno-num">2</div><div><b>Tiles are visually equal.</b> "Pick My Pour" (used weekly) gets the same weight as "Battle Blinds" (used monthly).</div></div>
+          <div class="anno-row"><div class="anno-num">3</div><div><b>No celebration.</b> The stats are presented as facts, not as a member's earned story.</div></div>
+        </div>
+      </div>
+
+      <!-- AFTER -->
+      <div class="compare-col after">
+        <h4>After</h4>
+        <div class="phone"><div class="screen">
+          <div class="status"><span>9:41</span><span class="right"><span>●●●</span><span>📶</span><span>🔋</span></span></div>
+          <div class="m-header" style="border-bottom-color:var(--hair)"><div class="m-brand"><div class="m-glyph" style="background:var(--grad-copper);color:#1a0c04">🥃</div><div><div class="m-title">Tater Tracker</div><div class="m-sub" style="color:var(--copper-400);text-transform:uppercase;font-size:8px;letter-spacing:.1em;font-weight:700">Profile</div></div></div><div class="m-icons"><div class="m-ibtn" style="color:var(--t-2)"><svg class="ic-svg" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></div><div class="m-ibtn" style="color:var(--t-2)"><svg class="ic-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></div></div></div>
+          <div class="m-body" style="padding:14px 12px 56px">
+            <!-- Editorial header -->
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 0 12px;text-align:center;background:var(--grad-pour);border-radius:14px;margin-bottom:10px;padding-bottom:14px">
+              <div style="width:60px;height:60px;border-radius:50%;background:var(--grad-copper);padding:2px;box-shadow:var(--shadow-2)"><div style="width:100%;height:100%;border-radius:50%;background:var(--bg-2);color:var(--copper-200);display:grid;place-items:center;font-family:'Fraunces',serif;font-weight:600;font-size:21px">DJ</div></div>
+              <div><div style="font-family:'Fraunces',serif;font-weight:600;font-size:16px;color:var(--t-1);letter-spacing:-.012em">Dave Jones</div><div style="font-size:8px;color:var(--copper-400);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-top:1px">Member · 8 mo · Juice tier</div></div>
+            </div>
+            <!-- Top bottle hero -->
+            <div style="background:linear-gradient(135deg,rgba(217,126,44,.16) 0%,var(--bg-3) 60%);border:1px solid rgba(217,126,44,.3);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="font-size:18px">🏆</div><div style="flex:1"><div style="font-size:7.5px;color:var(--copper-400);font-weight:700;letter-spacing:.12em;text-transform:uppercase">Top of your collection</div><div style="font-size:11px;font-weight:700;color:var(--t-1);margin-top:1px">Blanton's Original</div></div><div class="serif" style="font-size:22px;font-weight:600;color:var(--copper-400);letter-spacing:-.025em">91.<span style="font-style:italic">4</span></div></div>
+            <!-- 3 stats, not 4: focused -->
+            <div style="display:flex;gap:5px;margin-bottom:10px"><div class="stat" style="padding:8px 10px;border-radius:10px"><div class="l" style="font-size:7.5px">Bottles</div><div class="v" style="font-size:18px">42</div></div><div class="stat" style="padding:8px 10px;border-radius:10px"><div class="l" style="font-size:7.5px">Tastings</div><div class="v" style="font-size:18px">18</div></div><div class="stat" style="padding:8px 10px;border-radius:10px"><div class="l" style="font-size:7.5px">Friends</div><div class="v" style="font-size:18px">14</div></div></div>
+            <!-- Tile hierarchy: hero tile + 4 small -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <div class="a-card" style="grid-column:span 2;padding:10px;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,var(--bg-3),var(--bg-2));border-color:rgba(217,126,44,.2)"><svg class="ic-svg" style="width:20px;height:20px;color:var(--copper-400)" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><div style="flex:1"><div class="ttl" style="font-size:11px">My Collection</div><div class="meta" style="margin-top:1px">42 bottles · est. $4,820</div></div><span style="color:var(--copper-400);font-weight:700;font-size:9px">Open →</span></div>
+              <div class="a-card" style="padding:8px"><svg class="ic-svg" style="width:14px;height:14px;color:var(--violet)" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><div class="ttl" style="font-size:10px;margin-top:4px">Battle Blinds</div><div class="meta">Run a tasting</div></div>
+              <div class="a-card" style="padding:8px"><svg class="ic-svg" style="width:14px;height:14px;color:var(--copper-400)" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg><div class="ttl" style="font-size:10px;margin-top:4px">Pick My Pour</div><div class="meta">Random pick</div></div>
+              <div class="a-card" style="padding:8px"><svg class="ic-svg" style="width:14px;height:14px;color:var(--green)" viewBox="0 0 24 24"><path d="M20 12c0 6-8 10-8 10s-8-4-8-10a8 8 0 0 1 16 0z"/></svg><div class="ttl" style="font-size:10px;margin-top:4px">Wishlist</div><div class="meta">12 bottles · 2 in range</div></div>
+              <div class="a-card" style="padding:8px"><svg class="ic-svg" style="width:14px;height:14px;color:var(--blue)" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="8" r="3"/><path d="M15 20a6 6 0 0 1 6 0"/></svg><div class="ttl" style="font-size:10px;margin-top:4px">Friends <span class="a-chip" style="background:var(--red);color:#fff;border:none;padding:0 4px;font-size:7.5px">2</span></div><div class="meta">14 in club</div></div>
+            </div>
+          </div>
+          <div class="m-tabs" style="border-top-color:var(--hair-2)"><div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><div>Finds</div></div><div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><div>Search</div></div><div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><path d="M14 17H4V6h10v11zM14 8h4l3 3v6h-7"/></svg><div>Tracker</div></div><div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><path d="M3 10h18M5 6h14a2 2 0 0 1 2 2v3H3V8a2 2 0 0 1 2-2zM5 11v9h14v-9"/></svg><div>Market</div></div><div class="m-tab active"><span style="width:14px;height:2px;border-radius:2px;background:var(--copper-500);margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--copper-500)" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><div>Profile</div></div></div>
+        </div></div>
+        <div class="anno">
+          <div class="anno-row"><div class="anno-num">1</div><div><b>Editorial avatar moment.</b> Gradient ring + Fraunces initials inside a copper-tinted frame. Member tier as overline — earned status, not a label.</div></div>
+          <div class="anno-row"><div class="anno-num">2</div><div><b>Top bottle is the hero card.</b> Fraunces italic score (91.<i>4</i>) is the visual anchor. The collection's centerpiece bubbles up.</div></div>
+          <div class="anno-row"><div class="anno-num">3</div><div><b>Tile hierarchy.</b> Collection gets a wide hero card with quick stats; the four secondary actions sit as a 2×2 below.</div></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ── BLIND TASTING ── -->
+    <h3 class="h2" style="margin-top:80px;display:flex;align-items:center;gap:14px">
+      <span class="serif" style="font-style:italic;color:var(--copper-400);font-size:30px;font-weight:600">03</span>
+      Blind Tasting — Comparison &amp; Result
+    </h3>
+    <p style="max-width:62ch">The single most "polish-deserving" screen in the app. Members invite friends over, pour bottles, and run a session. Goal: the comparison feels weighty (large tap targets, restrained chrome); the result feels ceremonial.</p>
+
+    <div class="compare">
+      <!-- BEFORE — comparison -->
+      <div class="compare-col before">
+        <h4>Before · comparison</h4>
+        <div class="phone"><div class="screen">
+          <div class="status"><span>9:41</span><span class="right"><span>●●●</span></span></div>
+          <div class="m-header"><div class="m-brand"><div class="m-glyph" style="background:#e8943a;color:#fff">🥃</div><div><div class="m-title">Tater Tracker</div><div class="m-sub">🙈 Battle of the Blinds</div></div></div><div class="m-icons"><div class="m-ibtn">🔔</div></div></div>
+          <div class="m-body" style="background:var(--bg-base);padding:14px 12px">
+            <div style="font-size:9px;color:var(--t-3)">Comparison 3 of 6 · 4 bottles</div>
+            <div style="height:4px;background:#3d2b10;border-radius:2px;overflow:hidden;margin-top:6px"><div style="width:50%;height:100%;background:#e8943a"></div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px">
+              <div style="background:#1a1008;border:1px solid #3d2b10;border-radius:8px;padding:14px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--t-1)">A</div><div style="font-size:8px;color:var(--t-2);margin-top:4px">Prefer A</div></div>
+              <div style="background:#1a1008;border:1px solid #3d2b10;border-radius:8px;padding:14px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--t-1)">B</div><div style="font-size:8px;color:var(--t-2);margin-top:4px">Prefer B</div></div>
+            </div>
+            <div style="text-align:center;margin-top:8px;font-size:9px;color:var(--t-3);text-decoration:underline">Too close to call — tie</div>
+          </div>
+          <div class="m-tabs"><div class="m-tab"><div class="ic b-emoji-tab">📍</div><div>Finds</div><div class="pill"></div></div><div class="m-tab"><div class="ic b-emoji-tab">🔍</div><div>Search</div><div class="pill"></div></div><div class="m-tab"><div class="ic b-emoji-tab">🚛</div><div>Tracker</div><div class="pill"></div></div><div class="m-tab"><div class="ic b-emoji-tab">🏪</div><div>Market</div><div class="pill"></div></div><div class="m-tab active"><div class="ic b-emoji-tab">👤</div><div>Profile</div><div class="pill"></div></div></div>
+        </div></div>
+        <div class="anno">
+          <div class="anno-row"><div class="anno-num">1</div><div><b>Tap targets feel small.</b> A pour-and-decide moment deserves the whole screen height, not a third of it.</div></div>
+          <div class="anno-row"><div class="anno-num">2</div><div><b>"Tie" is buried as link text.</b> The lowest-friction option on a screen of friends is the hardest to find.</div></div>
+        </div>
+      </div>
+
+      <!-- AFTER — result reveal (the moment) -->
+      <div class="compare-col after">
+        <h4>After · result reveal</h4>
+        <div class="phone"><div class="screen">
+          <div class="status"><span>9:41</span><span class="right"><span>●●●</span></span></div>
+          <div class="m-header" style="border-bottom-color:var(--hair)"><div class="m-brand"><div class="m-glyph" style="background:var(--grad-copper);color:#1a0c04">🥃</div><div><div class="m-title">Tater Tracker</div><div class="m-sub" style="color:var(--copper-400);text-transform:uppercase;font-size:8px;letter-spacing:.1em;font-weight:700">Blind tasting · complete</div></div></div><div class="m-icons"><div class="m-ibtn" style="color:var(--t-2)"><svg class="ic-svg" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></div></div></div>
+          <div class="m-body" style="background:radial-gradient(circle at 50% 0%,rgba(217,126,44,.18) 0%,transparent 60%),var(--bg-base);padding:18px 14px 56px;align-items:stretch">
+            <div style="text-align:center"><div style="font-size:8px;color:var(--copper-400);font-weight:700;letter-spacing:.16em;text-transform:uppercase">Tonight's Ranking</div><div class="serif" style="font-size:24px;font-weight:600;color:var(--t-1);letter-spacing:-.022em;margin-top:4px;line-height:1.05">Four bottles, blind. <em style="font-style:italic;color:var(--copper-400)">Decided.</em></div></div>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:14px">
+              <div class="a-card" style="padding:10px;display:flex;align-items:center;gap:10px;background:linear-gradient(90deg,rgba(217,126,44,.18),var(--bg-3));border-color:rgba(217,126,44,.4)"><div class="serif" style="font-size:22px;font-weight:600;font-style:italic;color:var(--copper-400);letter-spacing:-.02em;width:24px">1st</div><div style="flex:1"><div class="ttl" style="font-size:10px">Blanton's Original</div><div class="meta">Glass A · was 87.2</div></div><div class="serif" style="font-size:18px;font-weight:600;color:var(--t-1)">91.<span style="font-style:italic">4</span></div><span class="a-chip green" style="font-size:8px">+4.2</span></div>
+              <div class="a-card" style="padding:10px;display:flex;align-items:center;gap:10px"><div class="serif" style="font-size:18px;font-weight:600;font-style:italic;color:var(--t-2);letter-spacing:-.02em;width:24px">2nd</div><div style="flex:1"><div class="ttl" style="font-size:10px">Eagle Rare 10yr</div><div class="meta">Glass C · was 81.0</div></div><div class="serif" style="font-size:16px;font-weight:600;color:var(--t-1)">82.<span style="font-style:italic">3</span></div><span class="a-chip green" style="font-size:8px">+1.3</span></div>
+              <div class="a-card" style="padding:10px;display:flex;align-items:center;gap:10px"><div class="serif" style="font-size:16px;font-weight:600;font-style:italic;color:var(--t-2);letter-spacing:-.02em;width:24px">3rd</div><div style="flex:1"><div class="ttl" style="font-size:10px">Weller Special Reserve</div><div class="meta">Glass D · was 76.5</div></div><div class="serif" style="font-size:14px;font-weight:600;color:var(--t-1)">75.<span style="font-style:italic">8</span></div><span style="color:var(--red);font-weight:700;font-size:8px">−0.7</span></div>
+              <div class="a-card" style="padding:10px;display:flex;align-items:center;gap:10px"><div class="serif" style="font-size:14px;font-weight:600;font-style:italic;color:var(--t-3);letter-spacing:-.02em;width:24px">4th</div><div style="flex:1"><div class="ttl" style="font-size:10px">Buffalo Trace</div><div class="meta">Glass B · was 78.0</div></div><div class="serif" style="font-size:14px;font-weight:600;color:var(--t-1)">73.<span style="font-style:italic">2</span></div><span style="color:var(--red);font-weight:700;font-size:8px">−4.8</span></div>
+            </div>
+            <button class="btn btn-primary" style="margin-top:14px;padding:10px;font-size:11px;width:100%;justify-content:center">Save scores &amp; finish</button>
+          </div>
+          <div class="m-tabs" style="border-top-color:var(--hair-2)"><div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><div>Finds</div></div><div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><div>Search</div></div><div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><path d="M14 17H4V6h10v11zM14 8h4l3 3v6h-7"/></svg><div>Tracker</div></div><div class="m-tab"><span style="width:14px;height:2px;margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--t-4)" viewBox="0 0 24 24"><path d="M3 10h18M5 6h14a2 2 0 0 1 2 2v3H3V8a2 2 0 0 1 2-2zM5 11v9h14v-9"/></svg><div>Market</div></div><div class="m-tab active"><span style="width:14px;height:2px;border-radius:2px;background:var(--copper-500);margin-bottom:2px;display:block"></span><svg class="ic-svg" style="width:15px;height:15px;color:var(--copper-500)" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><div>Profile</div></div></div>
+        </div></div>
+        <div class="anno">
+          <div class="anno-row"><div class="anno-num">1</div><div><b>The result is the moment.</b> Fraunces serif "1st" with italicized digit treatment makes the screenshot worth sharing in the Discord.</div></div>
+          <div class="anno-row"><div class="anno-num">2</div><div><b>1st place gets the copper glow.</b> The other rows recede so the winner doesn't compete. ELO deltas as chips, not raw text.</div></div>
+          <div class="anno-row"><div class="anno-num">3</div><div><b>Headline does the storytelling.</b> "Four bottles, blind. <em>Decided.</em>" is the editorial voice the app has been missing.</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ ROADMAP ═══════════════ -->
+<section class="section" id="roadmap">
+  <div class="wrap">
+    <div class="eyebrow">How we ship</div>
+    <h2 class="h1">Six days, sequenced.</h2>
+    <p class="lede">Foundation first, then chrome, then screens, then polish. Each day's work unblocks the next. Full breakdown in <span class="mono">redesign/SPRINT.md</span>.</p>
+
+    <div class="roadmap">
+      <div class="day"><div class="d-head"><div class="d-num">01</div><div class="d-tag">Foundation</div></div><h4>Tokens &amp; primitives</h4><ul><li>Drop in <span class="mono">tokens.css</span></li><li>Install lucide-react</li><li>8 UI primitives in <span class="mono">/ui/</span></li><li>Motion keyframes</li></ul></div>
+      <div class="day"><div class="d-head"><div class="d-num">02</div><div class="d-tag">Chrome</div></div><h4>Header, nav, drawers</h4><ul><li>AppHeader logo lockup</li><li>BottomNav lucide swap</li><li>Drawers → Sheet</li><li>Press states everywhere</li></ul></div>
+      <div class="day"><div class="d-head"><div class="d-num">03</div><div class="d-tag">Home</div></div><h4>Finds + Tracker</h4><ul><li>Map-as-hero on Finds</li><li>FAB submit pattern</li><li>Tracker empty state</li><li>Distributor map ↺</li></ul></div>
+      <div class="day"><div class="d-head"><div class="d-num">04</div><div class="d-tag">Profile</div></div><h4>Personal hub</h4><ul><li>Avatar moment</li><li>Top bottle hero card</li><li>Tile hierarchy</li><li>Pour + Blind ✨</li></ul></div>
+      <div class="day"><div class="d-head"><div class="d-num">05</div><div class="d-tag">Discovery</div></div><h4>Market + Search</h4><ul><li>Auction cards ↺</li><li>Search-as-hero</li><li>Bottle detail page</li><li>Sheets ported</li></ul></div>
+      <div class="day"><div class="d-head"><div class="d-num">06</div><div class="d-tag">Polish</div></div><h4>Sweep + QA</h4><ul><li>Inline-style audit</li><li>Focus rings</li><li>Empty states</li><li>iPhone smoke test</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ HANDOFF ═══════════════ -->
+<section class="section" id="handoff">
+  <div class="wrap">
+    <div class="eyebrow">Hand off to Claude Code</div>
+    <h2 class="h1">The package.</h2>
+    <p class="lede">Open the running Tater Tracker repo in Claude Code, drop the <span class="mono">redesign/</span> folder at the project root, then paste the prompt below. Everything Claude needs is referenced from there.</p>
+
+    <div class="handoff">
+      <h3>Folder structure</h3>
+      <p>Drop this into the repo at <span class="mono">/redesign</span>:</p>
+      <div class="tree">redesign/
+├── <b>PROMPT.md</b>            ← paste this into Claude Code as the kickoff message
+├── <b>SPRINT.md</b>            ← day-by-day checklist, work top-to-bottom
+├── <b>tokens.css</b>           ← drop into app/globals.css :root
+├── <b>Design Check-In.html</b> ← this document — the visual source of truth
+└── <b>README.md</b>            ← orientation for any new team member</div>
+
+      <h3 style="margin-top:32px">Kickoff prompt for Claude Code</h3>
+      <p>Copy and paste verbatim. The full version lives in <span class="mono">redesign/PROMPT.md</span> — this is the abbreviated kickoff.</p>
+      <div class="tree" id="prompt-text">You're picking up Tater Tracker, a private-club bourbon PWA built on
+Next.js 14. The product works — the design system has drifted.
+
+I've prepared a refresh package at /redesign. Read it first:
+
+  1. redesign/Design Check-In.html — the audit, principles, and
+     before/after mockups. Open this in your browser; it's the
+     visual source of truth for the sprint.
+  2. redesign/PROMPT.md — full working principles, scope, and
+     done criteria. Read once, then refer back.
+  3. redesign/SPRINT.md — the day-by-day checklist. Work it
+     top to bottom.
+  4. redesign/tokens.css — the new token set. Replace the :root
+     block in app/globals.css with this; legacy aliases are
+     preserved so existing code keeps compiling.
+
+Scope: pixel-only. No backend changes, no schema changes, no
+new features. The IA, the routes, the Redis keys, the ELO
+math, the Discord webhooks — all stay untouched.
+
+Working principles (non-negotiable):
+  • Every color, radius, spacing, font-size in new code is a
+    var(--…) from tokens.css. No hex literals in style props.
+  • Lift any pattern that appears on >1 screen into
+    app/components/ui/. Eight primitives are specified in the
+    design doc — build those first.
+  • Replace emoji used as icons (nav, buttons, chips, headers,
+    empty states) with lucide-react line icons. Emoji stays
+    for content (member-typed notes, the 🥃 brand mark).
+  • Use the locked 7-size type scale. Don't introduce new
+    sizes.
+  • Every interactive element gets a press state and a
+    transition.
+
+Start with Day 1 in SPRINT.md. When you complete a day, write
+a short status comment in PR description — what was touched,
+what was deferred, what surprised you. Ask before deviating
+from the design doc.
+
+The bourbon-on-dark direction is the right one. We're refining
+it, not pivoting. Make it feel like a Chicago speakeasy that
+happens to be a PWA — not a CRUD app with a brown skin.</div>
+
+      <button class="copy-btn" id="copy-btn">
+        <svg class="ic-svg" viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy prompt to clipboard
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<footer class="foot wrap">
+  <div class="l"><div class="brand-mark"><div class="glyph">🥃</div><div>Tater Tracker</div></div><span style="color:var(--t-4)">·</span><span>Brand refresh sprint, May 2026</span></div>
+  <div>Prepared for Jon and the Juice</div>
+</footer>
+
+<script>
+const btn = document.getElementById('copy-btn');
+const txt = document.getElementById('prompt-text');
+btn?.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(txt.textContent.trim());
+    btn.classList.add('copied');
+    btn.querySelector('svg').outerHTML = '<svg class="ic-svg" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M20 6 9 17l-5-5"/></svg>';
+    btn.lastChild.textContent = ' Copied to clipboard';
+    setTimeout(() => location.reload(), 2400);
+  } catch (e) { btn.lastChild.textContent = ' Copy failed — select manually'; }
+});
+</script>
+
+</body>
+</html>

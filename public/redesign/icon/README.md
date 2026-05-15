@@ -32,7 +32,7 @@ The platform applies its own rounded-square mask, so the **square** versions are
 {
   "name": "Tater Tracker",
   "short_name": "Tater",
-  "description": "Bourbon-hunting club for Jon and the Juice — finds, tracker, marketplace, blind tastings.",
+  "description": "Chicagoland bourbon hunting app — Tater Tracker — finds, tracker, marketplace, blind tastings.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0c0805",
@@ -51,7 +51,7 @@ The platform applies its own rounded-square mask, so the **square** versions are
 ```tsx
 export const metadata = {
   title: "Tater Tracker",
-  description: "Bourbon-hunting club for Jon and the Juice.",
+  description: "Chicagoland bourbon hunting app — Tater Tracker.",
   manifest: "/manifest.json",
   themeColor: "#d97e2c",
   icons: {

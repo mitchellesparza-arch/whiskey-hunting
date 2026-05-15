@@ -66,7 +66,7 @@ export default function PendingPage() {
           letterSpacing: 'var(--tracking-head)',
           marginBottom:  'var(--sp-2)',
         }}>
-          Access Pending
+          Almost there
         </h1>
 
         <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', margin: 0 }}>
@@ -89,9 +89,8 @@ export default function PendingPage() {
           marginBottom: 'var(--sp-6)',
           lineHeight:   1.6,
         }}>
-          Your request has been submitted. Once the owner approves your
-          account you'll have full access to the truck tracker. Use the
-          button below after you've been notified.
+          Your session is being set up. Tap the button below to continue,
+          or sign out and sign back in if this persists.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
@@ -101,7 +100,7 @@ export default function PendingPage() {
             onClick={checkApproval}
             disabled={checking}
           >
-            {checking ? 'Checking…' : checked ? 'Still pending — try again later' : 'Check approval status'}
+            {checking ? 'Loading…' : 'Continue to app'}
           </Button>
           <Button
             variant="ghost"

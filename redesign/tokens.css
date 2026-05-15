@@ -1,0 +1,127 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Tater Tracker — Refreshed Design Tokens (v2)
+
+   Drop-in replacement for the :root block in app/globals.css. Existing names
+   are preserved so current code keeps working. New tokens add an elevation
+   ramp, a refined accent gradient, and motion/spacing primitives.
+   ────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Surface ramp ─ darker at base, lifted on cards, glow on highlights */
+  --bg-base:        #0c0805;
+  --bg-elev-1:      #160d07;   /* page sections, sticky headers */
+  --bg-elev-2:      #1c120a;   /* cards (was --bg-card)         */
+  --bg-elev-3:      #22170d;   /* hover, raised pills           */
+  --bg-elev-4:      #2a1c10;   /* modals, sheets, drawers       */
+  --bg-card:        #1c120a;   /* legacy alias                  */
+  --bg-card-2:      #22170d;   /* legacy alias                  */
+  --bg-card-hover:  #2a1c10;   /* legacy alias                  */
+
+  /* ── Borders & dividers — softer, less "stamped" feel */
+  --hairline:       rgba(245, 230, 204, 0.06);   /* primary divider */
+  --hairline-2:     rgba(245, 230, 204, 0.10);   /* card borders    */
+  --hairline-3:     rgba(245, 230, 204, 0.16);   /* pressed/focus   */
+  --border:         rgba(245, 230, 204, 0.10);   /* legacy alias    */
+  --border-2:       rgba(245, 230, 204, 0.06);   /* legacy alias    */
+
+  /* ── Text — refined warm-cream ramp */
+  --text-primary:   #f7ead2;
+  --text-2:         #cda87a;
+  --text-muted:     #8d6e48;
+  --text-dim:       #5d4527;
+  --text-inverse:   #0c0805;
+
+  /* ── Brand — copper, not orange. Pulled toward warm rust. */
+  --copper-50:      #fdf3e6;
+  --copper-200:     #f4c98d;
+  --copper-400:     #e8a154;
+  --copper-500:     #d97e2c;   /* primary accent              */
+  --copper-600:     #b85f1a;   /* hover / pressed             */
+  --copper-700:     #8e4612;
+  --copper-900:     #3c1d07;
+
+  --accent:         var(--copper-500);  /* legacy alias */
+  --accent-2:       var(--copper-600);  /* legacy alias */
+
+  /* Signature gradient used for the avatar, primary CTA glow, hero accents */
+  --grad-copper:    linear-gradient(135deg, #f4c98d 0%, #d97e2c 38%, #8e4612 100%);
+  --grad-pour:      linear-gradient(180deg, rgba(217,126,44,0.18) 0%, transparent 70%);
+
+  /* ── Functional palette — desaturated to sit calmly on bourbon dark */
+  --green:          #5dd39e;   /* fresh, in-stock, gain   */
+  --green-bg:       rgba(93, 211, 158, 0.10);
+  --red:            #f87171;
+  --red-bg:         rgba(248, 113, 113, 0.10);
+  --amber:          #f5b83a;
+  --amber-bg:       rgba(245, 184, 58, 0.12);
+  --violet:         #b9a4ff;   /* unicorn / blind tasting */
+  --violet-bg:      rgba(185, 164, 255, 0.12);
+  --blue:           #8fb5ff;
+  --blue-bg:        rgba(143, 181, 255, 0.10);
+
+  /* ── Distributor identity colors (used as accents only — no full bg fills) */
+  --dist-breakthru: #e8a154;
+  --dist-southern:  #5dd39e;
+  --dist-rndc:      #8fb5ff;
+  --dist-bcm:       #b9a4ff;
+
+  /* ── Typography scale — modular, locked. Use these, not raw px. */
+  --fs-display:     clamp(28px, 4.2vw, 36px);
+  --fs-h1:          22px;
+  --fs-h2:          18px;
+  --fs-h3:          15px;
+  --fs-body:        14px;
+  --fs-meta:        12px;
+  --fs-overline:    10.5px;
+
+  --lh-tight:       1.15;
+  --lh-snug:        1.35;
+  --lh-body:        1.5;
+  --lh-loose:       1.65;
+
+  --tracking-overline: 0.08em;
+  --tracking-display:  -0.022em;
+  --tracking-head:     -0.012em;
+
+  --weight-bold:    700;
+  --weight-semibold:600;
+  --weight-medium:  500;
+
+  /* ── Spacing — 4-pt grid */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* ── Radii */
+  --r-sm:  6px;
+  --r-md:  10px;
+  --r-lg:  14px;
+  --r-xl:  20px;
+  --r-2xl: 28px;
+  --r-pill:999px;
+
+  /* ── Elevation — subtle, warm shadows; no harsh black drops */
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.35);
+  --shadow-2: 0 4px 16px rgba(0,0,0,0.35), 0 1px 0 rgba(245,230,204,0.04) inset;
+  --shadow-3: 0 18px 48px rgba(0,0,0,0.5), 0 1px 0 rgba(245,230,204,0.06) inset;
+  --shadow-glow: 0 0 0 1px rgba(217,126,44,0.4), 0 8px 32px rgba(217,126,44,0.18);
+
+  /* ── Motion — tuned for haptic feel, not flashy */
+  --ease-out:       cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out:    cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --t-fast:         120ms;
+  --t-base:         200ms;
+  --t-slow:         320ms;
+
+  /* ── Layout */
+  --container:      720px;
+  --tab-h:          76px;
+  --header-h:       54px;
+}

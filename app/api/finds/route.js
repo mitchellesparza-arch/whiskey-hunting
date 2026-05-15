@@ -135,6 +135,15 @@ export async function DELETE(request) {
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
+    // Verify ownership — only the submitter (or owner) can delete a find
+    const all  = await getFinds('pro')  // read as pro to see all finds
+    const find = all.find(f => f.id === id)
+    if (!find) return NextResponse.json({ error: 'Find not found' }, { status: 404 })
+    const ownerEmail = process.env.ALERT_EMAIL?.toLowerCase()
+    if (find.submittedBy !== token.email?.toLowerCase() && token.email?.toLowerCase() !== ownerEmail) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const finds = await removeFind(id)
     return NextResponse.json({ ok: true, finds })
   } catch (err) {

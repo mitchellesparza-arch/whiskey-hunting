@@ -29,22 +29,23 @@ export async function POST(req) {
   const base   = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000'
   const stripe = getStripe()
 
-  const session = await stripe.checkout.sessions.create({
-    mode:               'subscription',
-    payment_method_types: ['card'],
-    line_items: [{
-      price:    PRICE_ID,
-      quantity: 1,
-    }],
-    customer_email:    token.email,
-    // Pass the email so the webhook can look up the user
-    metadata: { email: token.email },
-    success_url: `${base}/upgrade?success=1`,
-    cancel_url:  `${base}/upgrade`,
-    subscription_data: {
-      metadata: { email: token.email },
-    },
-  })
-
-  return NextResponse.json({ url: session.url })
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode:               'subscription',
+      payment_method_types: ['card'],
+      line_items: [{
+        price:    PRICE_ID,
+        quantity: 1,
+      }],
+      customer_email:    token.email,
+      metadata:          { email: token.email },
+      success_url:       `${base}/upgrade?success=1`,
+      cancel_url:        `${base}/upgrade`,
+      subscription_data: { metadata: { email: token.email } },
+    })
+    return NextResponse.json({ url: session.url })
+  } catch (err) {
+    console.error('[stripe/checkout] error:', err?.message)
+    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 })
+  }
 }

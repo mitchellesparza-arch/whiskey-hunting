@@ -105,12 +105,19 @@ export async function PATCH(request) {
     }
 
     if (action === 'deactivate') {
+      const all     = await getListings({ activeOnly: false })
+      const listing = all.find(l => l.id === id)
+      if (!listing) return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
+      if (listing.submittedBy !== token.email) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       const updated = await deactivateListing(id)
-      if (!updated) return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
       return NextResponse.json({ ok: true, listing: updated })
     }
 
     if (action === 'delete') {
+      const all     = await getListings({ activeOnly: false })
+      const listing = all.find(l => l.id === id)
+      if (!listing) return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
+      if (listing.submittedBy !== token.email) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       await deleteListing(id)
       return NextResponse.json({ ok: true })
     }

@@ -249,26 +249,7 @@ function StoreActivityCard({ storeName, events, isSelected, onSelect, isFavorite
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function TrackerPage() {
-  const { data: session } = useSession()
-
-  // Gate: tracker is Pro-only
-  if (session && !isPro(session.user?.tier)) {
-    return (
-      <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
-        <AppHeader sub="Tracker" />
-        <ProGate
-          feature="The Tracker"
-          icon="🚛"
-          bullets={[
-            'Real-time distributor truck arrivals at Chicagoland Binny\'s',
-            'Know exactly which stores to hit for allocated bottles',
-            'Live Costco bourbon alerts across Illinois',
-            'Checked 6× daily — 7 AM through 5 PM CDT',
-          ]}
-        />
-      </div>
-    )
-  }
+  const { data: session, status } = useSession()
 
   const [tab,            setTab]            = useState('binnys')
   const [truckEvents,    setTruckEvents]    = useState([])
@@ -367,6 +348,25 @@ export default function TrackerPage() {
 
   // Reset collapse when filter changes
   useEffect(() => { setShowAllEvents(false) }, [selectedStore])
+
+  // Gate: tracker is Pro-only (must be after all hooks)
+  if (status !== 'loading' && session && !isPro(session.user?.tier)) {
+    return (
+      <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
+        <AppHeader sub="Tracker" />
+        <ProGate
+          feature="The Tracker"
+          icon="🚛"
+          bullets={[
+            'Real-time distributor truck arrivals at Chicagoland Binny\'s',
+            'Know exactly which stores to hit for allocated bottles',
+            'Live Costco bourbon alerts across Illinois',
+            'Checked 6× daily — 7 AM through 5 PM CDT',
+          ]}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>

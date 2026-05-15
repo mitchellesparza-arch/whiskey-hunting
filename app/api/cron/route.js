@@ -46,15 +46,10 @@ function hotlineCheckList(distributor) {
 export async function GET(request) {
   // ── Auth ───────────────────────────────────────────────────────────────────
   const secret = process.env.CRON_SECRET
-  if (secret) {
-    const auth  = request.headers.get('authorization') ?? ''
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
-    if (token !== secret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  } else {
-    console.warn('[cron] CRON_SECRET not set — endpoint is unprotected!')
-  }
+  if (!secret) return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
+  const auth  = request.headers.get('authorization') ?? ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
+  if (token !== secret) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const checkedAt = new Date().toISOString()
 

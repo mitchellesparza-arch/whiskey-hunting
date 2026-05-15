@@ -68,7 +68,7 @@ function LoginContent() {
           letterSpacing: 'var(--tracking-overline)',
           marginBottom:  'var(--sp-6)',
         }}>
-          Tater Tracker · Chicagoland
+          Chicagoland Bourbon Hunters
         </p>
 
         {error && (
@@ -91,8 +91,8 @@ function LoginContent() {
           marginBottom: 'var(--sp-6)',
           lineHeight:   1.6,
         }}>
-          Sign in with Google to request access. Your account will be
-          reviewed before you can view the tracker.
+          Sign in with Google to get instant free access. Upgrade to Pro
+          for real-time finds, the tracker, and more.
         </p>
 
         <button

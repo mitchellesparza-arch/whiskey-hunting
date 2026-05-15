@@ -77,5 +77,4 @@ export async function POST(req) {
   return NextResponse.json({ received: true })
 }
 
-// Required: disable body parsing so we can verify the raw Stripe signature
-export const config = { api: { bodyParser: false } }
+// Note: raw body is read via req.text() above — no body parser config needed in App Router
