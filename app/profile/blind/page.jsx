@@ -26,6 +26,8 @@ import Card         from '../../components/ui/Card'
 import EmptyState   from '../../components/ui/EmptyState'
 import StatTile     from '../../components/ui/StatTile'
 import SectionHeader from '../../components/ui/SectionHeader'
+import ProGate      from '../../components/ProGate'
+import { isPro }    from '../../../lib/tier.js'
 
 // ── ELO ──────────────────────────────────────────────────────────────────────
 // CRITICAL: do not touch any of the ELO / matchmaking logic below
@@ -896,6 +898,20 @@ export default function PickMyBlindPage() {
       <span style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-body)' }}>Loading…</span>
     </div>
   )
+
+  if (!isPro(session?.user?.tier)) {
+    return (
+      <ProGate
+        feature="Battle of the Blinds"
+        icon="🙈"
+        bullets={[
+          'Blind ELO tasting system for your collection',
+          'Pairwise comparisons without label bias',
+          'Scores saved to your bottle profiles',
+        ]}
+      />
+    )
+  }
 
   const stepLabels = ['Intro', 'Select', 'Glen Setup', 'Shuffle', 'Tasting', 'Reveal', 'Results']
   const canGoBack  = step <= 3
