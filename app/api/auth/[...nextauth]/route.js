@@ -1,7 +1,8 @@
 import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { isApproved, approveUser } from '../../../../lib/auth-users.js'
-import { registerUser, getUserProfile }            from '../../../../lib/friends.js'
+import { registerUser, getUserProfile } from '../../../../lib/friends.js'
+import { sendNewUserEmail }             from '../../../../lib/email.js'
 
 export const authOptions = {
   providers: [
@@ -22,8 +23,12 @@ export const authOptions = {
       const email = user.email?.toLowerCase()
       if (!email) return false
 
-      // Always upsert the user's display name in the registry
-      registerUser(email, user.name).catch(() => {})
+      // Always upsert the user's display name in the registry; notify on first sign-in
+      registerUser(email, user.name)
+        .then(({ isNew }) => {
+          if (isNew) sendNewUserEmail(user.name ?? email, email).catch(() => {})
+        })
+        .catch(() => {})
 
       // Auto-approve the owner
       const ownerEmail = process.env.ALERT_EMAIL?.toLowerCase()
