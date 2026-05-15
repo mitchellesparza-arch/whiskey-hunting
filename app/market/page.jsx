@@ -157,6 +157,23 @@ export default function MarketIndexPage() {
     if (status === 'authenticated' && session?.user?.approved === false) router.replace('/pending')
   }, [status, session])
 
+  useEffect(() => {
+    if (status !== 'authenticated' || !isPro(session?.user?.tier)) return
+    fetch('/api/market-index')
+      .then(r => r.json())
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [status, session?.user?.tier])
+
+  function navigateTo(name) {
+    router.push(`/bottle/${encodeURIComponent(name)}`)
+  }
+
+  if (status === 'loading') return null
+
+  const maxPremium = data?.topPremiums?.[0]?.premium ?? 1
+
   // Gate: market index is Pro-only
   if (status === 'authenticated' && !isPro(session?.user?.tier)) {
     return (
@@ -171,22 +188,6 @@ export default function MarketIndexPage() {
       />
     )
   }
-
-  useEffect(() => {
-    fetch('/api/market-index')
-      .then(r => r.json())
-      .then(setData)
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  function navigateTo(name) {
-    router.push(`/bottle/${encodeURIComponent(name)}`)
-  }
-
-  if (status === 'loading') return null
-
-  const maxPremium = data?.topPremiums?.[0]?.premium ?? 1
 
   return (
     <div style={{
