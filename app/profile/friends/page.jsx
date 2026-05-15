@@ -498,7 +498,7 @@ export default function FriendsPage() {
               <Users size={18} strokeWidth={1.75} color="var(--copper-500)" />
               Friends
             </div>
-            <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)' }}>Jon and the Juice</div>
+            <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)' }}>Tater Tracker</div>
           </div>
           <button
             onClick={loadData}

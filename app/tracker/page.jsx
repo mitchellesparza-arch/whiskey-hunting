@@ -579,7 +579,7 @@ export default function TrackerPage() {
       >
         {tab === 'costco'
           ? 'Tater Tracker · Live Costco alerts across Illinois'
-          : 'Tater Tracker · Jon and the Juice · Checked 6× daily: 7 AM · 9 AM · 11 AM · 1 PM · 3 PM · 5 PM CDT'}
+          : 'Tater Tracker · Checked 6× daily: 7 AM · 9 AM · 11 AM · 1 PM · 3 PM · 5 PM CDT'}
       </footer>
 
     </div>

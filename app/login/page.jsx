@@ -68,7 +68,7 @@ function LoginContent() {
           letterSpacing: 'var(--tracking-overline)',
           marginBottom:  'var(--sp-6)',
         }}>
-          Jon and the Juice · Chicagoland
+          Tater Tracker · Chicagoland
         </p>
 
         {error && (

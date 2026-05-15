@@ -138,7 +138,7 @@ export default function ProfilePage() {
               {displayName}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
-              Jon and the Juice · Member
+              Tater Tracker · Member
             </div>
           </div>
         </div>

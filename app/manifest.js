@@ -2,7 +2,7 @@ export default function manifest() {
   return {
     name:             'Tater Tracker',
     short_name:       'Tater Tracker',
-    description:      "Community bourbon finds and truck tracker for Chicagoland Binny's — Jon and the Juice",
+    description:      "Community bourbon finds and truck tracker for Chicagoland Binny's — Tater Tracker",
     start_url:        '/',
     display:          'standalone',
     orientation:      'portrait',

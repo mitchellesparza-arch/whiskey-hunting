@@ -164,7 +164,7 @@ export default function SettingsDrawer({ open, onClose }) {
         padding:      'var(--sp-3) var(--sp-4)',
       }}>
         <div style={{ fontSize: 'var(--fs-body)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
-          🥃 Jon and the Juice
+          🥃 Tater Tracker
         </div>
         <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
           Chicagoland bourbon community
