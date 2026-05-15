@@ -66,11 +66,21 @@ export const authOptions = {
       return token
     },
 
-    /** Expose the approved flag and tier to the client session object. */
+    /**
+     * Expose the approved flag and tier to the client session object.
+     * Always fetches the tier fresh from Redis so admin tier changes
+     * take effect immediately without requiring a sign-out.
+     */
     async session({ session, token }) {
       if (session.user) {
         session.user.approved = token.approved ?? false
-        session.user.tier     = token.tier     ?? 'free'
+        // Always fetch live tier from Redis so admin changes are instant
+        try {
+          const profile = await getUserProfile(token.email?.toLowerCase() ?? '')
+          session.user.tier = profile?.tier ?? 'free'
+        } catch {
+          session.user.tier = token.tier ?? 'free'
+        }
       }
       return session
     },
