@@ -33,16 +33,8 @@ export const authOptions = {
         return true
       }
 
-      // Register others as pending; notify owner on first registration
-      const approved  = await isApproved(email)
-      if (!approved) {
-        const isNew = await addPendingUser(email, user.name)
-        if (isNew) {
-          sendApprovalRequestEmail(user.name ?? email, email).catch(err =>
-            console.error('[auth] Failed to send approval email:', err)
-          )
-        }
-      }
+      // Auto-approve everyone — app is open to the public (freemium)
+      await approveUser(email)
       return true
     },
 
