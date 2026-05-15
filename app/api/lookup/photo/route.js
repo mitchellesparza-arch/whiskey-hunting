@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getToken }     from 'next-auth/jwt'
 import Anthropic        from '@anthropic-ai/sdk'
 import { findByName }   from '../../../../lib/whiskey-db.js'
+import { isPro }        from '../../../../lib/tier.js'
 
 /**
  * POST /api/lookup/photo
@@ -13,6 +14,10 @@ import { findByName }   from '../../../../lib/whiskey-db.js'
 export async function POST(req) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
   if (!token?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  if (!isPro(token.tier)) {
+    return NextResponse.json({ error: 'Pro required', upgradeRequired: true }, { status: 403 })
+  }
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 503 })

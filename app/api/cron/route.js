@@ -6,6 +6,7 @@ import { getLastState, saveState, logEvent } from '../../../lib/history.js'
 import { sendTruckEmail }            from '../../../lib/email.js'
 import { postTruckAlert }            from '../../../lib/discord.js'
 import { sendBroadcast }             from '../../../lib/push.js'
+import { processPendingNotifs }      from '../../../lib/finds.js'
 
 const RESTOCK_THRESHOLD = 3   // quantity jump of ≥3 = truck signal
 
@@ -175,14 +176,26 @@ export async function GET(request) {
     }
     await saveState(newState)
 
+    // ── Process delayed find notifications (free-tier 1-hour delay) ───────────
+    let delayedProcessed = 0
+    try {
+      delayedProcessed = await processPendingNotifs()
+      if (delayedProcessed > 0) {
+        console.log(`[cron] Processed ${delayedProcessed} delayed find notification(s)`)
+      }
+    } catch (err) {
+      console.warn('[cron] processPendingNotifs failed (non-fatal):', err.message)
+    }
+
     // ── Response ──────────────────────────────────────────────────────────────
     return NextResponse.json({
-      ok:          true,
+      ok:               true,
       checkedAt,
-      stores:      stores.length,
-      canaries:    canaryResults.length,
-      truckEvents: truckEvents.map(e => ({ store: e.storeName, distributor: e.distributor, triggeredBy: e.triggeredBy })),
-      emailSent:   truckEvents.length > 0,
+      stores:           stores.length,
+      canaries:         canaryResults.length,
+      truckEvents:      truckEvents.map(e => ({ store: e.storeName, distributor: e.distributor, triggeredBy: e.triggeredBy })),
+      emailSent:        truckEvents.length > 0,
+      delayedProcessed,
     })
 
   } catch (err) {

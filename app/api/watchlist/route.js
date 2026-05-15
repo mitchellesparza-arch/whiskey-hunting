@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getToken }     from 'next-auth/jwt'
 import { Redis }        from '@upstash/redis'
+import { isPro }        from '../../../lib/tier.js'
+
+const FREE_WATCHLIST_LIMIT = 3
 
 /**
  * Watchlist API — per-user bottle watchlist stored in Redis.
@@ -50,7 +53,17 @@ export async function POST(request) {
   if (!bottle?.trim()) return NextResponse.json({ error: 'bottle is required' }, { status: 400 })
 
   const bottles = await getBottles(token.email)
-  const name = bottle.trim()
+  const name    = bottle.trim()
+
+  // Enforce free-tier watchlist limit
+  if (!isPro(token.tier) && !bottles.includes(name) && bottles.length >= FREE_WATCHLIST_LIMIT) {
+    return NextResponse.json({
+      error:      'Watchlist limit reached',
+      limit:      FREE_WATCHLIST_LIMIT,
+      upgradeRequired: true,
+    }, { status: 403 })
+  }
+
   if (!bottles.includes(name)) {
     bottles.unshift(name)          // add to front
     await saveBottles(token.email, bottles)
