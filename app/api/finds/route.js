@@ -4,6 +4,7 @@ import { getFinds, addFind, removeFind, voteFind, getMonthLeaderboard } from '..
 import { getUserProfile }        from '../../../lib/friends.js'
 import { sendBroadcast }         from '../../../lib/push.js'
 import { postNewFind }           from '../../../lib/discord.js'
+import { isPro }                 from '../../../lib/tier.js'
 
 /**
  * GET /api/finds
@@ -12,9 +13,11 @@ import { postNewFind }           from '../../../lib/discord.js'
  *   archived — archived finds (24–72 h), newest first
  *   leaderboard — top 5 submitters this calendar month
  */
-export async function GET() {
+export async function GET(request) {
   try {
-    const all = await getFinds()
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+    const viewerTier = token?.tier ?? 'free'
+    const all = await getFinds(viewerTier)
 
     const finds    = all.filter(f => f.status === 'active')
     const archived = all.filter(f => f.status === 'archived')
@@ -67,26 +70,24 @@ export async function POST(request) {
       tier,
     })
 
-    const delayed = entry.visibleAt > Date.now()
+    // All finds post immediately to the map for Pro users.
+    // Fire Discord + broadcast right away for every submission.
+    await postNewFind(entry).catch(() => {})
+    sendBroadcast({
+      title: '📍 New Find',
+      body:  `${submitterName} spotted ${bottleName} at ${store.name}`,
+      url:   '/',
+      tag:   'find',
+    }, 'finds').catch(() => {})
 
-    if (!delayed) {
-      // Pro users: fire Discord + broadcast immediately
-      await postNewFind(entry).catch(() => {})
-      sendBroadcast({
-        title: '📍 New Find',
-        body:  `${submitterName} spotted ${bottleName} at ${store.name}`,
-        url:   '/',
-        tag:   'find',
-      }, 'finds').catch(() => {})
-    }
-    // Free users: Discord + broadcast are queued in wh:pending-notifs and
-    // will fire when the cron processes them after visibleAt passes.
+    // Free users see a banner telling them they won't see others' new finds for 1 hour
+    const delayed = !isPro(tier)
 
     return NextResponse.json({
       ok:       true,
       find:     entry,
       delayed,
-      visibleAt: delayed ? entry.visibleAt : null,
+      visibleAt: delayed ? entry.timestamp + (60 * 60 * 1000) : null,
     })
   } catch (err) {
     console.error('[finds] POST error:', err)
