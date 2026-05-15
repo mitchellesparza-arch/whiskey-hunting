@@ -2,7 +2,7 @@ import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { isApproved, addPendingUser, approveUser } from '../../../../lib/auth-users.js'
 import { sendApprovalRequestEmail }                from '../../../../lib/email.js'
-import { registerUser }                            from '../../../../lib/friends.js'
+import { registerUser, getUserProfile }            from '../../../../lib/friends.js'
 
 export const authOptions = {
   providers: [
@@ -48,24 +48,37 @@ export const authOptions = {
 
     /**
      * Called when the JWT is created (sign-in) or when the client calls
-     * update({ checkApproval: true }) from the pending page.
+     * update({ checkApproval: true }) from the pending page, or
+     * update({ checkTier: true }) after a Stripe checkout completes.
      */
     async jwt({ token, account, trigger, session: sessionData }) {
-      // Initial sign-in — set approved flag
+      // Initial sign-in — set approved flag and tier
       if (account) {
-        token.approved = await isApproved(token.email?.toLowerCase() ?? '')
+        const email   = token.email?.toLowerCase() ?? ''
+        token.approved = await isApproved(email)
+        const profile  = await getUserProfile(email)
+        token.tier     = profile?.tier ?? 'free'
       }
       // Explicit re-check triggered from the pending page
       if (trigger === 'update' && sessionData?.checkApproval) {
-        token.approved = await isApproved(token.email?.toLowerCase() ?? '')
+        const email   = token.email?.toLowerCase() ?? ''
+        token.approved = await isApproved(email)
+        const profile  = await getUserProfile(email)
+        token.tier     = profile?.tier ?? 'free'
+      }
+      // Explicit tier refresh after Stripe checkout / admin tier change
+      if (trigger === 'update' && sessionData?.checkTier) {
+        const profile = await getUserProfile(token.email?.toLowerCase() ?? '')
+        token.tier    = profile?.tier ?? 'free'
       }
       return token
     },
 
-    /** Expose the approved flag to the client session object. */
+    /** Expose the approved flag and tier to the client session object. */
     async session({ session, token }) {
       if (session.user) {
         session.user.approved = token.approved ?? false
+        session.user.tier     = token.tier     ?? 'free'
       }
       return session
     },

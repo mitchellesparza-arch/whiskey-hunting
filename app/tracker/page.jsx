@@ -7,7 +7,9 @@ import AppHeader from '../components/AppHeader.jsx'
 import CostcoTracker from '../components/CostcoTracker.jsx'
 import SectionHeader from '../components/ui/SectionHeader.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
+import ProGate from '../components/ProGate.jsx'
 import { hotlineBottles } from '../../lib/bottles.js'
+import { isPro } from '../../lib/tier.js'
 
 const TAB_LS_KEY = 'wh:tracker-tab'
 
@@ -248,6 +250,25 @@ function StoreActivityCard({ storeName, events, isSelected, onSelect, isFavorite
 
 export default function TrackerPage() {
   const { data: session } = useSession()
+
+  // Gate: tracker is Pro-only
+  if (session && !isPro(session.user?.tier)) {
+    return (
+      <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
+        <AppHeader sub="Tracker" />
+        <ProGate
+          feature="The Tracker"
+          icon="🚛"
+          bullets={[
+            'Real-time distributor truck arrivals at Chicagoland Binny\'s',
+            'Know exactly which stores to hit for allocated bottles',
+            'Live Costco bourbon alerts across Illinois',
+            'Checked 6× daily — 7 AM through 5 PM CDT',
+          ]}
+        />
+      </div>
+    )
+  }
 
   const [tab,            setTab]            = useState('binnys')
   const [truckEvents,    setTruckEvents]    = useState([])

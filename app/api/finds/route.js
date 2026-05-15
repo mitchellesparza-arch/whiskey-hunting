@@ -54,6 +54,7 @@ export async function POST(request) {
     const profile       = await getUserProfile(token.email)
     const submitterName = profile?.name ?? token.name ?? token.email
 
+    const tier  = token.tier ?? 'free'
     const entry = await addFind({
       bottleName,
       upc:      upc      || null,
@@ -63,20 +64,30 @@ export async function POST(request) {
       price:    price    || null,
       submittedBy:   token.email,
       submitterName,
+      tier,
     })
 
-    // Await Discord before returning so Vercel doesn't kill the function first
-    await postNewFind(entry).catch(() => {})
+    const delayed = entry.visibleAt > Date.now()
 
-    // Push notification to all subscribed members (fire-and-forget)
-    sendBroadcast({
-      title: '📍 New Find',
-      body:  `${submitterName} spotted ${bottleName} at ${store.name}`,
-      url:   '/',
-      tag:   'find',
-    }, 'finds').catch(() => {})
+    if (!delayed) {
+      // Pro users: fire Discord + broadcast immediately
+      await postNewFind(entry).catch(() => {})
+      sendBroadcast({
+        title: '📍 New Find',
+        body:  `${submitterName} spotted ${bottleName} at ${store.name}`,
+        url:   '/',
+        tag:   'find',
+      }, 'finds').catch(() => {})
+    }
+    // Free users: Discord + broadcast are queued in wh:pending-notifs and
+    // will fire when the cron processes them after visibleAt passes.
 
-    return NextResponse.json({ ok: true, find: entry })
+    return NextResponse.json({
+      ok:       true,
+      find:     entry,
+      delayed,
+      visibleAt: delayed ? entry.visibleAt : null,
+    })
   } catch (err) {
     console.error('[finds] POST error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

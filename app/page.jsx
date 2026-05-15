@@ -7,12 +7,14 @@ import { useEffect, useRef, useState } from 'react'
 import { ThumbsUp, ThumbsDown, ChevronDown, ChevronUp } from 'lucide-react'
 import BarcodeScanner    from './finds/BarcodeScanner.jsx'
 import AppHeader         from './components/AppHeader.jsx'
+import BottomSheet from './components/ui/Sheet.jsx'
 import BottleDetailSheet from './components/BottleDetailSheet.jsx'
 import StoreHistorySheet from './components/StoreHistorySheet.jsx'
 import Chip              from './components/ui/Chip.jsx'
 import Button            from './components/ui/Button.jsx'
 import Card              from './components/ui/Card.jsx'
 import EmptyState        from './components/ui/EmptyState.jsx'
+import { isPro }         from '../lib/tier.js'
 
 // Leaflet map — SSR disabled (window is required)
 const FindsMap = dynamic(() => import('./finds/FindsMap.jsx'), { ssr: false, loading: () => (
@@ -335,7 +337,11 @@ export default function FindsPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Submit failed')
 
-      setFinds(prev => [data.find, ...prev])
+      // Pro users: find is visible immediately — add to local feed
+      // Free users: find is delayed 1 hour — don't add to feed yet
+      if (!data.delayed) {
+        setFinds(prev => [data.find, ...prev])
+      }
       setBottleName('')
       setUpc('')
       setUpcStatus(null)
@@ -345,8 +351,8 @@ export default function FindsPage() {
       setNotes('')
       setPhotoFile(null)
       setPhotoPreview(null)
-      setSubmitted(true)
-      setTimeout(() => setSubmitted(false), 3000)
+      setSubmitted(data.delayed ? 'delayed' : true)
+      setTimeout(() => setSubmitted(false), data.delayed ? 6000 : 3000)
     } catch (err) {
       setSubmitError(err.message)
     } finally {
@@ -540,6 +546,28 @@ export default function FindsPage() {
       <AppHeader sub="Community Finds · Chicagoland" />
 
       <div style={{ maxWidth: 700, margin: '0 auto', padding: 'var(--sp-4) var(--sp-3)' }}>
+
+        {/* Free-tier delay notice */}
+        {session && !isPro(session.user?.tier) && (
+          <div style={{
+            display:      'flex',
+            alignItems:   'center',
+            gap:          'var(--sp-3)',
+            background:   'rgba(217,126,44,0.06)',
+            border:       '1px solid rgba(217,126,44,0.18)',
+            borderRadius: 'var(--r-md)',
+            padding:      'var(--sp-3) var(--sp-4)',
+            marginBottom: 'var(--sp-4)',
+            fontSize:     'var(--fs-meta)',
+          }}>
+            <span style={{ fontSize: 18, flexShrink: 0 }}>⏱</span>
+            <div style={{ flex: 1 }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Free plan: finds you post appear after a 1-hour delay. </span>
+              <a href="/upgrade" style={{ color: 'var(--copper-400)', fontWeight: 700, textDecoration: 'none' }}>Upgrade to Pro</a>
+              <span style={{ color: 'var(--text-dim)' }}> for instant visibility.</span>
+            </div>
+          </div>
+        )}
 
         {/* Submit Form */}
         <Card style={{ padding: 'var(--sp-5)', marginBottom: 'var(--sp-5)' }}>
@@ -747,7 +775,17 @@ export default function FindsPage() {
 
             {photoError  && <p style={{ color: 'var(--amber)', fontSize: 'var(--fs-meta)', margin: 'var(--sp-2) 0 0' }}>⚠️ {photoError}</p>}
             {submitError && <p style={{ color: 'var(--red)', fontSize: 'var(--fs-body)', margin: 'var(--sp-3) 0 0' }}>{submitError}</p>}
-            {submitted   && <p style={{ color: 'var(--green)', fontSize: 'var(--fs-body)', margin: 'var(--sp-3) 0 0' }}>✓ Find submitted! Thanks for looking out for the club.</p>}
+            {submitted === true    && <p style={{ color: 'var(--green)', fontSize: 'var(--fs-body)', margin: 'var(--sp-3) 0 0' }}>✓ Find submitted! Thanks for looking out for the club.</p>}
+            {submitted === 'delayed' && (
+              <div style={{ marginTop: 'var(--sp-3)', padding: 'var(--sp-3)', background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 'var(--r-md)' }}>
+                <p style={{ color: 'var(--amber)', fontSize: 'var(--fs-meta)', margin: 0, fontWeight: 700, marginBottom: 4 }}>⏱ Find submitted — visible in ~1 hour</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-overline)', margin: 0, lineHeight: 1.5 }}>
+                  Free members' finds appear on a 1-hour delay.{' '}
+                  <a href="/upgrade" style={{ color: 'var(--copper-400)', fontWeight: 700, textDecoration: 'none' }}>Upgrade to Pro</a>
+                  {' '}for instant visibility.
+                </p>
+              </div>
+            )}
 
             <Button type="submit" disabled={submitting} variant="primary" fullWidth style={{ marginTop: 'var(--sp-4)', fontSize: 'var(--fs-h3)' }}>
               📍 {submitting ? 'Submitting…' : 'Submit Find'}

@@ -8,6 +8,8 @@ import Sheet from '../components/ui/Sheet.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import Button from '../components/ui/Button.jsx'
 import Chip from '../components/ui/Chip.jsx'
+import ProGate, { ProInlineBadge } from '../components/ProGate.jsx'
+import { isPro } from '../../lib/tier.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared helpers
@@ -1067,7 +1069,9 @@ function MarketplaceTab({ userEmail }) {
 
 export default function MarketplacePage() {
   const { data: session } = useSession()
-  const [tab, setTab]     = useState('auctions')
+  const userIsPro = isPro(session?.user?.tier)
+  // Default free users to marketplace tab since auctions are gated
+  const [tab, setTab] = useState(userIsPro ? 'auctions' : 'marketplace')
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
@@ -1089,10 +1093,11 @@ export default function MarketplacePage() {
           }}
         >
           {[
-            { key: 'auctions',    label: '🦄 Auctions'   },
-            { key: 'marketplace', label: '🥃 Marketplace' },
-          ].map(({ key, label }) => {
-            const active = tab === key
+            { key: 'auctions',    label: '🦄 Auctions',    pro: true  },
+            { key: 'marketplace', label: '🥃 Marketplace',  pro: false },
+          ].map(({ key, label, pro }) => {
+            const active  = tab === key
+            const locked  = pro && !userIsPro
             return (
               <button
                 key={key}
@@ -1110,16 +1115,31 @@ export default function MarketplacePage() {
                   cursor:       'pointer',
                   transition:   'all var(--t-fast) var(--ease-out)',
                   fontFamily:   'inherit',
+                  display:      'flex',
+                  alignItems:   'center',
+                  gap:          6,
                 }}
               >
                 {label}
+                {locked && <ProInlineBadge />}
               </button>
             )
           })}
         </div>
 
         {tab === 'auctions'
-          ? <AuctionsTab />
+          ? (userIsPro
+              ? <AuctionsTab />
+              : <ProGate
+                  feature="Unicorn Auctions"
+                  icon="🦄"
+                  bullets={[
+                    'Live auction listings for the rarest allocated bottles',
+                    'Track bids on Pappy, BTAC, and other unicorns',
+                    'Direct links to active auctions',
+                  ]}
+                />
+            )
           : <MarketplaceTab userEmail={session?.user?.email} />
         }
       </div>

@@ -3,6 +3,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter }  from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import AppHeader from '../components/AppHeader.jsx'
+import { TIERS, tierLabel, tierColor } from '../../lib/tier.js'
 
 function Avatar({ name }) {
   const initials = name
@@ -39,12 +40,14 @@ export default function AdminPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
 
-  const [pending,   setPending]   = useState([])
-  const [approved,  setApproved]  = useState([])
-  const [loading,   setLoading]   = useState(true)
-  const [denied,    setDenied]    = useState(false)
-  const [approving, setApproving] = useState(null) // email being approved
-  const [tab,       setTab]       = useState('pending')
+  const [pending,    setPending]    = useState([])
+  const [approved,   setApproved]   = useState([])
+  const [members,    setMembers]    = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [denied,     setDenied]     = useState(false)
+  const [approving,  setApproving]  = useState(null) // email being approved
+  const [settingTier, setSettingTier] = useState(null) // email having tier changed
+  const [tab,        setTab]        = useState('pending')
 
   // Redirect non-owners
   useEffect(() => {
@@ -55,13 +58,19 @@ export default function AdminPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/users')
-      if (res.status === 401) { setDenied(true); setLoading(false); return }
-      const data = await res.json()
-      setPending((data.pending ?? []).sort((a, b) =>
+      const [usersRes, tierRes] = await Promise.all([
+        fetch('/api/admin/users'),
+        fetch('/api/admin/tier'),
+      ])
+      if (usersRes.status === 401) { setDenied(true); setLoading(false); return }
+      const usersData = await usersRes.json()
+      const tierData  = tierRes.ok ? await tierRes.json() : { users: [] }
+
+      setPending((usersData.pending ?? []).sort((a, b) =>
         new Date(b.requestedAt ?? 0) - new Date(a.requestedAt ?? 0)
       ))
-      setApproved((data.approved ?? []).sort())
+      setApproved((usersData.approved ?? []).sort())
+      setMembers((tierData.users ?? []).sort((a, b) => (a.email > b.email ? 1 : -1)))
     } finally {
       setLoading(false)
     }
@@ -82,6 +91,20 @@ export default function AdminPage() {
       await load()
     } finally {
       setApproving(null)
+    }
+  }
+
+  async function setTier(email, tier) {
+    setSettingTier(email)
+    try {
+      await fetch('/api/admin/tier', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email, tier }),
+      })
+      await load()
+    } finally {
+      setSettingTier(null)
     }
   }
 
@@ -140,6 +163,9 @@ export default function AdminPage() {
           </button>
           <button style={tabStyle(tab === 'approved')} onClick={() => setTab('approved')}>
             Approved ({approved.length})
+          </button>
+          <button style={tabStyle(tab === 'members')} onClick={() => setTab('members')}>
+            Members ({members.length})
           </button>
         </div>
 
@@ -218,6 +244,82 @@ export default function AdminPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Members / Tier management tab */}
+        {tab === 'members' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+            {members.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 'var(--sp-12) 0', color: 'var(--text-dim)', fontSize: 'var(--fs-body)' }}>
+                No members yet
+              </div>
+            )}
+            {members.map(u => {
+              const tier = u.tier ?? TIERS.FREE
+              return (
+                <div key={u.email} style={{
+                  background:   'var(--bg-elev-2)',
+                  border:       '1px solid var(--hairline-2)',
+                  borderRadius: 12,
+                  padding:      'var(--sp-3) var(--sp-4)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-2)' }}>
+                    <Avatar name={u.name ?? u.email} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)',
+                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {u.name ?? u.email}
+                      </div>
+                      <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)',
+                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {u.email}
+                      </div>
+                    </div>
+                    {/* Tier badge */}
+                    <span style={{
+                      fontSize:     'var(--fs-overline)',
+                      fontWeight:   700,
+                      color:        tierColor(tier),
+                      background:   `${tierColor(tier)}22`,
+                      borderRadius: 999,
+                      padding:      '2px 10px',
+                      flexShrink:   0,
+                    }}>
+                      {tierLabel(tier)}
+                    </span>
+                  </div>
+                  {/* Tier controls */}
+                  <div style={{ display: 'flex', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
+                    {Object.values(TIERS).map(t => (
+                      <button
+                        key={t}
+                        disabled={tier === t || settingTier === u.email}
+                        onClick={() => setTier(u.email, t)}
+                        style={{
+                          padding:      'var(--sp-1) var(--sp-3)',
+                          borderRadius: 'var(--r-sm)',
+                          fontSize:     'var(--fs-overline)',
+                          fontWeight:   700,
+                          border:       `1px solid ${tier === t ? tierColor(t) : 'var(--hairline-2)'}`,
+                          background:   tier === t ? `${tierColor(t)}22` : 'transparent',
+                          color:        tier === t ? tierColor(t) : 'var(--text-muted)',
+                          cursor:       tier === t || settingTier === u.email ? 'default' : 'pointer',
+                          opacity:      settingTier === u.email && tier !== t ? 0.5 : 1,
+                        }}
+                      >
+                        {settingTier === u.email && tier !== t ? '…' : tierLabel(t)}
+                      </button>
+                    ))}
+                  </div>
+                  {u.subscriptionStatus && (
+                    <div style={{ marginTop: 'var(--sp-2)', fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>
+                      Stripe: {u.subscriptionStatus}{u.subscriptionId ? ` · ${u.subscriptionId.slice(0, 12)}…` : ''}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 

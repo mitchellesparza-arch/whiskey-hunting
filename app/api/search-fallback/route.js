@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getToken }     from 'next-auth/jwt'
 import Anthropic        from '@anthropic-ai/sdk'
 import { Redis }        from '@upstash/redis'
+import { isPro }        from '../../../lib/tier.js'
 
 /**
  * GET /api/search-fallback?q=<query>
@@ -43,6 +44,10 @@ function normQuery(q) {
 export async function GET(req) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
   if (!token?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  if (!isPro(token.tier)) {
+    return NextResponse.json({ suggestions: [], upgradeRequired: true })
+  }
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 503 })

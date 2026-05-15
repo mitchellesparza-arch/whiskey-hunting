@@ -4,6 +4,8 @@ import { useRouter }   from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ChevronLeft, TrendingUp, BarChart2, ExternalLink } from 'lucide-react'
 import Chip from '../components/ui/Chip.jsx'
+import ProGate from '../components/ProGate.jsx'
+import { isPro } from '../../lib/tier.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -154,6 +156,21 @@ export default function MarketIndexPage() {
     if (status === 'unauthenticated') router.replace('/login')
     if (status === 'authenticated' && session?.user?.approved === false) router.replace('/pending')
   }, [status, session])
+
+  // Gate: market index is Pro-only
+  if (status === 'authenticated' && !isPro(session?.user?.tier)) {
+    return (
+      <ProGate
+        feature="The Market Index"
+        icon="📊"
+        bullets={[
+          'Secondary market pricing for 100+ allocated bottles',
+          'Premium-over-MSRP percentages and trend data',
+          'Unicorn and top-tier bottle valuations',
+        ]}
+      />
+    )
+  }
 
   useEffect(() => {
     fetch('/api/market-index')
