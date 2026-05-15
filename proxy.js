@@ -25,6 +25,6 @@ export async function proxy(req) {
 }
 
 export const config = {
-  // Protect all pages except auth routes and static assets
-  matcher: ['/((?!api|_next/static|_next/image|favicon\\.ico|login|pending).*)'],
+  // Protect all pages except auth routes, static assets, and public files with extensions
+  matcher: ['/((?!api|_next/static|_next/image|favicon\\.ico|login|pending|.*\\.\\w+$).*)'],
 }
