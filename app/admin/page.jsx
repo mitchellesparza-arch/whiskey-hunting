@@ -37,7 +37,7 @@ function timeAgo(iso) {
 }
 
 export default function AdminPage() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
   const router = useRouter()
 
   const [pending,    setPending]    = useState([])
@@ -103,6 +103,10 @@ export default function AdminPage() {
         body:    JSON.stringify({ email, tier }),
       })
       await load()
+      // If changing your own tier, refresh the session so it takes effect immediately
+      if (email.toLowerCase() === session?.user?.email?.toLowerCase()) {
+        await update({ checkTier: true })
+      }
     } finally {
       setSettingTier(null)
     }
