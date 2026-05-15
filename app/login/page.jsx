@@ -39,7 +39,7 @@ function LoginContent() {
           boxShadow:    'var(--shadow-glow)',
         }}>
         <img
-          src="/icon-512.png"
+          src="/icon-384.png"
           alt="Tater Tracker"
           style={{
             width:      '100%',
