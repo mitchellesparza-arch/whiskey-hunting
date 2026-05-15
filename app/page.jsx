@@ -561,9 +561,9 @@ export default function FindsPage() {
           }}>
             <span style={{ fontSize: 18, flexShrink: 0 }}>⏱</span>
             <div style={{ flex: 1 }}>
-              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Free plan: finds you post appear after a 1-hour delay. </span>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Free plan: your finds post immediately for everyone — but the feed you see is at least 1 hour behind. </span>
               <a href="/upgrade" style={{ color: 'var(--copper-400)', fontWeight: 700, textDecoration: 'none' }}>Upgrade to Pro</a>
-              <span style={{ color: 'var(--text-dim)' }}> for instant visibility.</span>
+              <span style={{ color: 'var(--text-dim)' }}> for the real-time feed.</span>
             </div>
           </div>
         )}
@@ -777,11 +777,11 @@ export default function FindsPage() {
             {submitted === true    && <p style={{ color: 'var(--green)', fontSize: 'var(--fs-body)', margin: 'var(--sp-3) 0 0' }}>✓ Find submitted! Thanks for looking out for the club.</p>}
             {submitted === 'delayed' && (
               <div style={{ marginTop: 'var(--sp-3)', padding: 'var(--sp-3)', background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 'var(--r-md)' }}>
-                <p style={{ color: 'var(--amber)', fontSize: 'var(--fs-meta)', margin: 0, fontWeight: 700, marginBottom: 4 }}>⏱ Find submitted — visible in ~1 hour</p>
+                <p style={{ color: 'var(--amber)', fontSize: 'var(--fs-meta)', margin: 0, fontWeight: 700, marginBottom: 4 }}>✓ Find posted — Pro members can see it now</p>
                 <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-overline)', margin: 0, lineHeight: 1.5 }}>
-                  Free members' finds appear on a 1-hour delay.{' '}
+                  On the free plan, the feed you see is at least 1 hour behind.{' '}
                   <a href="/upgrade" style={{ color: 'var(--copper-400)', fontWeight: 700, textDecoration: 'none' }}>Upgrade to Pro</a>
-                  {' '}for instant visibility.
+                  {' '}to see finds the moment they&apos;re posted.
                 </p>
               </div>
             )}
