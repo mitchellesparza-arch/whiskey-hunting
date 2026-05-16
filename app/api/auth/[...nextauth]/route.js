@@ -24,11 +24,8 @@ export const authOptions = {
       if (!email) return false
 
       // Always upsert the user's display name in the registry; notify on first sign-in
-      registerUser(email, user.name)
-        .then(({ isNew }) => {
-          if (isNew) sendNewUserEmail(user.name ?? email, email).catch(() => {})
-        })
-        .catch(() => {})
+      const { isNew } = await registerUser(email, user.name)
+      if (isNew) sendNewUserEmail(user.name ?? email, email).catch(() => {})
 
       // Auto-approve the owner
       const ownerEmail = process.env.ALERT_EMAIL?.toLowerCase()
