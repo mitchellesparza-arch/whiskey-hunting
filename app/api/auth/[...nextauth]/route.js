@@ -23,22 +23,14 @@ export const authOptions = {
       const email = user.email?.toLowerCase()
       if (!email) return false
 
-      // Always upsert the user's display name in the registry; notify on first sign-in
-      // Wrapped in try/catch — a Redis failure must never block sign-in
+      // All Redis ops are fire-and-forget — a failure must never block sign-in
       try {
         const { isNew } = await registerUser(email, user.name)
         if (isNew) sendNewUserEmail(user.name ?? email, email).catch(() => {})
       } catch {}
 
-      // Auto-approve the owner
-      const ownerEmail = process.env.ALERT_EMAIL?.toLowerCase()
-      if (ownerEmail && email === ownerEmail) {
-        await approveUser(email)
-        return true
-      }
+      try { await approveUser(email) } catch {}
 
-      // Auto-approve everyone — app is open to the public (freemium)
-      await approveUser(email)
       return true
     },
 
@@ -50,22 +42,28 @@ export const authOptions = {
     async jwt({ token, account, trigger, session: sessionData }) {
       // Initial sign-in — set approved flag and tier
       if (account) {
-        const email   = token.email?.toLowerCase() ?? ''
-        token.approved = await isApproved(email)
-        const profile  = await getUserProfile(email)
-        token.tier     = profile?.tier ?? 'free'
+        const email = token.email?.toLowerCase() ?? ''
+        try { token.approved = await isApproved(email) } catch { token.approved = true }
+        try {
+          const profile = await getUserProfile(email)
+          token.tier = profile?.tier ?? 'free'
+        } catch { token.tier = 'free' }
       }
       // Explicit re-check triggered from the pending page
       if (trigger === 'update' && sessionData?.checkApproval) {
-        const email   = token.email?.toLowerCase() ?? ''
-        token.approved = await isApproved(email)
-        const profile  = await getUserProfile(email)
-        token.tier     = profile?.tier ?? 'free'
+        const email = token.email?.toLowerCase() ?? ''
+        try { token.approved = await isApproved(email) } catch {}
+        try {
+          const profile = await getUserProfile(email)
+          token.tier = profile?.tier ?? 'free'
+        } catch {}
       }
       // Explicit tier refresh after Stripe checkout / admin tier change
       if (trigger === 'update' && sessionData?.checkTier) {
-        const profile = await getUserProfile(token.email?.toLowerCase() ?? '')
-        token.tier    = profile?.tier ?? 'free'
+        try {
+          const profile = await getUserProfile(token.email?.toLowerCase() ?? '')
+          token.tier = profile?.tier ?? 'free'
+        } catch {}
       }
       return token
     },
