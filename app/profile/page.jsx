@@ -7,6 +7,7 @@ import { ShelvingUnit, Users, ListTodo, Dices, EyeOff, BarChart2 } from 'lucide-
 import AppHeader      from '../components/AppHeader.jsx'
 import StatTile       from '../components/ui/StatTile.jsx'
 import Card           from '../components/ui/Card.jsx'
+import { isPro }      from '../../lib/tier.js'
 
 function initials(name) {
   if (!name) return '?'
@@ -137,8 +138,20 @@ export default function ProfilePage() {
             <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--text-primary)', lineHeight: 1.2 }}>
               {displayName}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
-              Tater Tracker · Member
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Tater Tracker ·{' '}
+                {session?.user?.tier === 'grandfathered' ? 'Grandfathered' :
+                 isPro(session?.user?.tier) ? 'Pro' : 'Free'}
+              </div>
+              {isPro(session?.user?.tier) && session?.user?.tier !== 'grandfathered' && (
+                <Link href="/upgrade" style={{
+                  fontSize: 11, color: 'var(--text-dim)', textDecoration: 'none',
+                  borderBottom: '1px solid var(--hairline-2)',
+                }}>
+                  manage
+                </Link>
+              )}
             </div>
           </div>
         </div>
