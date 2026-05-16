@@ -143,7 +143,7 @@ export async function GET(request) {
 
     if (truckEvents.length) {
       console.log('[cron] Truck events:', truckEvents.map(e => `${e.storeName}/${e.distributor}`).join(', '))
-      await sendTruckEmail(truckEvents, checkedAt)
+      // await sendTruckEmail(truckEvents, checkedAt)
       // Post one Discord alert per event (distributor × store)
       await Promise.allSettled(
         truckEvents.map(e => postTruckAlert({
