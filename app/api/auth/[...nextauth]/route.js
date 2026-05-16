@@ -24,8 +24,11 @@ export const authOptions = {
       if (!email) return false
 
       // Always upsert the user's display name in the registry; notify on first sign-in
-      const { isNew } = await registerUser(email, user.name)
-      if (isNew) sendNewUserEmail(user.name ?? email, email).catch(() => {})
+      // Wrapped in try/catch — a Redis failure must never block sign-in
+      try {
+        const { isNew } = await registerUser(email, user.name)
+        if (isNew) sendNewUserEmail(user.name ?? email, email).catch(() => {})
+      } catch {}
 
       // Auto-approve the owner
       const ownerEmail = process.env.ALERT_EMAIL?.toLowerCase()
