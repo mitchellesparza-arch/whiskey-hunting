@@ -361,7 +361,7 @@ export default function TrackerPage() {
             'Real-time distributor truck arrivals at Chicagoland Binny\'s',
             'Know exactly which stores to hit for allocated bottles',
             'Live Costco bourbon alerts across Illinois',
-            'Checked 6× daily — 7 AM through 5 PM CDT',
+            'Checked every hour, around the clock',
           ]}
         />
       </div>
@@ -477,7 +477,7 @@ export default function TrackerPage() {
           <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-meta)', marginTop: 'var(--sp-1)', marginBottom: 'var(--sp-3)' }}>
             {selectedStore
               ? `Binny's ${selectedStore} · ${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}`
-              : `All Chicagoland locations · ${truckEvents.length} event${truckEvents.length !== 1 ? 's' : ''} · checked 6× daily`}
+              : `All Chicagoland locations · ${truckEvents.length} event${truckEvents.length !== 1 ? 's' : ''} · checked hourly`}
           </p>
 
           {historyLoaded && storeNames.length > 0 && (
@@ -534,11 +534,11 @@ export default function TrackerPage() {
               <EmptyState
                 icon="Truck"
                 title="No truck deliveries detected yet"
-                body="Checked 6× daily — 7, 9, 11 AM and 1, 3, 5 PM CDT. When a delivery truck is detected at any Chicagoland location, it shows up here."
+                body="Checked every hour. When a delivery truck is detected at any Chicagoland location, it shows up here."
               />
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 16 }}>
                 {[
-                  { step: '1', label: 'Canary scan',    desc: 'Every 6h, the tracker checks if high-volume bottles (Old Forester, Benchmark, etc.) have restocked at each store.' },
+                  { step: '1', label: 'Canary scan',    desc: 'Every hour, the tracker checks if high-volume bottles (Old Forester, Benchmark, etc.) have restocked at each store.' },
                   { step: '2', label: 'Truck detected', desc: 'A sudden restock of canary bottles means a delivery truck likely just visited. We flag it and log which distributor.' },
                   { step: '3', label: 'Check the map',  desc: 'Use the Distributor Map below to know which allocated bottles may be on that truck — then head to the store.' },
                 ].map(s => (
@@ -600,7 +600,7 @@ export default function TrackerPage() {
       >
         {tab === 'costco'
           ? 'Tater Tracker · Live Costco alerts across Illinois'
-          : 'Tater Tracker · Checked 6× daily: 7 AM · 9 AM · 11 AM · 1 PM · 3 PM · 5 PM CDT'}
+          : 'Tater Tracker · Checked every hour'}
       </footer>
 
     </div>
