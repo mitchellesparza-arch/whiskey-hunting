@@ -83,6 +83,7 @@ query SearchLots($input: SearchLotInput!) {
       highEstimate
       reservePrice
       reservePriceMet
+      imageUrl
       currentBid {
         amount
         currency

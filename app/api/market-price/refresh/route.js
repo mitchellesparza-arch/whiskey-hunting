@@ -85,6 +85,10 @@ const UA_PAGE_SIZE     = 1000
 const UA_MAX_PAGES     = 10                                 // safety cap; early cutoff exit handles termination
 const UA_LOOKBACK_DAYS = 8                                  // cron runs weekly — only need lots since last Monday
 
+// All categories present in the static catalog — Bourbon only was leaving
+// Rye, Scotch, Japanese, etc. entries permanently on static fallback prices.
+const UA_CATEGORIES    = ['Bourbon', 'Rye', 'Scotch', 'American', 'Japanese', 'Irish', 'Canadian', 'Tennessee', 'Blended']
+
 // Lots whose titles match these patterns are special editions whose prices
 // would skew aggregate hammer prices for standard releases (Pappy 15 standard
 // = $1k-$2k; private barrels = $15k-$25k).
@@ -107,45 +111,47 @@ async function fetchUALots(diag) {
   const lots   = []
   const cutoff = Date.now() - UA_LOOKBACK_DAYS * 86400_000
 
-  for (let page = 0; page < UA_MAX_PAGES; page++) {
-    const offset = page * UA_PAGE_SIZE
+  for (const category of UA_CATEGORIES) {
+    for (let page = 0; page < UA_MAX_PAGES; page++) {
+      const offset = page * UA_PAGE_SIZE
 
-    const res = await fetch(UA_GQL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body:    JSON.stringify({
-        query:     UA_QUERY,
-        variables: {
-          input: {
-            category: 'Bourbon',
-            state:    'ENDED',
-            sortBy:   'end_datetime_desc',
-            limit:    UA_PAGE_SIZE,
-            offset,
+      const res = await fetch(UA_GQL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body:    JSON.stringify({
+          query:     UA_QUERY,
+          variables: {
+            input: {
+              category,
+              state:    'ENDED',
+              sortBy:   'end_datetime_desc',
+              limit:    UA_PAGE_SIZE,
+              offset,
+            },
           },
-        },
-      }),
-    })
-    if (!res.ok) { diag.errors.push(`UA HTTP ${res.status}`); break }
+        }),
+      })
+      if (!res.ok) { diag.errors.push(`UA HTTP ${res.status} (${category})`); break }
 
-    const json = await res.json()
-    if (json.errors?.length) { diag.errors.push(`UA GQL: ${json.errors[0].message}`); break }
+      const json = await res.json()
+      if (json.errors?.length) { diag.errors.push(`UA GQL (${category}): ${json.errors[0].message}`); break }
 
-    const results = json?.data?.searchLots?.results
-    if (!Array.isArray(results)) { diag.errors.push('UA: unexpected response shape'); break }
-    if (results.length === 0) break
+      const results = json?.data?.searchLots?.results
+      if (!Array.isArray(results)) { diag.errors.push(`UA: unexpected response shape (${category})`); break }
+      if (results.length === 0) break
 
-    let crossedCutoff = false
-    for (const lot of results) {
-      const ts = lot.endDatetime ? Date.parse(lot.endDatetime) : NaN
-      if (Number.isFinite(ts) && ts < cutoff) { crossedCutoff = true; continue }
-      if (isSpecialEdition(lot.title)) { diag.specialFiltered++; continue }
-      const hammer = Number(lot.currentBid?.amount)
-      if (!hammer || hammer <= 0) continue
-      lots.push({ title: lot.title, hammer, endDatetime: lot.endDatetime })
+      let crossedCutoff = false
+      for (const lot of results) {
+        const ts = lot.endDatetime ? Date.parse(lot.endDatetime) : NaN
+        if (Number.isFinite(ts) && ts < cutoff) { crossedCutoff = true; continue }
+        if (isSpecialEdition(lot.title)) { diag.specialFiltered++; continue }
+        const hammer = Number(lot.currentBid?.amount)
+        if (!hammer || hammer <= 0) continue
+        lots.push({ title: lot.title, hammer, endDatetime: lot.endDatetime })
+      }
+
+      if (results.length < UA_PAGE_SIZE || crossedCutoff) break
     }
-
-    if (results.length < UA_PAGE_SIZE || crossedCutoff) break
   }
 
   diag.lotsFetched = lots.length

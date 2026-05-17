@@ -99,7 +99,8 @@ async function sendAuditEmail(stats) {
       : 'unknown'
     const scraperRows = [
       statRow('Last ran', `${ranAgo} (${lastScrape.scraped_at ? new Date(lastScrape.scraped_at).toUTCString() : '?'})`),
-      statRow('Total lots in output', (lastScrape.dealsCount ?? '?').toLocaleString()),
+      statRow('Total lots scraped', (lastScrape.totalLots ?? '?').toLocaleString()),
+      statRow('Top deals stored in Redis', (lastScrape.dealsStored ?? '?').toLocaleString()),
       ...(lastScrape.category_counts
         ? Object.entries(lastScrape.category_counts).map(([k, v]) => statRow(k, v))
         : []),
@@ -290,7 +291,8 @@ export async function GET(request) {
       if (deals) {
         lastScrape = {
           scraped_at:      deals.scraped_at ?? null,
-          dealsCount:      deals.deals?.length ?? null,
+          totalLots:       deals.total_lots ?? null,
+          dealsStored:     deals.deals?.length ?? null,
           category_counts: deals.category_counts ?? null,
         }
       }
