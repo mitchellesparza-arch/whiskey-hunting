@@ -364,8 +364,12 @@ def enrich_with_msrp(listings: list[dict]) -> None:
 def push_bottle_catalog_to_redis(bottles: list[dict]) -> None:
     """
     Upsert unique bottle names seen in this scrape into wh:ua:catalog Redis hash.
-    Field = normalized name, value = JSON {name, category, lastSeen}.
-    Existing fields are overwritten — lastSeen acts as a freshness marker.
+    Field = normalized name, value = JSON {name, category, imageUrl, lotUrl, firstSeen, lastSeen}.
+
+    Canonicalization rules (applied across runs, not just within a scrape):
+      - firstSeen: set once on the first write, never overwritten
+      - imageUrl / lotUrl: preserved from a prior run if the new scrape lacks one
+      - lastSeen: always updated to the current run timestamp
     """
     import re
 
@@ -380,6 +384,17 @@ def push_bottle_catalog_to_redis(bottles: list[dict]) -> None:
         s = re.sub(r"['''‚‛′‵]", "", s)
         s = re.sub(r"[^a-z0-9\s]", " ", s)
         return re.sub(r"\s+", " ", s).strip()
+
+    def _pipeline(cmds: list) -> list:
+        payload = json.dumps(cmds).encode("utf-8")
+        req = urllib.request.Request(
+            f"{url}/pipeline",
+            data=payload,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read())
 
     now_iso = datetime.now(timezone.utc).isoformat()
     seen: dict[str, dict] = {}
@@ -398,8 +413,6 @@ def push_bottle_catalog_to_redis(bottles: list[dict]) -> None:
             seen[nk] = {"name": name, "category": category, "lastSeen": now_iso}
         if image_url and not seen[nk].get("imageUrl"):
             seen[nk]["imageUrl"] = image_url
-        # Store lotUrl so the image can be fetched from the lot page even after
-        # the auction ends (lot pages are permanent on UA).
         if lot_url and not seen[nk].get("lotUrl"):
             seen[nk]["lotUrl"] = lot_url
 
@@ -407,9 +420,42 @@ def push_bottle_catalog_to_redis(bottles: list[dict]) -> None:
         print("No bottles to push to catalog")
         return
 
-    items      = list(seen.items())
-    BATCH_SIZE = 200  # fields per HSET command
+    # Fetch existing catalog entries in bulk so we can preserve firstSeen and
+    # any imageUrl/lotUrl that was captured in a prior scrape run.
+    BATCH_SIZE  = 200
+    norm_keys   = list(seen.keys())
+    existing: dict[str, dict] = {}
 
+    for i in range(0, len(norm_keys), BATCH_SIZE):
+        batch_keys = norm_keys[i : i + BATCH_SIZE]
+        try:
+            results = _pipeline([["HGET", "wh:ua:catalog", nk] for nk in batch_keys])
+            for nk, result in zip(batch_keys, results):
+                raw = result.get("result")
+                if raw:
+                    try:
+                        existing[nk] = json.loads(raw)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+        except Exception as exc:
+            print(f"Warning: catalog fetch batch failed: {exc}")
+
+    # Merge new scrape data with existing entries.
+    new_count = 0
+    for nk, entry in seen.items():
+        prev = existing.get(nk)
+        if prev:
+            entry["firstSeen"] = prev.get("firstSeen", now_iso)
+            if not entry.get("imageUrl") and prev.get("imageUrl"):
+                entry["imageUrl"] = prev["imageUrl"]
+            if not entry.get("lotUrl") and prev.get("lotUrl"):
+                entry["lotUrl"] = prev["lotUrl"]
+        else:
+            entry["firstSeen"] = now_iso
+            new_count += 1
+
+    # Write merged entries back in batches.
+    items        = list(seen.items())
     total_pushed = 0
     for i in range(0, len(items), BATCH_SIZE):
         batch = items[i : i + BATCH_SIZE]
@@ -417,23 +463,12 @@ def push_bottle_catalog_to_redis(bottles: list[dict]) -> None:
         for nk, meta in batch:
             cmd += [nk, json.dumps(meta)]
         try:
-            payload = json.dumps([cmd]).encode("utf-8")
-            req = urllib.request.Request(
-                f"{url}/pipeline",
-                data=payload,
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json",
-                },
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                json.loads(resp.read())
-                total_pushed += len(batch)
+            _pipeline([cmd])
+            total_pushed += len(batch)
         except Exception as exc:
             print(f"Warning: catalog batch push failed: {exc}")
 
-    print(f"UA catalog: pushed {total_pushed} entries to wh:ua:catalog")
+    print(f"UA catalog: pushed {total_pushed} entries ({new_count} new) to wh:ua:catalog")
 
 
 def push_price_history_to_redis(completed_sales: list[dict]) -> None:

@@ -36,7 +36,7 @@ function matchEntry(lotTitle, entries) {
   for (const entry of entries) {
     for (const candidate of [entry.name, ...(entry.aliases ?? [])].map(normName)) {
       const s = scoreMatch(norm, candidate)
-      if (s > bestScore && s >= 0.6) { bestScore = s; best = entry }
+      if (s > bestScore && s >= 0.5) { bestScore = s; best = entry }
     }
   }
   return best
@@ -81,22 +81,22 @@ const UA_QUERY = `
   }
 `
 
-const UA_PAGE_SIZE     = 1000                              // server caps observed at 1000
-const UA_MAX_PAGES     = 5                                  // 5k lots is well past 12 months of bourbon ENDED
-const UA_LOOKBACK_DAYS = 365
+const UA_PAGE_SIZE     = 1000
+const UA_MAX_PAGES     = 10                                 // safety cap; early cutoff exit handles termination
+const UA_LOOKBACK_DAYS = 8                                  // cron runs weekly — only need lots since last Monday
 
 // Lots whose titles match these patterns are special editions whose prices
 // would skew aggregate hammer prices for standard releases (Pappy 15 standard
 // = $1k-$2k; private barrels = $15k-$25k).
 const SPECIAL_EDITION_PATTERNS = [
   /'[^']{2,}'/,                       // 'Husk', 'Civic Center', 'Sam's Wines'
-  /private barrel|private selection|store pick/i,
+  /private.*(barrel|selection)|store.*pick/i,
   /barrel #?\d/i,                     // Barrel #11, Barrel 1789B
   /cask\s+[a-z]?\d/i,                 // Cask 2, Cask C49
   /local pickup only/i,
   /decanter/i,
   /\(1[89]\d{2}\)/,                   // pre-2000 vintage year in parens
-  /warehouse [a-z] tornado/i,         // EH Taylor Warehouse C Tornado limited release
+  /warehouse\s*[a-z]?\s*tornado/i,    // EH Taylor Warehouse C Tornado limited release
 ]
 
 function isSpecialEdition(title) {
