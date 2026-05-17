@@ -94,8 +94,13 @@ export default function FindsPage() {
   const bottleInputRef = useRef(null)
 
   // Label scan fallback (when UPC not in DB)
-  const [labelScanning,  setLabelScanning]  = useState(false)
+  const [labelScanning,   setLabelScanning]   = useState(false)
   const labelScanRef = useRef(null)
+
+  // AI bottle identification (triggered automatically on UPC miss)
+  const [upcIdentifying,  setUpcIdentifying]  = useState(false)
+  const [aiBottle,        setAiBottle]        = useState(null)
+  const upcIdentifyRef = useRef(null)
 
   // UI
   const [showScanner,    setShowScanner]    = useState(false)
@@ -228,6 +233,33 @@ export default function FindsPage() {
     setBottleName(name)
     setSuggestions([])
     setShowSuggestions(false)
+  }
+
+  // ── AI bottle identification (UPC miss flow) ──────────────────────────────
+  async function handleUpcIdentify(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUpcIdentifying(true)
+    setAiBottle(null)
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload  = () => resolve(reader.result.split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const r = await fetch('/api/upc/identify', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ upc, image: base64, mediaType: file.type || 'image/jpeg' }),
+      })
+      const d = await r.json()
+      if (d.found && d.bottle?.name) {
+        setAiBottle(d.bottle)
+      }
+    } catch {}
+    setUpcIdentifying(false)
+    e.target.value = ''
   }
 
   // ── Label scan fallback (UPC not found) ────────────────────────────────────
@@ -692,18 +724,129 @@ export default function FindsPage() {
                 <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', fontFamily: "'DM Mono', monospace" }}>UPC: {upc}</span>
                 {upcLooking && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>🔍 Looking up…</span>}
                 {!upcLooking && upcStatus === 'found'     && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--green)' }}>✓ Name filled from barcode</span>}
-                {!upcLooking && upcStatus === 'not-found' && (
-                  <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--amber)' }}>
-                    Not in database — try Scan Label above
-                  </span>
+                {!upcLooking && upcStatus === 'not-found' && !aiBottle && (
+                  <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--amber)' }}>Not in database</span>
                 )}
                 <button
                   type="button"
-                  onClick={() => { setUpc(''); setUpcStatus(null) }}
+                  onClick={() => { setUpc(''); setUpcStatus(null); setAiBottle(null) }}
                   style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 'var(--fs-meta)' }}
                 >✕ clear</button>
               </div>
             )}
+
+            {/* Prompt shown automatically when a scanned barcode isn't in the DB */}
+            {upcStatus === 'not-found' && !aiBottle && !upcIdentifying && (
+              <div style={{
+                marginTop:    8,
+                background:   'rgba(217,126,44,0.06)',
+                border:       '1px solid rgba(217,126,44,0.22)',
+                borderRadius: 'var(--r-md)',
+                padding:      'var(--sp-3)',
+              }}>
+                <div style={{ fontSize: 'var(--fs-meta)', fontWeight: 700, color: 'var(--amber)', marginBottom: 4 }}>
+                  📷 Barcode not in our database
+                </div>
+                <p style={{ margin: '0 0 10px', fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  Take a quick photo of the label and we'll identify it for everyone — future scans of this barcode will resolve instantly.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => upcIdentifyRef.current?.click()}
+                  style={{
+                    background:   'var(--copper-500)',
+                    color:        'var(--text-inverse)',
+                    border:       'none',
+                    borderRadius: 'var(--r-md)',
+                    padding:      'var(--sp-2) var(--sp-4)',
+                    fontSize:     'var(--fs-body)',
+                    fontWeight:   700,
+                    cursor:       'pointer',
+                    fontFamily:   'inherit',
+                  }}
+                >
+                  📸 Identify Bottle
+                </button>
+              </div>
+            )}
+
+            {upcIdentifying && (
+              <div style={{ marginTop: 8, fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
+                ⏳ Identifying bottle…
+              </div>
+            )}
+
+            {/* AI identification result — shown after label photo is processed */}
+            {aiBottle && (
+              <div style={{
+                marginTop:    8,
+                background:   'rgba(93,211,158,0.06)',
+                border:       '1px solid rgba(93,211,158,0.25)',
+                borderRadius: 'var(--r-md)',
+                padding:      'var(--sp-3)',
+              }}>
+                <div style={{ fontSize: 'var(--fs-meta)', fontWeight: 700, color: 'var(--green)', marginBottom: 6 }}>
+                  ✓ Bottle identified — saved to database
+                </div>
+                <div style={{ fontSize: 'var(--fs-body)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+                  {aiBottle.name}
+                </div>
+                <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginBottom: 10 }}>
+                  {[
+                    aiBottle.distillery,
+                    aiBottle.category,
+                    aiBottle.proof  && `${aiBottle.proof}°`,
+                    aiBottle.age    && `${aiBottle.age} yr`,
+                  ].filter(Boolean).join(' · ')}
+                  {aiBottle.msrp && (
+                    <span style={{ color: 'var(--copper-400)' }}> · MSRP ~${aiBottle.msrp}</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setBottleName(aiBottle.name); setUpcStatus('found'); setAiBottle(null) }}
+                    style={{
+                      background:   'var(--green)',
+                      color:        '#fff',
+                      border:       'none',
+                      borderRadius: 'var(--r-md)',
+                      padding:      'var(--sp-1) var(--sp-3)',
+                      fontSize:     'var(--fs-meta)',
+                      fontWeight:   700,
+                      cursor:       'pointer',
+                      fontFamily:   'inherit',
+                    }}
+                  >
+                    Use this name
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiBottle(null)}
+                    style={{
+                      background: 'none',
+                      border:     'none',
+                      color:      'var(--text-dim)',
+                      cursor:     'pointer',
+                      fontSize:   'var(--fs-meta)',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Hidden file input for AI bottle identification */}
+            <input
+              ref={upcIdentifyRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={handleUpcIdentify}
+            />
 
             {showScanner && (
               <BarcodeScanner
