@@ -83,7 +83,11 @@ query SearchLots($input: SearchLotInput!) {
       highEstimate
       reservePrice
       reservePriceMet
-      imageUrl
+      photos {
+        photo1
+        photo2
+        photo3
+      }
       currentBid {
         amount
         currency
@@ -158,8 +162,17 @@ def _discount_pct(bid: float | None, reference: float | None) -> float | None:
     return round((reference - bid) / reference * 100, 1)
 
 
+UA_CDN_BASE = "https://digqdh912fmd8.cloudfront.net/fit-in/600x600/all"
+
 def _lot_url(auction_uuid: str, lot_uuid: str) -> str:
     return f"{BASE_URL}/auction/{auction_uuid}/lot/{lot_uuid}"
+
+def _lot_image_url(lot: dict) -> str | None:
+    photos = lot.get("photos") or {}
+    filename = photos.get("photo1") or photos.get("photo2") or photos.get("photo3")
+    if not filename:
+        return None
+    return f"{UA_CDN_BASE}/{filename}"
 
 
 def _section_from_tag(tag_status: str | None) -> str:
@@ -363,7 +376,7 @@ def _fetch_whiskey_lots_for_auction(auction: dict) -> tuple[list[dict], list[dic
                             "category":   lot.get("category", ""),
                             "date":       lot.get("endDatetime") or auction.get("endDatetime"),
                             "lot_url":    _lot_url(uuid, lot_uuid),
-                            "image_url":  lot.get("imageUrl") or None,
+                            "image_url":  _lot_image_url(lot),
                             "source":     "auction",
                         })
                     continue
@@ -399,7 +412,7 @@ def _fetch_whiskey_lots_for_auction(auction: dict) -> tuple[list[dict], list[dic
                     "section":             _section_from_tag(lot.get("tagStatus")),
                     "bottle_name":         lot.get("title", ""),
                     "distillery":          _infer_distillery(lot.get("title", "")),
-                    "image_url":           lot.get("imageUrl") or None,
+                    "image_url":           _lot_image_url(lot),
                     "lot_url":             _lot_url(uuid, lot_uuid),
                     "lot_id":              lot_uuid,
                     "lot_number":          lot.get("number"),
