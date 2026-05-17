@@ -363,6 +363,7 @@ def _fetch_whiskey_lots_for_auction(auction: dict) -> tuple[list[dict], list[dic
                             "category":   lot.get("category", ""),
                             "date":       lot.get("endDatetime") or auction.get("endDatetime"),
                             "lot_url":    _lot_url(uuid, lot_uuid),
+                            "image_url":  lot.get("imageUrl") or None,
                             "source":     "auction",
                         })
                     continue

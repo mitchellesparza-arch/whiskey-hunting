@@ -86,7 +86,7 @@ async function sendAuditEmail(stats) {
   ].join('')
 
   const enrichRows = [
-    statRow('No MSRP + no image (highest need)', catalog.needsBoth.toLocaleString(), catalog.needsBoth > 20),
+    statRow('No image + not in static catalog (highest need)', catalog.needsBoth.toLocaleString(), catalog.needsBoth > 20),
     statRow('No MSRP only', (prices.total - prices.hasMsrp).toLocaleString()),
     statRow('No image only', catalog.missingImage.toLocaleString()),
     statRow('No price history', (prices.total - history.hasHistory).toLocaleString()),
@@ -274,14 +274,13 @@ export async function GET(request) {
       }
     }
 
-    // Bottles missing both image AND msrp (most in need of enrichment)
-    const noMsrpNames = new Set(
-      staticCatalog.filter(e => !e.msrp).map(e => norm(e.name))
-    )
+    // UA catalog entries with no image that also have no entry in the static
+    // catalog — these are the most under-served: no image and no price data at all.
+    const staticNormNames = new Set(staticCatalog.map(e => norm(e.name)))
     for (const [, raw] of catalogEntries) {
       const e  = typeof raw === 'string' ? JSON.parse(raw) : raw
       const nk = norm(e.name || '')
-      if (!e.imageUrl && noMsrpNames.has(nk)) needsBoth++
+      if (!e.imageUrl && !staticNormNames.has(nk)) needsBoth++
     }
 
     // ── 4. Parse last scraper run info ───────────────────────────────────────

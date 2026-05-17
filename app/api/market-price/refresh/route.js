@@ -96,61 +96,87 @@ const SPECIAL_EDITION_PATTERNS = [
   /'[^']{2,}'/,                       // 'Husk', 'Civic Center', 'Sam's Wines'
   /private.*(barrel|selection)|store.*pick/i,
   /barrel #?\d/i,                     // Barrel #11, Barrel 1789B
-  /cask\s+[a-z]?\d/i,                 // Cask 2, Cask C49
   /local pickup only/i,
   /decanter/i,
-  /\(1[89]\d{2}\)/,                   // pre-2000 vintage year in parens
   /warehouse\s*[a-z]?\s*tornado/i,    // EH Taylor Warehouse C Tornado limited release
 ]
 
-function isSpecialEdition(title) {
-  return SPECIAL_EDITION_PATTERNS.some(p => p.test(title))
+// Bourbon/Rye only — vintage years in parens skew prices for American whiskey
+// but are standard product identifiers for Scotch, Japanese, Irish, etc.
+const BOURBON_ONLY_PATTERNS = [
+  /cask\s+[a-z]?\d/i,                 // Cask 2, Cask C49 (Scotch uses "cask" legitimately)
+  /\(1[89]\d{2}\)/,                   // pre-2000 vintage year in parens
+]
+
+const BOURBON_CATEGORIES = new Set(['Bourbon', 'Rye', 'Tennessee', 'American'])
+
+function isSpecialEdition(title, category = '') {
+  if (SPECIAL_EDITION_PATTERNS.some(p => p.test(title))) return true
+  if (BOURBON_CATEGORIES.has(category) && BOURBON_ONLY_PATTERNS.some(p => p.test(title))) return true
+  return false
+}
+
+async function fetchUALotsForCategory(category, cutoff, diag) {
+  const lots = []
+  let specialFiltered = 0
+
+  for (let page = 0; page < UA_MAX_PAGES; page++) {
+    const offset = page * UA_PAGE_SIZE
+
+    const res = await fetch(UA_GQL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body:    JSON.stringify({
+        query:     UA_QUERY,
+        variables: {
+          input: {
+            category,
+            state:    'ENDED',
+            sortBy:   'end_datetime_desc',
+            limit:    UA_PAGE_SIZE,
+            offset,
+          },
+        },
+      }),
+    })
+    if (!res.ok) { diag.errors.push(`UA HTTP ${res.status} (${category})`); break }
+
+    const json = await res.json()
+    if (json.errors?.length) { diag.errors.push(`UA GQL (${category}): ${json.errors[0].message}`); break }
+
+    const results = json?.data?.searchLots?.results
+    if (!Array.isArray(results)) { diag.errors.push(`UA: unexpected response shape (${category})`); break }
+    if (results.length === 0) break
+
+    let crossedCutoff = false
+    for (const lot of results) {
+      const ts = lot.endDatetime ? Date.parse(lot.endDatetime) : NaN
+      if (Number.isFinite(ts) && ts < cutoff) { crossedCutoff = true; continue }
+      if (isSpecialEdition(lot.title, category)) { specialFiltered++; continue }
+      const hammer = Number(lot.currentBid?.amount)
+      if (!hammer || hammer <= 0) continue
+      lots.push({ title: lot.title, hammer, endDatetime: lot.endDatetime })
+    }
+
+    if (results.length < UA_PAGE_SIZE || crossedCutoff) break
+  }
+
+  return { lots, specialFiltered }
 }
 
 async function fetchUALots(diag) {
-  const lots   = []
   const cutoff = Date.now() - UA_LOOKBACK_DAYS * 86400_000
 
-  for (const category of UA_CATEGORIES) {
-    for (let page = 0; page < UA_MAX_PAGES; page++) {
-      const offset = page * UA_PAGE_SIZE
+  // Fetch all categories in parallel — sequential was at risk of hitting the 60s Vercel timeout
+  const results = await Promise.allSettled(
+    UA_CATEGORIES.map(cat => fetchUALotsForCategory(cat, cutoff, diag))
+  )
 
-      const res = await fetch(UA_GQL, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body:    JSON.stringify({
-          query:     UA_QUERY,
-          variables: {
-            input: {
-              category,
-              state:    'ENDED',
-              sortBy:   'end_datetime_desc',
-              limit:    UA_PAGE_SIZE,
-              offset,
-            },
-          },
-        }),
-      })
-      if (!res.ok) { diag.errors.push(`UA HTTP ${res.status} (${category})`); break }
-
-      const json = await res.json()
-      if (json.errors?.length) { diag.errors.push(`UA GQL (${category}): ${json.errors[0].message}`); break }
-
-      const results = json?.data?.searchLots?.results
-      if (!Array.isArray(results)) { diag.errors.push(`UA: unexpected response shape (${category})`); break }
-      if (results.length === 0) break
-
-      let crossedCutoff = false
-      for (const lot of results) {
-        const ts = lot.endDatetime ? Date.parse(lot.endDatetime) : NaN
-        if (Number.isFinite(ts) && ts < cutoff) { crossedCutoff = true; continue }
-        if (isSpecialEdition(lot.title)) { diag.specialFiltered++; continue }
-        const hammer = Number(lot.currentBid?.amount)
-        if (!hammer || hammer <= 0) continue
-        lots.push({ title: lot.title, hammer, endDatetime: lot.endDatetime })
-      }
-
-      if (results.length < UA_PAGE_SIZE || crossedCutoff) break
+  const lots = []
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      lots.push(...result.value.lots)
+      diag.specialFiltered += result.value.specialFiltered
     }
   }
 
