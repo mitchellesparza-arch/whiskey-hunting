@@ -213,7 +213,48 @@ async def _dismiss_age_gate(page: Page) -> None:
             continue
 
 
-# ── auction UUID discovery via Playwright ─────────────────────────────────────
+# ── auction UUID discovery via GraphQL (fast, no browser) ────────────────────
+
+def _discover_live_auction_uuids() -> list[dict]:
+    """
+    Query searchLots with state=LIVE to discover the current live auction UUID.
+    Faster and more reliable than Playwright — no browser or age gate needed.
+    """
+    try:
+        resp = _gql_request(
+            SEARCH_LOTS_QUERY,
+            {"input": {"state": "LIVE", "category": "Bourbon", "limit": 1, "offset": 1}},
+        )
+        data    = (resp.get("data") or {}).get("searchLots") or {}
+        results = data.get("results") or []
+        if not results:
+            log.info("GQL discovery: no LIVE lots found")
+            return []
+
+        uuid = results[0].get("auctionUuid")
+        if not uuid:
+            return []
+
+        # Enrich with auction name + end time
+        try:
+            det = _gql_request(
+                "query GetAuctionDetails($uuid: String!) { auctionDetails(uuid: $uuid) { name endDatetime } }",
+                {"uuid": uuid},
+                uuid,
+            )
+            details = (det.get("data") or {}).get("auctionDetails") or {}
+        except Exception:
+            details = {}
+
+        name = details.get("name") or f"Auction {uuid[:8]}"
+        log.info("GQL discovered live auction: %s (%s)", name, uuid[:8])
+        return [{"uuid": uuid, "name": name, "endDatetime": details.get("endDatetime")}]
+    except Exception as exc:
+        log.warning("GQL auction discovery failed: %s", exc)
+        return []
+
+
+# ── auction UUID discovery via Playwright (fallback) ─────────────────────────
 
 async def _get_active_auction_uuids() -> list[dict]:
     """
@@ -528,8 +569,11 @@ async def run_scraper(debug: bool = False) -> int:
     log.info("=" * 65)
 
     try:
-        # Step 1: discover auctions (Playwright)
-        auctions = await _get_active_auction_uuids()
+        # Step 1: discover live auction(s) — GQL first, Playwright as fallback
+        auctions = _discover_live_auction_uuids()
+        if not auctions:
+            log.info("GQL discovery returned nothing — falling back to Playwright")
+            auctions = await _get_active_auction_uuids()
 
         if not auctions:
             log.warning("No active auctions found — nothing to scrape")
