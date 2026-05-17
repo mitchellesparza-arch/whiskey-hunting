@@ -1054,11 +1054,11 @@ function FillPhotosSheet({ bottles, onDone }) {
       .then(r => r.json())
       .then(data => setAlgoliaImgs(prev => ({
         ...prev,
-        [bottle.id]: { imageUrl: data.imageUrl ?? null, loading: false },
+        [bottle.id]: { imageUrl: data.imageUrl ?? null, source: data.source ?? null, loading: false },
       })))
       .catch(() => setAlgoliaImgs(prev => ({
         ...prev,
-        [bottle.id]: { imageUrl: null, loading: false },
+        [bottle.id]: { imageUrl: null, source: null, loading: false },
       })))
   }, [idx, bottle?.id])
 
@@ -1169,9 +1169,16 @@ function FillPhotosSheet({ bottles, onDone }) {
     setIdx(i => i + 1)
   }
 
-  const algoliaImg    = algoliaImgs[bottle.id]
-  const catalogUrl    = algoliaImg?.imageUrl ?? null
-  const loadingCatalog = algoliaImg?.loading ?? true
+  const algoliaImg     = algoliaImgs[bottle.id]
+  const catalogUrl     = algoliaImg?.imageUrl ?? null
+  const catalogSource  = algoliaImg?.source   ?? null
+  const loadingCatalog = algoliaImg?.loading  ?? true
+
+  const catalogLabel = catalogSource === 'algolia'
+    ? "Found in Binny's catalog"
+    : catalogSource === 'ua-catalog' || catalogSource === 'ua-cache'
+      ? 'Found in Unicorn Auctions catalog'
+      : 'Found in catalog'
   const remaining     = bottles.length - idx
 
   return (
@@ -1259,7 +1266,7 @@ function FillPhotosSheet({ bottles, onDone }) {
         ) : catalogUrl ? (
           <div style={{ width: '100%', maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
             <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', textAlign: 'center', letterSpacing: 0.3, textTransform: 'uppercase' }}>
-              Found in Binny's catalog
+              {catalogLabel}
             </div>
             <img
               src={catalogUrl}
