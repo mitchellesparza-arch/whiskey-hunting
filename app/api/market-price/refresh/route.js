@@ -76,10 +76,19 @@ const UA_QUERY = `
         state
         currentBid { amount }
         endDatetime
+        photos { photo1 photo2 photo3 }
       }
     }
   }
 `
+
+const UA_CDN_BASE = 'https://digqdh912fmd8.cloudfront.net/fit-in/600x600/all'
+
+function lotImageUrl(lot) {
+  const p = lot.photos ?? {}
+  const f = p.photo1 || p.photo2 || p.photo3
+  return f ? `${UA_CDN_BASE}/${f}` : null
+}
 
 const UA_PAGE_SIZE     = 1000
 const UA_MAX_PAGES     = 10                                 // safety cap; early cutoff exit handles termination
@@ -118,6 +127,7 @@ function isSpecialEdition(title, category = '') {
 
 async function fetchUALotsForCategory(category, cutoff, diag) {
   const lots = []
+  const imageLots = []
   let specialFiltered = 0
 
   for (let page = 0; page < UA_MAX_PAGES; page++) {
@@ -152,6 +162,9 @@ async function fetchUALotsForCategory(category, cutoff, diag) {
     for (const lot of results) {
       const ts = lot.endDatetime ? Date.parse(lot.endDatetime) : NaN
       if (Number.isFinite(ts) && ts < cutoff) { crossedCutoff = true; continue }
+      const imgUrl = lotImageUrl(lot)
+      // Always capture image URLs — even special editions get their photo backfilled
+      if (imgUrl) imageLots.push({ title: lot.title, imageUrl: imgUrl })
       if (isSpecialEdition(lot.title, category)) { specialFiltered++; continue }
       const hammer = Number(lot.currentBid?.amount)
       if (!hammer || hammer <= 0) continue
@@ -161,7 +174,7 @@ async function fetchUALotsForCategory(category, cutoff, diag) {
     if (results.length < UA_PAGE_SIZE || crossedCutoff) break
   }
 
-  return { lots, specialFiltered }
+  return { lots, imageLots, specialFiltered }
 }
 
 async function fetchUALots(diag) {
@@ -173,15 +186,17 @@ async function fetchUALots(diag) {
   )
 
   const lots = []
+  const imageLots = []
   for (const result of results) {
     if (result.status === 'fulfilled') {
       lots.push(...result.value.lots)
+      imageLots.push(...result.value.imageLots)
       diag.specialFiltered += result.value.specialFiltered
     }
   }
 
   diag.lotsFetched = lots.length
-  return lots
+  return { lots, imageLots }
 }
 
 // ─── C2: Binny's Algolia MSRP ─────────────────────────────────────────────────
@@ -237,11 +252,11 @@ async function handleRefresh(request) {
   const entries = JSON.parse(readFileSync(DATA_PATH, 'utf8'))
   const diag    = { lotsFetched: 0, specialFiltered: 0, errors: [] }
 
-  const [uaLots, binnysMap] = await Promise.allSettled([
+  const [{ lots: uaLots, imageLots: uaImageLots }, binnysMap] = await Promise.allSettled([
     fetchUALots(diag),
     fetchBinnysAlgoliaMsrp(),
   ]).then(([ua, bi]) => [
-    ua.status === 'fulfilled' ? ua.value : [],
+    ua.status === 'fulfilled' ? ua.value : { lots: [], imageLots: [] },
     bi.status === 'fulfilled' ? bi.value : new Map(),
   ])
 
@@ -305,6 +320,42 @@ async function handleRefresh(request) {
     })
   )
 
+  // Backfill imageUrl into wh:ua:catalog for any entry missing one.
+  // Build a normTitle → imageUrl map from every lot that has a photo, then
+  // patch catalog entries whose key exactly matches a lot title.
+  let imagePatched = 0
+  if (uaImageLots.length > 0) {
+    try {
+      const { Redis } = await import('@upstash/redis')
+      const redis     = Redis.fromEnv()
+
+      // normTitle → imageUrl (first non-null wins)
+      const imgMap = new Map()
+      for (const lot of uaImageLots) {
+        const nk = normName(lot.title)
+        if (!imgMap.has(nk)) imgMap.set(nk, lot.imageUrl)
+      }
+
+      // Fetch only catalog entries that are missing imageUrl
+      const catalog = await redis.hgetall('wh:ua:catalog') ?? {}
+      const patches = {}
+      for (const [key, raw] of Object.entries(catalog)) {
+        const entry = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (entry.imageUrl) continue                  // already has one
+        const img = imgMap.get(key)
+        if (!img) continue
+        patches[key] = JSON.stringify({ ...entry, imageUrl: img })
+      }
+
+      if (Object.keys(patches).length > 0) {
+        await redis.hset('wh:ua:catalog', patches)
+        imagePatched = Object.keys(patches).length
+      }
+    } catch (err) {
+      console.warn('[market-price/refresh] image backfill failed:', err.message)
+    }
+  }
+
   // Surface a clear failure signal when the UA pipeline returns nothing — the
   // previous schema break went unnoticed for months because the cron's success
   // path didn't distinguish "0 matches" from "fetch errored silently".
@@ -322,6 +373,7 @@ async function handleRefresh(request) {
     uaSpecialFiltered: diag.specialFiltered,
     uaErrors:      diag.errors,
     binnysMatched: binnysMap.size,
+    imagePatched,
     ms:            Date.now() - start,
   })
 }
