@@ -177,17 +177,42 @@ async function fetchUALotsForCategory(category, cutoff, diag) {
   return { lots, imageLots, specialFiltered }
 }
 
+// Fetch one page of LIVE lots per category — images only, no price data.
+// Runs in parallel with the ENDED fetch so it adds no wall-clock time.
+async function fetchLiveLotImages(diag) {
+  const results = await Promise.allSettled(
+    UA_CATEGORIES.map(async cat => {
+      const res = await fetch(UA_GQL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body:    JSON.stringify({
+          query:     UA_QUERY,
+          variables: { input: { category: cat, state: 'LIVE', limit: UA_PAGE_SIZE, offset: 0 } },
+        }),
+      })
+      if (!res.ok) { diag.errors.push(`UA LIVE HTTP ${res.status} (${cat})`); return [] }
+      const json = await res.json()
+      if (json.errors?.length) { diag.errors.push(`UA LIVE GQL (${cat}): ${json.errors[0].message}`); return [] }
+      return (json?.data?.searchLots?.results ?? [])
+        .map(lot => ({ title: lot.title, imageUrl: lotImageUrl(lot) }))
+        .filter(l => l.imageUrl)
+    })
+  )
+  return results.flatMap(r => r.status === 'fulfilled' ? r.value : [])
+}
+
 async function fetchUALots(diag) {
   const cutoff = Date.now() - UA_LOOKBACK_DAYS * 86400_000
 
-  // Fetch all categories in parallel — sequential was at risk of hitting the 60s Vercel timeout
-  const results = await Promise.allSettled(
-    UA_CATEGORIES.map(cat => fetchUALotsForCategory(cat, cutoff, diag))
-  )
+  // Fetch ENDED lots (for prices) and LIVE lots (for images) in parallel
+  const [endedResults, liveImages] = await Promise.all([
+    Promise.allSettled(UA_CATEGORIES.map(cat => fetchUALotsForCategory(cat, cutoff, diag))),
+    fetchLiveLotImages(diag),
+  ])
 
   const lots = []
-  const imageLots = []
-  for (const result of results) {
+  const imageLots = [...liveImages]  // seed with live lot images first
+  for (const result of endedResults) {
     if (result.status === 'fulfilled') {
       lots.push(...result.value.lots)
       imageLots.push(...result.value.imageLots)
