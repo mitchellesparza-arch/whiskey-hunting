@@ -79,27 +79,38 @@ export default function SearchPage() {
         : []
       const catalog  = catalogRes.status  === 'fulfilled' ? (catalogRes.value.results ?? []) : []
 
-      // Dedupe + re-rank Algolia + local results by relevance
-      const seen = new Map()
+      const normKey = s => (s ?? '').toLowerCase().replace(/[^a-z0-9]/g, ' ').trim()
+
+      // Seed the unified pool with Algolia + local results (plain strings → objects)
+      const pool = new Map()
       for (const name of [...algolia, ...local]) {
-        const key = name.toLowerCase()
-        if (!seen.has(key)) seen.set(key, name)
+        const k = normKey(name)
+        if (!pool.has(k)) pool.set(k, { name, score: scoreResult(q, name), source: null })
       }
-      const ranked = [...seen.values()]
-        .map(name => ({ name, score: scoreResult(q, name) }))
+
+      // Score catalog/UA entries with the same function and merge into the pool.
+      // This lets a UA entry that closely matches the query rank above a weakly
+      // matching Algolia hit instead of always being pushed to the secondary section.
+      const catalogScored = catalog.map(entry => ({
+        ...entry,
+        score: scoreResult(q, entry.name ?? ''),
+      }))
+      for (const entry of catalogScored) {
+        const k = normKey(entry.name ?? '')
+        if (!pool.has(k) && entry.score > 0) pool.set(k, entry)
+      }
+
+      // Sort the unified pool and split: top hits go to results, rest to catalog section
+      const sorted = [...pool.values()]
         .filter(r => r.score > 0)
         .sort((a, b) => b.score - a.score)
         .slice(0, limit)
-        .map(r => r.name)
 
-      setResults(ranked)
+      setResults(sorted)
 
-      // Catalog results: dedupe against the Algolia/local list, keep richer objects
-      const mainNorms = new Set(ranked.map(n => n.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim()))
-      const filteredCatalog = catalog.filter(entry => {
-        const n = (entry.name ?? '').toLowerCase().replace(/[^a-z0-9]/g, ' ').trim()
-        return !mainNorms.has(n)
-      })
+      // Catalog section: entries that didn't make the top list (still useful context)
+      const topNorms = new Set(sorted.map(r => normKey(r.name ?? '')))
+      const filteredCatalog = catalogScored.filter(e => !topNorms.has(normKey(e.name ?? '')))
       setCatalogResults(filteredCatalog)
     } catch {
       setResults([])
@@ -455,31 +466,70 @@ export default function SearchPage() {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {results.map((name, i) => (
-            <button
-              key={i}
-              onClick={() => router.push(bottleHref(name))}
-              style={{
-                display:      'flex',
-                alignItems:   'center',
-                gap:          10,
-                width:        '100%',
-                padding:      '12px 10px',
-                background:   'none',
-                border:       'none',
-                borderBottom: i < results.length - 1 ? '1px solid var(--hairline)' : 'none',
-                color:        'var(--text-primary)',
-                fontSize:     14,
-                fontWeight:   600,
-                textAlign:    'left',
-                cursor:       'pointer',
-                fontFamily:   'inherit',
-              }}
-            >
-              <span style={{ fontSize: 18 }}>🥃</span>
-              <span>{name}</span>
-            </button>
-          ))}
+          {results.map((item, i) => {
+            const name  = item.name ?? item
+            const isUA  = item.source === 'unicorn_auctions'
+            const isCat = item.source && item.source !== 'unicorn_auctions'
+            const meta  = isUA || isCat ? [
+              item.distillery ?? item.category,
+              item.proof  ? `${item.proof}°`  : null,
+              item.age    ? `${item.age}yr`   : null,
+            ].filter(Boolean).join(' · ') : null
+            const priceLabel = item.msrp
+              ? `$${item.msrp} MSRP`
+              : item.secondary?.avg
+                ? `~$${item.secondary.avg} secondary`
+                : null
+            const hasMeta = meta || priceLabel
+            return (
+              <button
+                key={i}
+                onClick={() => router.push(bottleHref(name))}
+                style={{
+                  display:      'flex',
+                  alignItems:   'center',
+                  gap:          10,
+                  width:        '100%',
+                  padding:      hasMeta ? '10px 12px' : '12px 10px',
+                  background:   hasMeta ? 'var(--bg-elev-1)' : 'none',
+                  border:       hasMeta ? '1px solid var(--hairline)' : 'none',
+                  borderBottom: !hasMeta && i < results.length - 1 ? '1px solid var(--hairline)' : undefined,
+                  borderRadius: hasMeta ? 8 : 0,
+                  color:        'var(--text-primary)',
+                  fontSize:     14,
+                  fontWeight:   600,
+                  textAlign:    'left',
+                  cursor:       'pointer',
+                  fontFamily:   'inherit',
+                  marginBottom: hasMeta ? 4 : 0,
+                }}
+              >
+                <span style={{ fontSize: hasMeta ? 16 : 18, flexShrink: 0 }}>
+                  {isUA ? '🦄' : '🥃'}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {name}
+                  </div>
+                  {hasMeta && (
+                    <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-muted)', marginTop: 1 }}>
+                      {[meta, priceLabel].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
+                </div>
+                {isUA && (
+                  <span style={{
+                    fontSize:      9,
+                    fontWeight:    700,
+                    color:         'var(--text-dim)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    flexShrink:    0,
+                  }}>UA</span>
+                )}
+              </button>
+            )
+          })}
         </div>
 
         {/* Catalog results — static catalog + UA bottles not in Algolia/local */}
