@@ -294,12 +294,13 @@ async function handleRefresh(request) {
     uaMatches.get(entry.name).hammers.push(lot.hammer)
   }
 
-  // Build image map — best-matching lot per entry, not first-found.
-  // Among lots that score the same, prefer the shortest title (fewest extraneous
-  // words vs. the canonical name), which favours modern standard releases over
-  // verbose vintage listings like "Old Weller Antique Original 107 (2007)".
-  const uaImageMap = new Map()
-  const uaImageScores = new Map()   // entry.name → { score, titleWords }
+  // Build image candidates per entry — collect up to MAX_IMG_CANDIDATES unique
+  // images, sorted by match score desc then title length asc.  The best pick
+  // becomes the single wh:ua:img key; the full ranked list goes to wh:ua:imgs
+  // so the UI can let users flip through alternatives.
+  const MAX_IMG_CANDIDATES = 8
+  const uaImageCandidates  = new Map()   // entry.name → [{imageUrl,score,titleWords}]
+
   for (const lot of uaImageLots) {
     const norm = normName(lot.title)
     let bestScore = 0, bestEntry = null
@@ -311,18 +312,26 @@ async function handleRefresh(request) {
     }
     if (!bestEntry) continue
     const titleWords = norm.split(/\s+/).filter(w => w.length >= 3).length
-    const prev = uaImageScores.get(bestEntry.name)
-    if (!prev || bestScore > prev.score ||
-        (bestScore === prev.score && titleWords < prev.titleWords)) {
-      uaImageMap.set(bestEntry.name, lot.imageUrl)
-      uaImageScores.set(bestEntry.name, { score: bestScore, titleWords })
+    const arr = uaImageCandidates.get(bestEntry.name) ?? []
+    if (!arr.some(c => c.imageUrl === lot.imageUrl)) {
+      arr.push({ imageUrl: lot.imageUrl, score: bestScore, titleWords })
     }
+    uaImageCandidates.set(bestEntry.name, arr)
+  }
+
+  // Sort each list and derive the single best-pick map
+  const uaImageMap = new Map()
+  for (const [name, arr] of uaImageCandidates) {
+    arr.sort((a, b) => b.score - a.score || a.titleWords - b.titleWords)
+    uaImageMap.set(name, arr[0].imageUrl)
+    uaImageCandidates.set(name, arr.slice(0, MAX_IMG_CANDIDATES))
   }
 
   // Write to Redis
   let written = 0
-  const now          = new Date().toISOString().slice(0, 7)
-  const imgCacheWrites = []   // [norm, imgUrl, ...aliasNorms]
+  const now               = new Date().toISOString().slice(0, 7)
+  const imgCacheWrites    = []   // [norm, imgUrl, ...aliasNorms]
+  const imgCandidateWrites = []  // [norm, candidateUrls[]]
 
   await Promise.allSettled(
     entries.map(async entry => {
@@ -362,6 +371,8 @@ async function handleRefresh(request) {
         // wh:ua:catalog never matches the user's shorter collection name.
         if (imgUrl) {
           imgCacheWrites.push([norm, imgUrl, ...(entry.aliases ?? []).map(normName)])
+          const cands = uaImageCandidates.get(entry.name)
+          if (cands?.length > 1) imgCandidateWrites.push([norm, cands.map(c => c.imageUrl)])
         }
 
         // Price history — one snapshot per month stored in a hash (field = YYYY-MM)
@@ -394,6 +405,22 @@ async function handleRefresh(request) {
       imagesCached = imgCacheWrites.length
     } catch (err) {
       console.warn('[market-price/refresh] image cache write failed:', err.message)
+    }
+  }
+
+  // Write ranked candidate lists — wh:ua:imgs:{norm} → JSON array of URLs
+  if (imgCandidateWrites.length > 0) {
+    try {
+      const { Redis } = await import('@upstash/redis')
+      const redis   = Redis.fromEnv()
+      const TTL_IMG = 30 * 24 * 60 * 60
+      await Promise.allSettled(
+        imgCandidateWrites.map(([norm, urls]) =>
+          redis.set(`wh:ua:imgs:${norm}`, JSON.stringify(urls), { ex: TTL_IMG })
+        )
+      )
+    } catch (err) {
+      console.warn('[market-price/refresh] image candidates write failed:', err.message)
     }
   }
 

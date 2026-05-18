@@ -4,7 +4,7 @@ import { useRouter }  from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Link           from 'next/link'
 import {
-  ArrowLeft, Plus, X, Camera, Tag, ChevronRight, Gavel,
+  ArrowLeft, Plus, X, Camera, Tag, ChevronLeft, ChevronRight, Gavel,
   Star, Wine, FlaskConical, BarChart2, Image as ImageIcon,
   CheckCircle, SkipForward, RefreshCw, Pencil, Loader, Eye, EyeOff,
 } from 'lucide-react'
@@ -1037,14 +1037,17 @@ function AddBottleSheet({ open, onClose, onAdd }) {
 // ── Fill Photos Sheet ─────────────────────────────────────────────────────────
 
 function FillPhotosSheet({ bottles, onDone }) {
-  const [idx,        setIdx]        = useState(0)
-  const [saving,     setSaving]     = useState(false)
-  const [autoFilling,setAutoFilling]= useState(false)
-  const [error,      setError]      = useState(null)
-  const [algoliaImgs, setAlgoliaImgs] = useState({})
+  const [idx,          setIdx]          = useState(0)
+  const [saving,       setSaving]       = useState(false)
+  const [autoFilling,  setAutoFilling]  = useState(false)
+  const [error,        setError]        = useState(null)
+  const [algoliaImgs,  setAlgoliaImgs]  = useState({})
+  const [candidateIdx, setCandidateIdx] = useState(0)
   const inputRef = useRef(null)
 
   const bottle = bottles[idx]
+
+  useEffect(() => { setCandidateIdx(0) }, [bottle?.id])
 
   useEffect(() => {
     if (!bottle) return
@@ -1054,11 +1057,11 @@ function FillPhotosSheet({ bottles, onDone }) {
       .then(r => r.json())
       .then(data => setAlgoliaImgs(prev => ({
         ...prev,
-        [bottle.id]: { imageUrl: data.imageUrl ?? null, source: data.source ?? null, loading: false },
+        [bottle.id]: { imageUrl: data.imageUrl ?? null, source: data.source ?? null, loading: false, candidates: data.candidates ?? null },
       })))
       .catch(() => setAlgoliaImgs(prev => ({
         ...prev,
-        [bottle.id]: { imageUrl: null, source: null, loading: false },
+        [bottle.id]: { imageUrl: null, source: null, loading: false, candidates: null },
       })))
   }, [idx, bottle?.id])
 
@@ -1173,6 +1176,8 @@ function FillPhotosSheet({ bottles, onDone }) {
   const catalogUrl     = algoliaImg?.imageUrl ?? null
   const catalogSource  = algoliaImg?.source   ?? null
   const loadingCatalog = algoliaImg?.loading  ?? true
+  const candidates     = algoliaImg?.candidates ?? null
+  const displayUrl     = candidates?.length > 1 ? (candidates[candidateIdx] ?? catalogUrl) : catalogUrl
 
   const catalogLabel = catalogSource === 'algolia'
     ? "Found in Binny's catalog"
@@ -1266,26 +1271,60 @@ function FillPhotosSheet({ bottles, onDone }) {
         ) : catalogUrl ? (
           <div style={{ width: '100%', maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
             <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', textAlign: 'center', letterSpacing: 0.3, textTransform: 'uppercase' }}>
-              {catalogLabel}
+              {catalogLabel}{candidates?.length > 1 ? ` · ${candidateIdx + 1} of ${candidates.length}` : ''}
             </div>
-            <img
-              src={catalogUrl}
-              alt={bottle.name}
-              style={{
-                width:       '100%',
-                aspectRatio: '3/4',
-                objectFit:   'contain',
-                borderRadius: 'var(--r-lg)',
-                background:  'var(--text-inverse)',
-                padding:     'var(--sp-3)',
-                boxSizing:   'border-box',
-              }}
-            />
+
+            {/* Image with prev/next arrows */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+              {candidates?.length > 1 && (
+                <button
+                  onClick={() => setCandidateIdx(i => Math.max(0, i - 1))}
+                  disabled={candidateIdx === 0}
+                  style={{
+                    flexShrink: 0, background: 'var(--bg-elev-2)', border: '1px solid var(--hairline-2)',
+                    borderRadius: 'var(--r-md)', padding: 'var(--sp-2)', cursor: candidateIdx === 0 ? 'default' : 'pointer',
+                    opacity: candidateIdx === 0 ? 0.3 : 1, color: 'var(--text-primary)', display: 'flex',
+                  }}
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft size={18} strokeWidth={1.75} />
+                </button>
+              )}
+              <img
+                key={displayUrl}
+                src={displayUrl}
+                alt={bottle.name}
+                style={{
+                  flex: 1, width: 0, minWidth: 0,
+                  aspectRatio: '3/4',
+                  objectFit:   'contain',
+                  borderRadius: 'var(--r-lg)',
+                  background:  'var(--text-inverse)',
+                  padding:     'var(--sp-3)',
+                  boxSizing:   'border-box',
+                }}
+              />
+              {candidates?.length > 1 && (
+                <button
+                  onClick={() => setCandidateIdx(i => Math.min(candidates.length - 1, i + 1))}
+                  disabled={candidateIdx === candidates.length - 1}
+                  style={{
+                    flexShrink: 0, background: 'var(--bg-elev-2)', border: '1px solid var(--hairline-2)',
+                    borderRadius: 'var(--r-md)', padding: 'var(--sp-2)', cursor: candidateIdx === candidates.length - 1 ? 'default' : 'pointer',
+                    opacity: candidateIdx === candidates.length - 1 ? 0.3 : 1, color: 'var(--text-primary)', display: 'flex',
+                  }}
+                  aria-label="Next photo"
+                >
+                  <ChevronRight size={18} strokeWidth={1.75} />
+                </button>
+              )}
+            </div>
+
             <Button
               variant="primary"
               fullWidth
               icon={<CheckCircle size={16} strokeWidth={1.75} />}
-              onClick={() => applyPhotoUrl(catalogUrl)}
+              onClick={() => applyPhotoUrl(displayUrl)}
               disabled={saving}
             >
               {saving ? 'Saving…' : 'Use this photo'}

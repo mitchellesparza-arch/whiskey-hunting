@@ -48,8 +48,16 @@ async function uaImageFallback(name) {
     }
 
     // 2. UA image cache (populated by /api/ua-image og:image scraping)
-    const cached = await redis.get(`wh:ua:img:${nk}`)
-    if (cached) return { imageUrl: cached, source: 'ua-cache' }
+    const [cached, cachedCandidates] = await Promise.all([
+      redis.get(`wh:ua:img:${nk}`),
+      redis.get(`wh:ua:imgs:${nk}`),
+    ])
+    if (cached) {
+      const candidates = cachedCandidates
+        ? (typeof cachedCandidates === 'string' ? JSON.parse(cachedCandidates) : cachedCandidates)
+        : null
+      return { imageUrl: cached, source: 'ua-cache', candidates }
+    }
   } catch { /* non-critical — fall through */ }
 
   return null
@@ -115,7 +123,7 @@ export async function GET(request) {
 
   // Algolia returned nothing — try UA catalog and UA image cache
   const ua = await uaImageFallback(name)
-  if (ua) return NextResponse.json({ imageUrl: ua.imageUrl, source: ua.source })
+  if (ua) return NextResponse.json({ imageUrl: ua.imageUrl, source: ua.source, candidates: ua.candidates ?? null })
 
   return NextResponse.json({ imageUrl: null })
 }
