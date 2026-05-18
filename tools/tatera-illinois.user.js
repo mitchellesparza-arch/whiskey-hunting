@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tater Tracker — Tatera Illinois relay
 // @namespace    https://whiskey-hunter.vercel.app/
-// @version      0.3.0
+// @version      0.3.1
 // @description  Watch the Tatera.io #illinois Discord channel for Costco bourbon alerts and POST them to Tater Tracker's /api/ingest/tatera endpoint.
 // @match        https://discord.com/channels/*
 // @match        https://canary.discord.com/channels/*
@@ -41,7 +41,7 @@ const CONFIG = {
   // 'tatera-il-seen:' keys still exist in localStorage but are ignored.
   const SEEN_PREFIX      = 'tatera-il-seen-v2:'
   const SEEN_TTL_MS      = 14 * 24 * 60 * 60 * 1000   // 14 days
-  const BACKFILL_AGE_MS  = 60 * 60 * 1000             // process messages from last hour on attach
+  const BACKFILL_AGE_MS  = 8 * 60 * 60 * 1000          // process messages from last 8h on attach
   const log              = (...a) => console.log(LOG_TAG, ...a)
   const warn             = (...a) => console.warn(LOG_TAG, ...a)
 

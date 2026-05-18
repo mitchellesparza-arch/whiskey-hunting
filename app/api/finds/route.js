@@ -16,7 +16,16 @@ import { isPro }                 from '../../../lib/tier.js'
 export async function GET(request) {
   try {
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
-    const viewerTier = token?.tier ?? 'free'
+    // Always fetch live tier from Redis — getToken() reads the raw JWT which
+    // only updates on sign-in, so stale tokens would silently downgrade
+    // grandfathered/pro viewers to the 1-hour delayed free feed.
+    let viewerTier = token?.tier ?? 'free'
+    if (token?.email) {
+      try {
+        const profile = await getUserProfile(token.email.toLowerCase())
+        viewerTier = profile?.tier ?? viewerTier
+      } catch {}
+    }
     const all = await getFinds(viewerTier)
 
     const finds    = all.filter(f => f.status === 'active')

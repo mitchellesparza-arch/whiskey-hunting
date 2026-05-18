@@ -127,7 +127,14 @@ export default function FindsPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadFinds() }, [])
+  useEffect(() => {
+    loadFinds()
+    function onVisible() {
+      if (document.visibilityState === 'visible') loadFinds()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   // ── Google Places autocomplete ─────────────────────────────────────────────
   useEffect(() => {
