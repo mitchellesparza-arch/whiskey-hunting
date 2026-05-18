@@ -261,17 +261,26 @@ async function handleRefresh(request) {
   ])
 
   // Build UA match map — one hammer price per ENDED lot
-  const uaMatches = new Map()
+  // Also build an image map keyed by canonical entry name for collection lookups
+  const uaMatches  = new Map()
+  const uaImageMap = new Map()   // entry.name → first CloudFront URL found
   for (const lot of uaLots) {
     const entry = matchEntry(lot.title, entries)
     if (!entry) continue
     if (!uaMatches.has(entry.name)) uaMatches.set(entry.name, { hammers: [], entry })
     uaMatches.get(entry.name).hammers.push(lot.hammer)
   }
+  // Image lots include special editions (filtered from price calc but valid for images)
+  for (const lot of uaImageLots) {
+    const entry = matchEntry(lot.title, entries)
+    if (!entry) continue
+    if (!uaImageMap.has(entry.name)) uaImageMap.set(entry.name, lot.imageUrl)
+  }
 
   // Write to Redis
   let written = 0
-  const now   = new Date().toISOString().slice(0, 7)
+  const now          = new Date().toISOString().slice(0, 7)
+  const imgCacheWrites = []   // [norm, imgUrl, ...aliasNorms]
 
   await Promise.allSettled(
     entries.map(async entry => {
@@ -300,10 +309,18 @@ async function handleRefresh(request) {
       }
 
       try {
-        const norm = normName(entry.name)
+        const norm     = normName(entry.name)
+        const imgUrl   = uaImageMap.get(entry.name)
         await redisSet(`wh:market-prices:live:${norm}`, value)
         for (const alias of (entry.aliases ?? []))
           await redisSet(`wh:market-prices:live:${normName(alias)}`, value)
+
+        // Cache image URL under the short canonical name so /api/algolia-image
+        // can find it via wh:ua:img:{norm} — the full lot title key in
+        // wh:ua:catalog never matches the user's shorter collection name.
+        if (imgUrl) {
+          imgCacheWrites.push([norm, imgUrl, ...(entry.aliases ?? []).map(normName)])
+        }
 
         // Price history — one snapshot per month stored in a hash (field = YYYY-MM)
         const histKey   = `wh:price-history:${norm}`
@@ -319,6 +336,24 @@ async function handleRefresh(request) {
       } catch {}
     })
   )
+
+  // Write short-name image cache entries so /api/algolia-image finds them
+  let imagesCached = 0
+  if (imgCacheWrites.length > 0) {
+    try {
+      const { Redis } = await import('@upstash/redis')
+      const redis     = Redis.fromEnv()
+      const TTL_IMG   = 30 * 24 * 60 * 60
+      await Promise.allSettled(
+        imgCacheWrites.flatMap(([norm, imgUrl, ...aliases]) =>
+          [norm, ...aliases].map(k => redis.set(`wh:ua:img:${k}`, imgUrl, { ex: TTL_IMG }))
+        )
+      )
+      imagesCached = imgCacheWrites.length
+    } catch (err) {
+      console.warn('[market-price/refresh] image cache write failed:', err.message)
+    }
+  }
 
   // Backfill imageUrl into wh:ua:catalog for any entry missing one.
   // Build a normTitle → imageUrl map from every lot that has a photo, then
@@ -373,6 +408,7 @@ async function handleRefresh(request) {
     uaSpecialFiltered: diag.specialFiltered,
     uaErrors:      diag.errors,
     binnysMatched: binnysMap.size,
+    imagesCached,
     imagePatched,
     ms:            Date.now() - start,
   })
