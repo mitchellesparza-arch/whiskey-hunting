@@ -286,20 +286,37 @@ async function handleRefresh(request) {
   ])
 
   // Build UA match map — one hammer price per ENDED lot
-  // Also build an image map keyed by canonical entry name for collection lookups
-  const uaMatches  = new Map()
-  const uaImageMap = new Map()   // entry.name → first CloudFront URL found
+  const uaMatches = new Map()
   for (const lot of uaLots) {
     const entry = matchEntry(lot.title, entries)
     if (!entry) continue
     if (!uaMatches.has(entry.name)) uaMatches.set(entry.name, { hammers: [], entry })
     uaMatches.get(entry.name).hammers.push(lot.hammer)
   }
-  // Image lots include special editions (filtered from price calc but valid for images)
+
+  // Build image map — best-matching lot per entry, not first-found.
+  // Among lots that score the same, prefer the shortest title (fewest extraneous
+  // words vs. the canonical name), which favours modern standard releases over
+  // verbose vintage listings like "Old Weller Antique Original 107 (2007)".
+  const uaImageMap = new Map()
+  const uaImageScores = new Map()   // entry.name → { score, titleWords }
   for (const lot of uaImageLots) {
-    const entry = matchEntry(lot.title, entries)
-    if (!entry) continue
-    if (!uaImageMap.has(entry.name)) uaImageMap.set(entry.name, lot.imageUrl)
+    const norm = normName(lot.title)
+    let bestScore = 0, bestEntry = null
+    for (const entry of entries) {
+      for (const candidate of [entry.name, ...(entry.aliases ?? [])].map(normName)) {
+        const s = scoreMatch(norm, candidate)
+        if (s > bestScore && s >= 0.5) { bestScore = s; bestEntry = entry }
+      }
+    }
+    if (!bestEntry) continue
+    const titleWords = norm.split(/\s+/).filter(w => w.length >= 3).length
+    const prev = uaImageScores.get(bestEntry.name)
+    if (!prev || bestScore > prev.score ||
+        (bestScore === prev.score && titleWords < prev.titleWords)) {
+      uaImageMap.set(bestEntry.name, lot.imageUrl)
+      uaImageScores.set(bestEntry.name, { score: bestScore, titleWords })
+    }
   }
 
   // Write to Redis
