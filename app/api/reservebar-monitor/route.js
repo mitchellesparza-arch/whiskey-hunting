@@ -52,7 +52,7 @@ export async function GET(request) {
     const testUrl = 'https://www.reservebar.com/collections/wild-turkey'
     await Promise.allSettled([
       sendBroadcast({
-        title: '🥃 [TEST] Gold Foil Monitor',
+        title: '🥃 [TEST] Gold Foil Monitor — For Kevin',
         body:  'This is a test notification — push delivery confirmed.',
         url:   testUrl,
         tag:   'reservebar-gold-foil-test',
