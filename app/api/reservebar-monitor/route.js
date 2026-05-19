@@ -7,7 +7,8 @@ import {
   isExpired,
   desiredIntervalSeconds,
 } from '../../../lib/reservebar.js'
-import { sendBroadcast } from '../../../lib/push.js'
+import { sendBroadcast }    from '../../../lib/push.js'
+import { postGoldFoilAlert } from '../../../lib/discord.js'
 
 /**
  * GET /api/reservebar-monitor
@@ -48,12 +49,16 @@ export async function GET(request) {
 
   // ── Test notification path ────────────────────────────────────────────────
   if (isTest) {
-    await sendBroadcast({
-      title: '🥃 [TEST] Gold Foil Monitor',
-      body:  'This is a test notification — push delivery confirmed.',
-      url:   'https://www.reservebar.com/collections/wild-turkey',
-      tag:   'reservebar-gold-foil-test',
-    }, null)
+    const testUrl = 'https://www.reservebar.com/collections/wild-turkey'
+    await Promise.allSettled([
+      sendBroadcast({
+        title: '🥃 [TEST] Gold Foil Monitor',
+        body:  'This is a test notification — push delivery confirmed.',
+        url:   testUrl,
+        tag:   'reservebar-gold-foil-test',
+      }, null),
+      postGoldFoilAlert({ productUrl: testUrl, price: null, isTest: true }),
+    ])
     return NextResponse.json({ ok: true, testNotificationSent: true })
   }
 
@@ -81,15 +86,18 @@ export async function GET(request) {
     const buyUrl = state.directProductUrl
       ?? 'https://www.reservebar.com/collections/wild-turkey'
 
-    await sendBroadcast({
-      title: '🥃 Gold Foil is LIVE on ReserveBar',
-      body:  'Wild Turkey Austin Nichols Archives Gold Foil Edition — ~$400 — Open ReserveBar and check out now.',
-      url:   buyUrl,
-      tag:   'reservebar-gold-foil',
-    }, null)   // null → all subscribed users regardless of pref (high-priority one-shot)
+    await Promise.allSettled([
+      sendBroadcast({
+        title: '🥃 Gold Foil is LIVE on ReserveBar',
+        body:  'Wild Turkey Austin Nichols Archives Gold Foil Edition — ~$400 — Open ReserveBar and check out now.',
+        url:   buyUrl,
+        tag:   'reservebar-gold-foil',
+      }, null),
+      postGoldFoilAlert({ productUrl: buyUrl, price: result.price ?? null }),
+    ])
 
     await markAlertFired()
-    console.log('[reservebar] ALERT FIRED — notification sent')
+    console.log('[reservebar] ALERT FIRED — push + Discord sent')
   }
 
   return NextResponse.json({
