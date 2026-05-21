@@ -7,7 +7,7 @@ import {
   isExpired,
   desiredIntervalSeconds,
 } from '../../../lib/reservebar.js'
-import { sendBroadcast }    from '../../../lib/push.js'
+import { sendProBroadcast } from '../../../lib/push.js'
 import { postGoldFoilAlert } from '../../../lib/discord.js'
 
 /**
@@ -51,12 +51,12 @@ export async function GET(request) {
   if (isTest) {
     const testUrl = 'https://www.reservebar.com/collections/wild-turkey'
     await Promise.allSettled([
-      sendBroadcast({
+      sendProBroadcast({
         title: '🥃 [TEST] Gold Foil Monitor — For Kevin',
         body:  'This is a test notification — push delivery confirmed.',
         url:   testUrl,
         tag:   'reservebar-gold-foil-test',
-      }, null),
+      }),
       postGoldFoilAlert({ productUrl: testUrl, price: null, isTest: true }),
     ])
     return NextResponse.json({ ok: true, testNotificationSent: true })
@@ -87,12 +87,12 @@ export async function GET(request) {
       ?? 'https://www.reservebar.com/collections/wild-turkey'
 
     await Promise.allSettled([
-      sendBroadcast({
+      sendProBroadcast({
         title: '🥃 Gold Foil is LIVE on ReserveBar',
         body:  'Wild Turkey Austin Nichols Archives Gold Foil Edition — ~$400 — Open ReserveBar and check out now.',
         url:   buyUrl,
         tag:   'reservebar-gold-foil',
-      }, null),
+      }),
       postGoldFoilAlert({ productUrl: buyUrl, price: result.price ?? null }),
     ])
 
