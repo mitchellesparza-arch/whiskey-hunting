@@ -153,11 +153,10 @@ export async function GET(request) {
         }))
       )
       // Push notification to all subscribed members
-      const storeNames = [...new Set(truckEvents.map(e => e.storeName))].join(', ')
-      const checkNames = truckEvents.flatMap(e => e.checkFor.flatMap(g => g.names)).slice(0, 3)
+      const deliverySummary = truckEvents.map(e => `${e.distributor} at ${e.storeName}`).join('; ')
       await sendBroadcast({
         title: '🚛 Truck Detected',
-        body:  `Check ${storeNames} for ${checkNames.join(', ')}${checkNames.length < truckEvents.flatMap(e=>e.checkFor.flatMap(g=>g.names)).length ? '…' : ''}`,
+        body:  deliverySummary,
         url:   '/tracker',
         tag:   'truck',
       }, 'trucks')
