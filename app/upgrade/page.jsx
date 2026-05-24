@@ -16,6 +16,7 @@ const FEATURES = [
   { icon: '📊', label: 'Market price index',    desc: 'Secondary market pricing and trend data' },
   { icon: '📋', label: 'Unlimited watchlist',   desc: 'Watch as many bottles as you want (free tier: 3 max)' },
   { icon: '📈', label: 'Find history & analytics', desc: 'Full per-store find history and activity analytics' },
+  { icon: '🏷️', label: 'Sample label maker',      desc: 'Generate NIIMBOT-ready labels for your whiskey samples — download PNG or print via Bluetooth' },
 ]
 
 function UpgradePageContent() {

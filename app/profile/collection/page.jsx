@@ -6,15 +6,17 @@ import Link           from 'next/link'
 import {
   ArrowLeft, Plus, X, Camera, Tag, ChevronLeft, ChevronRight, Gavel,
   Star, Wine, FlaskConical, BarChart2, Image as ImageIcon,
-  CheckCircle, SkipForward, RefreshCw, Pencil, Loader, Eye, EyeOff,
+  CheckCircle, SkipForward, RefreshCw, Pencil, Loader, Eye, EyeOff, Printer,
 } from 'lucide-react'
-import BarcodeScanner from '../../finds/BarcodeScanner.jsx'
-import Button         from '../../components/ui/Button.jsx'
-import Chip           from '../../components/ui/Chip.jsx'
-import StatTile       from '../../components/ui/StatTile.jsx'
-import EmptyState     from '../../components/ui/EmptyState.jsx'
-import SectionHeader  from '../../components/ui/SectionHeader.jsx'
-import Sheet          from '../../components/ui/Sheet.jsx'
+import BarcodeScanner   from '../../finds/BarcodeScanner.jsx'
+import Button           from '../../components/ui/Button.jsx'
+import Chip             from '../../components/ui/Chip.jsx'
+import StatTile         from '../../components/ui/StatTile.jsx'
+import EmptyState       from '../../components/ui/EmptyState.jsx'
+import SectionHeader    from '../../components/ui/SectionHeader.jsx'
+import Sheet            from '../../components/ui/Sheet.jsx'
+import LabelMakerSheet  from './LabelMakerSheet.jsx'
+import { isPro }        from '../../../lib/tier.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -123,7 +125,7 @@ const labelStyle = {
 
 // ── Bottle Card ───────────────────────────────────────────────────────────────
 
-function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
+function BottleCard({ bottle, onRemove, onEdit, onLabel, unicornMatches, marketPrice }) {
   const score = bottle.blindScore
   const [pressed, setPressed] = useState(false)
 
@@ -267,15 +269,31 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
             </div>
           )}
           <button
+            onClick={e => { e.stopPropagation(); onLabel(bottle) }}
+            title="Make sample label"
+            style={{
+              background:   'none',
+              border:       'none',
+              color:        'var(--copper-400)',
+              cursor:       'pointer',
+              padding:      'var(--sp-1)',
+              lineHeight:   1,
+              display:      'flex',
+              borderRadius: 'var(--r-sm)',
+            }}
+          >
+            <Printer size={14} strokeWidth={1.75} />
+          </button>
+          <button
             onClick={e => { e.stopPropagation(); onRemove(bottle.id) }}
             style={{
-              background: 'none',
-              border:     'none',
-              color:      'var(--text-dim)',
-              cursor:     'pointer',
-              padding:    'var(--sp-1)',
-              lineHeight: 1,
-              display:    'flex',
+              background:   'none',
+              border:       'none',
+              color:        'var(--text-dim)',
+              cursor:       'pointer',
+              padding:      'var(--sp-1)',
+              lineHeight:   1,
+              display:      'flex',
               borderRadius: 'var(--r-sm)',
             }}
           >
@@ -338,8 +356,8 @@ function BottleCard({ bottle, onRemove, onEdit, unicornMatches, marketPrice }) {
 // ── Sample Card ───────────────────────────────────────────────────────────────
 
 function SampleCard({ sample, onRemove }) {
-  const TYPE_TONE  = { Mule: 'copper', Handshake: 'green', Other: 'neutral' }
-  const tone = TYPE_TONE[sample.type] ?? 'neutral'
+  const TYPE_TONE = { Mule: 'copper', Handshake: 'green', Other: 'neutral' }
+  const tone      = TYPE_TONE[sample.type] ?? 'neutral'
 
   return (
     <div className="card" style={{ display: 'flex', gap: 'var(--sp-3)', alignItems: 'center', padding: 'var(--sp-3) var(--sp-4)' }}>
@@ -366,7 +384,7 @@ function SampleCard({ sample, onRemove }) {
       </div>
       <button
         onClick={() => onRemove(sample.id)}
-        style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 'var(--sp-1)', flexShrink: 0, display: 'flex', borderRadius: 'var(--r-sm)' }}
+        style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 'var(--sp-1)', display: 'flex', alignItems: 'center', borderRadius: 'var(--r-sm)' }}
       >
         <X size={16} strokeWidth={1.75} />
       </button>
@@ -1450,6 +1468,7 @@ export default function CollectionPage() {
   const [samplesLoaded, setSamplesLoaded] = useState(false)
   const [showAddSample, setShowAddSample] = useState(false)
   const [removingSample,setRemovingSample]= useState(null)
+  const [labelBottle,   setLabelBottle]   = useState(null)
   const [showValue,     setShowValue]     = useState(false)
 
   useEffect(() => {
@@ -1505,6 +1524,14 @@ export default function CollectionPage() {
       if (data.samples) setSamples(data.samples)
     } catch {}
     setRemovingSample(null)
+  }
+
+  function handleLabelBottle(bottle) {
+    if (!isPro(session?.user?.tier)) {
+      router.push('/upgrade')
+      return
+    }
+    setLabelBottle(bottle)
   }
 
   // Sort
@@ -1755,6 +1782,7 @@ export default function CollectionPage() {
                   bottle={bottle}
                   onRemove={handleRemove}
                   onEdit={setEditingBottle}
+                  onLabel={handleLabelBottle}
                   unicornMatches={findUnicornMatches(bottle.name, unicornDeals)}
                   marketPrice={marketPrices[bottle.name] ?? null}
                 />
@@ -1794,6 +1822,14 @@ export default function CollectionPage() {
         open={showAddSample}
         onClose={() => setShowAddSample(false)}
         onAdd={(sample) => { setSamples(prev => [sample, ...prev]); setShowAddSample(false) }}
+      />
+
+      <LabelMakerSheet
+        open={!!labelBottle}
+        onClose={() => setLabelBottle(null)}
+        bottle={labelBottle}
+        bottles={bottles}
+        session={session}
       />
     </div>
   )
