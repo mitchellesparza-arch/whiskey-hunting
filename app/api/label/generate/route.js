@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
-import { getToken }     from 'next-auth/jwt'
-import OpenAI           from 'openai'
-import { isPro }        from '../../../../lib/tier.js'
+import { NextResponse }    from 'next/server'
+import { getToken }        from 'next-auth/jwt'
+import OpenAI              from 'openai'
+import { isPro }           from '../../../../lib/tier.js'
+import { getUserProfile }  from '../../../../lib/friends.js'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -17,7 +18,8 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 export async function POST(req) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
   if (!token?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!isPro(token.tier))  return NextResponse.json({ error: 'Pro required' }, { status: 403 })
+  const profile = await getUserProfile(token.email.toLowerCase()).catch(() => null)
+  if (!isPro(profile?.tier)) return NextResponse.json({ error: 'Pro required' }, { status: 403 })
 
   const { name, proof, distillery, giver } = await req.json()
   if (!name?.trim()) return NextResponse.json({ error: 'Bottle name required' }, { status: 400 })
