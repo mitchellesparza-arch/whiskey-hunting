@@ -3,6 +3,7 @@ import Providers     from './providers.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import BottomNav     from './components/BottomNav.jsx'
 import PushInit      from './components/PushInit.jsx'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 export const metadata = {
   title:       'Tater Tracker',
@@ -62,6 +63,7 @@ export default function RootLayout({ children }) {
         <PushInit />
         <InstallPrompt />
         <BottomNav />
+        <SpeedInsights />
       </body>
     </html>
   )
