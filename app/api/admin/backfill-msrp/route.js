@@ -75,7 +75,10 @@ Return only the JSON object. If you are not confident this is a real retail bott
   }
 }
 
-export async function POST(request) {
+export async function GET(request)  { return handleBackfill(request) }
+export async function POST(request) { return handleBackfill(request) }
+
+async function handleBackfill(request) {
   const secret = process.env.CRON_SECRET
   if (!secret) return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
   const auth  = request.headers.get('authorization') ?? ''
@@ -161,3 +164,4 @@ export async function POST(request) {
     filled:     catalogHit + aiHit,
   })
 }
+
