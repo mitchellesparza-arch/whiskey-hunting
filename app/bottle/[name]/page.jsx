@@ -163,6 +163,7 @@ export default function BottleDetailPage() {
     const baseEnc  = encodeURIComponent(baseName)
 
     Promise.all([
+      fetch(`/api/bottle/lookup?name=${enc}`).then(r => r.json()).catch(() => ({ found: false })),
       fetch(`/api/market-price?name=${enc}`).then(r => r.json()).catch(() => ({})),
       fetch(`/api/price-history?name=${enc}`).then(r => r.json()).catch(() => ({})),
       fetch(`/api/algolia-image?name=${enc}`).then(r => r.json()).catch(() => ({})),
@@ -173,11 +174,12 @@ export default function BottleDetailPage() {
       fetch(`/api/catalog/search?q=${baseEnc}&limit=25`).then(r => r.json()).catch(() => ({ results: [] })),
       fetch(`/api/ua-catalog?lookup=${enc}`).then(r => r.json()).catch(() => ({ result: null })),
       fetch(`/api/ua-image?name=${enc}`).then(r => r.json()).catch(() => ({ imageUrl: null })),
-    ]).then(([priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes, catRes, uaCatRes, uaImgRes]) => {
-      setPrice(priceRes.price ?? null)
+    ]).then(([canonRes, priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes, catRes, uaCatRes, uaImgRes]) => {
+      const canonical = canonRes?.found ? canonRes.bottle : null
+      setPrice(canonical?.market ?? priceRes.price ?? null)
       setHistory(histRes.history ?? [])
-      // Image priority: Binny's (Algolia) → Unicorn Auctions (og:image from lot page) → nothing
-      setImageUrl(imgRes.imageUrl ?? uaImgRes?.imageUrl ?? null)
+      // Image priority: canonical DB → Binny's Algolia → Unicorn Auctions → nothing
+      setImageUrl(canonical?.imageUrl ?? imgRes.imageUrl ?? uaImgRes?.imageUrl ?? null)
       setFinds(findsRes.finds ?? [])
       setArchived(findsRes.archived ?? [])
       // Suppress BB review for UA-only bottles (no Binny's image, in UA catalog,

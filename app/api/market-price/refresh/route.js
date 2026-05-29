@@ -479,6 +479,38 @@ async function handleRefresh(request) {
     }
   }
 
+  // ── Upsert all UA catalog entries into canonical bottle DB ───────────────────
+  // The UA catalog has 6k+ bottles with images — far more than the static 400-
+  // entry catalog.  Upserting here means every UA lot title becomes a canonical
+  // record, growing the DB and filling image gaps automatically each week.
+  let uaCatalogUpserted = 0
+  try {
+    const { Redis: _Redis } = await import('@upstash/redis')
+    const _redis    = _Redis.fromEnv()
+    const uaCatalog = await _redis.hgetall('wh:ua:catalog') ?? {}
+
+    const uaCatalogEntries = Object.entries(uaCatalog)
+    const BATCH_SIZE = 20
+    for (let i = 0; i < uaCatalogEntries.length; i += BATCH_SIZE) {
+      await Promise.allSettled(
+        uaCatalogEntries.slice(i, i + BATCH_SIZE).map(async ([, raw]) => {
+          const e = typeof raw === 'string' ? JSON.parse(raw) : raw
+          const name = e.name ?? null
+          if (!name) return
+          await upsertBottle({
+            name,
+            category:   e.category  ?? null,
+            imageUrl:   e.imageUrl  ?? null,
+            lastSeenUA: e.lastSeen  ? Date.parse(e.lastSeen)  : Date.now(),
+          }, 'ua')
+          uaCatalogUpserted++
+        })
+      )
+    }
+  } catch (err) {
+    console.warn('[market-price/refresh] UA catalog upsert failed:', err.message)
+  }
+
   // Surface a clear failure signal when the UA pipeline returns nothing — the
   // previous schema break went unnoticed for months because the cron's success
   // path didn't distinguish "0 matches" from "fetch errored silently".
@@ -498,6 +530,7 @@ async function handleRefresh(request) {
     binnysMatched: binnysMap.size,
     imagesCached,
     imagePatched,
+    uaCatalogUpserted,
     ms:            Date.now() - start,
   })
 }
