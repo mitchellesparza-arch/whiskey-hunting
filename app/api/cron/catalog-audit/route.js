@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
-import { readFileSync }  from 'fs'
-import { Resend }        from 'resend'
-import path              from 'path'
+import { NextResponse }              from 'next/server'
+import { readFileSync }              from 'fs'
+import { Resend }                    from 'resend'
+import path                          from 'path'
+import { listBottleSlugs, bottleCount } from '../../../../lib/bottle-db.js'
 
 const DATA_PATH = path.join(process.cwd(), 'lib', 'market-prices-data.json')
 
@@ -50,7 +51,7 @@ async function sendAuditEmail(stats) {
   const to = process.env.ALERT_EMAIL
   if (!to) { console.warn('[catalog-audit] ALERT_EMAIL not set — skipping email'); return }
 
-  const { catalog, prices, history, lastScrape, runAt } = stats
+  const { catalog, prices, history, canonical, lastScrape, runAt } = stats
   const runDate = new Date(runAt).toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
   })
@@ -85,6 +86,16 @@ async function sendAuditEmail(stats) {
     statRow('Updated this month', history.updatedThisMonth.toLocaleString()),
   ].join('')
 
+  const canonicalRows = [
+    statRow('Total canonical records',  canonical.total.toLocaleString()),
+    statRow('Have image URL',           `${canonical.hasImage} / ${canonical.total} (${pct(canonical.hasImage, canonical.total)})`, canonical.hasImage < canonical.total * 0.5),
+    statRow('Have UPC linked',          `${canonical.hasUpc} / ${canonical.total} (${pct(canonical.hasUpc, canonical.total)})`),
+    statRow('Have Algolia objectID',    `${canonical.hasAlgolia} / ${canonical.total} (${pct(canonical.hasAlgolia, canonical.total)})`),
+    statRow('Have secondary market',    `${canonical.hasMarket} / ${canonical.total} (${pct(canonical.hasMarket, canonical.total)})`),
+    statRow('Have MSRP',               `${canonical.hasMsrp} / ${canonical.total} (${pct(canonical.hasMsrp, canonical.total)})`, canonical.hasMsrp < canonical.total * 0.7),
+    ...Object.entries(canonical.bySource).sort((a,b) => b[1]-a[1]).map(([src, n]) => statRow(`Source: ${src}`, n.toLocaleString())),
+  ].join('')
+
   const enrichRows = [
     statRow('No image + not in static catalog (highest need)', catalog.needsBoth.toLocaleString(), catalog.needsBoth > 20),
     statRow('No MSRP only', (prices.total - prices.hasMsrp).toLocaleString()),
@@ -111,7 +122,9 @@ async function sendAuditEmail(stats) {
   const hasWarnings = catalog.staleSinceWeek > 50 || catalog.missingImage > 200 ||
     catalog.missingLotUrl > 100 || prices.srcStatic > 50 ||
     prices.total - prices.hasMsrp > 10 || prices.total - history.hasHistory > 100 ||
-    catalog.needsBoth > 20
+    catalog.needsBoth > 20 ||
+    canonical.hasImage < canonical.total * 0.5 ||
+    canonical.hasMsrp < canonical.total * 0.7
 
   const subject = hasWarnings
     ? `⚠️ Weekly DB Audit — ${runDate} (action needed)`
@@ -156,6 +169,7 @@ async function sendAuditEmail(stats) {
                 <div>${topCats || '<span style="color:#4a3020;font-size:13px;">No data</span>'}</div>
               </div>
 
+              ${section('Canonical Bottle DB (wh:bottle:*)', canonicalRows)}
               ${section('Market Price Coverage', priceRows)}
               ${section('Price History (wh:price-history:*)', historyRows)}
               ${section('Needs Enrichment', enrichRows)}
@@ -282,7 +296,36 @@ export async function GET(request) {
       if (!e.imageUrl && !staticNormNames.has(nk)) needsBoth++
     }
 
-    // ── 4. Parse last scraper run info ───────────────────────────────────────
+    // ── 4. Canonical bottle DB stats ────────────────────────────────────────
+    let canonicalStats = { total: 0, hasImage: 0, hasUpc: 0, hasAlgolia: 0, hasMarket: 0, hasMsrp: 0, bySource: {} }
+    try {
+      const total = await bottleCount()
+      canonicalStats.total = total
+
+      if (total > 0) {
+        const slugs = await listBottleSlugs(0, total)
+        const cp = redis.pipeline()
+        for (const s of slugs) cp.get(`wh:bottle:${s}`)
+        const records = await cp.exec()
+
+        for (const raw of records) {
+          if (!raw) continue
+          const b = typeof raw === 'string' ? JSON.parse(raw) : raw
+          if (b.imageUrl)        canonicalStats.hasImage++
+          if (b.upcs?.length)    canonicalStats.hasUpc++
+          if (b.algoliaObjectId) canonicalStats.hasAlgolia++
+          if (b.market)          canonicalStats.hasMarket++
+          if (b.msrp)            canonicalStats.hasMsrp++
+          for (const src of (b.sources ?? [])) {
+            canonicalStats.bySource[src] = (canonicalStats.bySource[src] ?? 0) + 1
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[catalog-audit] canonical DB stats failed:', err.message)
+    }
+
+    // ── 5. Parse last scraper run info ───────────────────────────────────────
     let lastScrape = null
     try {
       const deals = typeof rawDeals === 'string' ? JSON.parse(rawDeals) : rawDeals
@@ -296,7 +339,7 @@ export async function GET(request) {
       }
     } catch {}
 
-    // ── 5. Assemble and ship ─────────────────────────────────────────────────
+    // ── 6. Assemble and ship ─────────────────────────────────────────────────
     const stats = {
       catalog: {
         total: catalogEntries.length,
@@ -319,6 +362,7 @@ export async function GET(request) {
         hasHistory,
         updatedThisMonth,
       },
+      canonical: canonicalStats,
       lastScrape,
       runAt,
     }
