@@ -48,6 +48,7 @@ export default function AdminPage() {
   const [approving,  setApproving]  = useState(null) // email being approved
   const [settingTier, setSettingTier] = useState(null) // email having tier changed
   const [tab,        setTab]        = useState('pending')
+  const [cronStatus, setCronStatus] = useState({}) // key → 'running'|'ok'|'error'
 
   // Redirect non-owners
   useEffect(() => {
@@ -91,6 +92,17 @@ export default function AdminPage() {
       await load()
     } finally {
       setApproving(null)
+    }
+  }
+
+  async function runCron(key, url, method = 'GET') {
+    setCronStatus(s => ({ ...s, [key]: 'running' }))
+    try {
+      const res = await fetch(url, { method })
+      const data = await res.json().catch(() => ({}))
+      setCronStatus(s => ({ ...s, [key]: res.ok ? { ok: true, data } : { ok: false, data } }))
+    } catch (err) {
+      setCronStatus(s => ({ ...s, [key]: { ok: false, data: { error: err.message } } }))
     }
   }
 
@@ -170,6 +182,9 @@ export default function AdminPage() {
           </button>
           <button style={tabStyle(tab === 'members')} onClick={() => setTab('members')}>
             Members ({members.length})
+          </button>
+          <button style={tabStyle(tab === 'tools')} onClick={() => setTab('tools')}>
+            Tools
           </button>
         </div>
 
@@ -320,6 +335,106 @@ export default function AdminPage() {
                     <div style={{ marginTop: 'var(--sp-2)', fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>
                       Stripe: {u.subscriptionStatus}{u.subscriptionId ? ` · ${u.subscriptionId.slice(0, 12)}…` : ''}
                     </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Tools tab */}
+        {tab === 'tools' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+            {[
+              {
+                key:    'seed',
+                label:  '1. Seed Bottle DB',
+                desc:   'Backfills 256 seed + 400 catalog bottles into Redis. Safe to re-run.',
+                url:    '/api/admin/bottle-seed',
+                method: 'POST',
+              },
+              {
+                key:    'market',
+                label:  '2. Market Price Refresh',
+                desc:   'Pulls UA hammer prices + images + live Binny\'s MSRP. Run after UA scraper.',
+                url:    '/api/market-price/refresh',
+                method: 'GET',
+              },
+              {
+                key:    'cron',
+                label:  '3. Daily Cron',
+                desc:   'Algolia canary checks → truck detection → enriches bottle DB.',
+                url:    '/api/cron',
+                method: 'GET',
+              },
+              {
+                key:    'importUpcs',
+                label:  '4. Import UPCs',
+                desc:   'Monthly UPC batch import.',
+                url:    '/api/cron/import-upcs',
+                method: 'GET',
+              },
+              {
+                key:    'reservebar',
+                label:  '5. ReserveBar Monitor',
+                desc:   'Checks ReserveBar for deals. Independent of other crons.',
+                url:    '/api/reservebar-monitor',
+                method: 'GET',
+              },
+              {
+                key:    'audit',
+                label:  '6. Catalog Audit',
+                desc:   'Audits the bottle catalog and sends a report. Run last.',
+                url:    '/api/cron/catalog-audit',
+                method: 'GET',
+              },
+            ].map(({ key, label, desc, url, method }) => {
+              const st = cronStatus[key]
+              return (
+                <div key={key} style={{
+                  background:   'var(--bg-elev-2)',
+                  border:       `1px solid ${st?.ok === false ? 'var(--red)' : st?.ok === true ? 'var(--green)' : 'var(--hairline-2)'}`,
+                  borderRadius: 12,
+                  padding:      'var(--sp-3) var(--sp-4)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>{label}</div>
+                      <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', marginTop: 2 }}>{desc}</div>
+                    </div>
+                    <button
+                      onClick={() => runCron(key, url, method)}
+                      disabled={st === 'running'}
+                      style={{
+                        padding:      'var(--sp-2) var(--sp-4)',
+                        background:   st === 'running' ? 'var(--bg-elev-3)' : st?.ok === true ? 'rgba(74,222,128,0.15)' : st?.ok === false ? 'rgba(239,68,68,0.15)' : 'var(--copper-400)',
+                        color:        st?.ok === true ? 'var(--green)' : st?.ok === false ? 'var(--red)' : st === 'running' ? 'var(--text-muted)' : 'var(--text-inverse)',
+                        border:       'none',
+                        borderRadius: 'var(--r-sm)',
+                        fontWeight:   700,
+                        fontSize:     'var(--fs-meta)',
+                        cursor:       st === 'running' ? 'default' : 'pointer',
+                        flexShrink:   0,
+                        minWidth:     72,
+                      }}
+                    >
+                      {st === 'running' ? 'Running…' : st?.ok === true ? 'Done' : st?.ok === false ? 'Error' : 'Run'}
+                    </button>
+                  </div>
+                  {st?.data && (
+                    <pre style={{
+                      marginTop:   'var(--sp-2)',
+                      fontSize:    10,
+                      color:       st.ok ? 'var(--text-muted)' : 'var(--red)',
+                      background:  'var(--bg-elev-3)',
+                      borderRadius: 6,
+                      padding:     'var(--sp-2)',
+                      overflowX:   'auto',
+                      whiteSpace:  'pre-wrap',
+                      wordBreak:   'break-all',
+                    }}>
+                      {JSON.stringify(st.data, null, 2)}
+                    </pre>
                   )}
                 </div>
               )
