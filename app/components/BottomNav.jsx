@@ -17,7 +17,8 @@ const HIDDEN_ON = ['/login', '/pending']
 
 export default function BottomNav() {
   const pathname = usePathname()
-  const { status } = useSession()
+  const sessionResult = useSession()
+  const status = sessionResult?.status
   const [badge,   setBadge]   = useState(0)
   const [pressed, setPressed] = useState(null)
 
