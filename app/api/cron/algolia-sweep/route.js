@@ -43,25 +43,33 @@ function extractImage(hit) {
     ?? hit.images?.[0] ?? hit.thumbnail ?? null
 }
 
-async function browsePage(cursor) {
-  const url = cursor
-    ? `https://${ALG_APP}-dsn.algolia.net/1/indexes/${ALG_INDEX}/browse`
-    : `https://${ALG_APP}-dsn.algolia.net/1/indexes/${ALG_INDEX}/browse`
-
-  const body = cursor
-    ? { cursor }
-    : { params: 'hitsPerPage=1000' }
-
-  const res = await fetch(url, {
-    method:  'POST',
-    headers: {
-      'X-Algolia-Application-Id': ALG_APP,
-      'X-Algolia-API-Key':        ALG_KEY,
-      'Content-Type':             'application/json',
-    },
-    body: JSON.stringify(body),
+// The public Binny's Algolia key has search ACL only — browse is not available.
+// We paginate via the search API with an empty query instead.
+// Algolia's default paginationLimitedTo caps results at 1000; we page through
+// with hitsPerPage=200 to stay safely under any per-page limits.
+async function searchPage(page) {
+  const params = new URLSearchParams({
+    query:        '',
+    hitsPerPage:  '200',
+    page:         String(page),
+    attributesToRetrieve: [
+      'objectID', 'productName', 'name', 'productUrl', 'url',
+      'imageUrl', 'image', 'thumbnailUrl', 'images', 'thumbnail',
+      'productType', 'type', 'category',
+      'prices', 'storesPriceAndInventory', 'inStockStores',
+    ].join(','),
   })
-  if (!res.ok) throw new Error(`Algolia browse HTTP ${res.status}`)
+
+  const res = await fetch(
+    `https://${ALG_APP}-dsn.algolia.net/1/indexes/${ALG_INDEX}?${params}`,
+    {
+      headers: {
+        'X-Algolia-Application-Id': ALG_APP,
+        'X-Algolia-API-Key':        ALG_KEY,
+      },
+    }
+  )
+  if (!res.ok) throw new Error(`Algolia search HTTP ${res.status}`)
   return res.json()
 }
 
@@ -82,14 +90,14 @@ export async function GET(request) {
   const MAX_PAGES = 50  // safety cap (~50k products max)
 
   try {
+    let nbPages = 1
     do {
-      const page = await browsePage(cursor)
-      cursor     = page.cursor ?? null
-      const hits = page.hits  ?? []
+      const data = await searchPage(pagesDone)
+      nbPages    = data.nbPages ?? 1
+      const hits = data.hits    ?? []
       hitsTotal += hits.length
       pagesDone++
 
-      // Filter to spirits only, then upsert in small parallel batches
       const spirits = hits.filter(isSpirit)
       skipped += hits.length - spirits.length
 
@@ -120,9 +128,7 @@ export async function GET(request) {
           })
         )
       }
-
-      if (!cursor || pagesDone >= MAX_PAGES) break
-    } while (true)
+    } while (pagesDone < nbPages && pagesDone < MAX_PAGES)
 
   } catch (err) {
     console.error('[algolia-sweep]', err)
