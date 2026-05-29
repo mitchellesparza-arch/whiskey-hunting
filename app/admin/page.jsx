@@ -365,6 +365,13 @@ export default function AdminPage() {
                 method: 'POST',
               },
               {
+                key:    'backfillMsrp',
+                label:  '2b. Backfill MSRP (AI)',
+                desc:   'Fills missing MSRP via catalog match then Claude Haiku. ~$0.50 one-time cost.',
+                url:    '/api/admin/backfill-msrp',
+                method: 'POST',
+              },
+              {
                 key:    'market',
                 label:  '3. Market Price Refresh',
                 desc:   'Pulls UA hammer prices + images + live Binny\'s MSRP. Run after UA scraper.',
