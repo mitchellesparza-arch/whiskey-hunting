@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { readFileSync }  from 'fs'
 import path              from 'path'
+import { upsertBottle }  from '../../../../lib/bottle-db.js'
 
 const DATA_PATH = path.join(process.cwd(), 'lib', 'market-prices-data.json')
 const UA_GQL    = 'https://graphql.beta.unicornauctions.com/graphql'
@@ -384,6 +385,24 @@ async function handleRefresh(request) {
           const baseline = JSON.stringify({ avg: entry.secondary.avg, low: entry.secondary.low, high: entry.secondary.high })
           await redisHset(histKey, { [entry.lastUpdated]: baseline })
         }
+
+        // Enrich canonical bottle DB with whatever we learned this run.
+        upsertBottle({
+          name:        entry.name,
+          distillery:  entry.distillery ?? null,
+          category:    entry.type       ?? null,
+          proof:       entry.proof      ?? null,
+          age:         entry.age        ?? null,
+          msrp:        binnysPrice ?? entry.msrp ?? null,
+          imageUrl:    uaImageMap.get(entry.name) ?? null,
+          market:      secondary ?? null,
+          rarity:      entry.rarity  ?? null,
+          region:      entry.region  ?? null,
+          origin:      entry.origin  ?? null,
+          sizes:       entry.sizes   ?? null,
+          nameAliases: entry.aliases ?? [],
+          lastSeenUA:  uaData ? Date.now() : undefined,
+        }, uaData ? 'ua' : 'seed').catch(() => {})
 
         written++
       } catch {}

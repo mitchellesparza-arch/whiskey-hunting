@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getToken }     from 'next-auth/jwt'
 import Anthropic        from '@anthropic-ai/sdk'
 import { Redis }        from '@upstash/redis'
+import { upsertBottle } from '../../../../lib/bottle-db.js'
 
 /**
  * POST /api/upc/identify
@@ -94,6 +95,9 @@ Return only the JSON object.`,
         console.warn('[upc/identify] Redis persist failed:', err.message)
       }
     }
+
+    // Enrich canonical bottle DB — AI vision is the richest per-scan signal
+    upsertBottle({ ...bottle, upc: cleanUpc ?? undefined }, 'ai').catch(() => {})
 
     return NextResponse.json({ found: true, bottle })
   } catch (err) {

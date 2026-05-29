@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getToken }     from 'next-auth/jwt'
 import { Redis }        from '@upstash/redis'
 import { UPC_MAP }      from '../../../lib/whiskey-db.js'
+import { upsertBottle } from '../../../lib/bottle-db.js'
 
 /**
  * GET /api/upc?code=<upc>
@@ -63,6 +64,7 @@ export async function GET(request) {
       const imageUrl = item?.images?.[0] ?? null
       if (name) {
         await cacheUpc(code, name, imageUrl)
+        upsertBottle({ name, upc: code, imageUrl: imageUrl ?? null }, 'upc-api').catch(() => {})
         return NextResponse.json({ name, imageUrl })
       }
     }
@@ -79,6 +81,7 @@ export async function GET(request) {
       const name = d?.product?.product_name || d?.product?.product_name_en
       if (name) {
         await cacheUpc(code, name, null)
+        upsertBottle({ name, upc: code }, 'upc-api').catch(() => {})
         return NextResponse.json({ name, imageUrl: null })
       }
     }
