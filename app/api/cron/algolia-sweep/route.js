@@ -112,7 +112,7 @@ export async function GET(request) {
                 lastSeenBinnys:  inStock47 ? Date.now() : undefined,
                 imageUrl:        extractImage(hit),
                 category:        hit.productType ?? hit.type ?? hit.category ?? null,
-              }, 'algolia')
+              }, 'algolia', { skipFuzzy: true })
               upserted++
             } catch (err) {
               errors.push(`${name}: ${err.message}`)

@@ -402,7 +402,7 @@ async function handleRefresh(request) {
           sizes:       entry.sizes   ?? null,
           nameAliases: entry.aliases ?? [],
           lastSeenUA:  uaData ? Date.now() : undefined,
-        }, uaData ? 'ua' : 'seed').catch(() => {})
+        }, uaData ? 'ua' : 'seed', { skipFuzzy: true }).catch(() => {})
 
         written++
       } catch {}
@@ -502,7 +502,7 @@ async function handleRefresh(request) {
             category:   e.category  ?? null,
             imageUrl:   e.imageUrl  ?? null,
             lastSeenUA: e.lastSeen  ? Date.parse(e.lastSeen)  : Date.now(),
-          }, 'ua')
+          }, 'ua', { skipFuzzy: true })
           uaCatalogUpserted++
         })
       )
