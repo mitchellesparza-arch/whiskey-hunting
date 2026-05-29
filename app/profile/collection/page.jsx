@@ -764,6 +764,7 @@ function AddBottleSheet({ open, onClose, onAdd }) {
   const [submitting,  setSubmitting]  = useState(false)
   const [lookingUp,   setLookingUp]   = useState(false)
   const [lookupMsg,   setLookupMsg]   = useState(null)
+  const [upcMiss,     setUpcMiss]     = useState(false)  // true when barcode scanned but not in DB
   const [suggestions, setSuggestions] = useState([])
   const [error,       setError]       = useState(null)
   const photoInputRef = useRef(null)
@@ -785,15 +786,21 @@ function AddBottleSheet({ open, onClose, onAdd }) {
     setShowScanner(false)
     setLookingUp(true)
     setLookupMsg(null)
+    setUpcMiss(false)
     try {
       const r = await fetch(`/api/lookup?upc=${encodeURIComponent(code)}`)
       const d = await r.json()
       if (d.found) {
         applyBottle(d.bottle, `Found via barcode (${d.bottle.source})`)
       } else {
-        setLookupMsg('Barcode not in database — fill in manually')
+        // Trigger label-scan prompt instead of a plain text message
+        setUpcMiss(true)
+        fetch(`/api/upc?code=${encodeURIComponent(code)}`)
+          .then(r => r.json())
+          .then(u => { if (u.imageUrl) setPhotoUrl(u.imageUrl) })
+          .catch(() => {})
       }
-      if (!d.found || !d.bottle?.imageUrl) {
+      if (d.found && !d.bottle?.imageUrl) {
         fetch(`/api/upc?code=${encodeURIComponent(code)}`)
           .then(r => r.json())
           .then(u => { if (u.imageUrl) setPhotoUrl(u.imageUrl) })
@@ -827,6 +834,15 @@ function AddBottleSheet({ open, onClose, onAdd }) {
       const d = await r.json()
       if (d.found) {
         applyBottle(d.bottle, 'Label read by AI — verify details below')
+        setUpcMiss(false)
+        // Cache UPC→name so future scans of this barcode resolve instantly
+        if (upc) {
+          fetch('/api/upc', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ code: upc, name: d.bottle.name }),
+          }).catch(() => {})
+        }
       } else {
         setLookupMsg(d.error ?? 'Could not read label — fill in manually')
       }
@@ -912,6 +928,55 @@ function AddBottleSheet({ open, onClose, onAdd }) {
         onChange={handlePhoto}
         style={{ display: 'none' }}
       />
+
+      {/* UPC miss — prompt label scan */}
+      {upcMiss && (
+        <div style={{
+          marginBottom: 'var(--sp-2)',
+          padding:      'var(--sp-3)',
+          background:   'rgba(139,92,246,0.08)',
+          borderRadius: 'var(--r-md)',
+          border:       '1px solid rgba(139,92,246,0.25)',
+          display:      'flex',
+          alignItems:   'center',
+          gap:          'var(--sp-3)',
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 'var(--fs-meta)', fontWeight: 700, color: 'var(--violet)', marginBottom: 2 }}>
+              Barcode not found in database
+            </div>
+            <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)' }}>
+              Scan the label so we can identify and add this bottle.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => photoInputRef.current?.click()}
+            disabled={lookingUp}
+            style={{
+              background:   'var(--violet)',
+              color:        '#fff',
+              border:       'none',
+              borderRadius: 'var(--r-md)',
+              padding:      'var(--sp-2) var(--sp-3)',
+              fontSize:     'var(--fs-meta)',
+              fontWeight:   700,
+              cursor:       lookingUp ? 'not-allowed' : 'pointer',
+              fontFamily:   'inherit',
+              flexShrink:   0,
+              display:      'flex',
+              alignItems:   'center',
+              gap:          'var(--sp-1)',
+              opacity:      lookingUp ? 0.6 : 1,
+            }}
+          >
+            {lookingUp
+              ? <><Loader size={13} strokeWidth={1.75} /> Reading…</>
+              : <><Tag    size={13} strokeWidth={1.75} /> Scan Label</>
+            }
+          </button>
+        </div>
+      )}
 
       {/* Lookup status message */}
       {lookupMsg && (
