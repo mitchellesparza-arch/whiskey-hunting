@@ -95,10 +95,14 @@ export default function AdminPage() {
     }
   }
 
-  async function runCron(key, url, method = 'GET') {
+  async function runCron(key, path, method = 'GET') {
     setCronStatus(s => ({ ...s, [key]: 'running' }))
     try {
-      const res = await fetch(url, { method })
+      const res  = await fetch('/api/admin/run-cron', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ path, method }),
+      })
       const data = await res.json().catch(() => ({}))
       setCronStatus(s => ({ ...s, [key]: res.ok ? { ok: true, data } : { ok: false, data } }))
     } catch (err) {
