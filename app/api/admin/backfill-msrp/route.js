@@ -59,7 +59,10 @@ async function aiLookup(client, name) {
 
 Bottle: "${name}"
 
-Return only the JSON object. If you are not confident this is a real retail bottle with a known MSRP, return {"msrp":null,"proof":null,"category":null}.`,
+Return only the JSON object. Rules:
+- Only return an msrp if you are certain of the standard US retail price for this EXACT bottle (age, edition, year). Do NOT guess or extrapolate from a related expression.
+- If this is a new/recent release you're uncertain about, or a vintage/year variant you don't have confirmed pricing for, set msrp to null.
+- When in doubt, return null for msrp — an empty field is better than a wrong price.`,
       }],
     })
     const raw     = resp.content[0]?.text?.trim() ?? ''
