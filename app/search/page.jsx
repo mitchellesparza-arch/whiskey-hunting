@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import BarcodeScanner    from '../finds/BarcodeScanner.jsx'
 import AppHeader from '../components/AppHeader.jsx'
 import Button from '../components/ui/Button.jsx'
-import { Camera, Search, X } from 'lucide-react'
+import { Camera, Search, X, Tag, Loader } from 'lucide-react'
 
 function bottleHref(name) {
   return `/bottle/${encodeURIComponent(name)}`
@@ -35,6 +35,8 @@ export default function SearchPage() {
   const [showScanner,  setShowScanner]  = useState(false)
   const [scanning,     setScanning]     = useState(false)
   const [scanMsg,      setScanMsg]      = useState(null)
+  const [upcMiss,      setUpcMiss]      = useState(false)  // true when barcode not in DB
+  const [lastUpc,      setLastUpc]      = useState(null)   // UPC code from last barcode scan
 
   const photoInputRef = useRef(null)
   const timerRef      = useRef(null)
@@ -176,7 +178,9 @@ export default function SearchPage() {
   async function handleBarcode(code) {
     setShowScanner(false)
     setScanning(true)
+    setUpcMiss(false)
     setScanMsg('Looking up…')
+    setLastUpc(code)
     try {
       const r = await fetch(`/api/lookup?upc=${encodeURIComponent(code)}`)
       const d = await r.json()
@@ -184,7 +188,8 @@ export default function SearchPage() {
         setScanMsg(null)
         router.push(bottleHref(d.bottle.name))
       } else {
-        setScanMsg('Barcode not in database — try Scan Label instead')
+        setScanMsg(null)
+        setUpcMiss(true)
       }
     } catch {
       setScanMsg('Lookup failed — try again')
@@ -215,6 +220,15 @@ export default function SearchPage() {
       const d = await r.json()
       if (d.found && d.bottle?.name) {
         setScanMsg(null)
+        setUpcMiss(false)
+        // Cache UPC→name so future scans resolve instantly
+        if (lastUpc) {
+          fetch('/api/upc', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ code: lastUpc, name: d.bottle.name }),
+          }).catch(() => {})
+        }
         router.push(bottleHref(d.bottle.name))
       } else {
         setScanMsg(d.error ?? 'Could not read label — try a clearer photo')
@@ -275,11 +289,59 @@ export default function SearchPage() {
           />
         </div>
 
+        {/* UPC miss — prompt label scan */}
+        {upcMiss && (
+          <div style={{
+            padding:      '10px 12px',
+            background:   'rgba(139,92,246,0.08)',
+            borderRadius: 8,
+            border:       '1px solid rgba(139,92,246,0.25)',
+            display:      'flex',
+            alignItems:   'center',
+            gap:          10,
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--violet)', marginBottom: 2 }}>
+                Barcode not found in database
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                Scan the label so we can identify this bottle.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={scanning}
+              style={{
+                background:   'var(--violet)',
+                color:        '#fff',
+                border:       'none',
+                borderRadius: 7,
+                padding:      '7px 12px',
+                fontSize:     12,
+                fontWeight:   700,
+                cursor:       scanning ? 'not-allowed' : 'pointer',
+                fontFamily:   'inherit',
+                flexShrink:   0,
+                display:      'flex',
+                alignItems:   'center',
+                gap:          5,
+                opacity:      scanning ? 0.6 : 1,
+              }}
+            >
+              {scanning
+                ? <><Loader size={12} strokeWidth={1.75} /> Reading…</>
+                : <><Tag    size={12} strokeWidth={1.75} /> Scan Label</>
+              }
+            </button>
+          </div>
+        )}
+
         {/* Scan status */}
         {scanMsg && (
           <div style={{
             fontSize:     12,
-            color:        scanMsg.includes('failed') || scanMsg.includes('not in') || scanMsg.includes('Could not')
+            color:        scanMsg.includes('failed') || scanMsg.includes('Could not')
                             ? 'var(--amber)'
                             : 'var(--text-muted)',
             padding:      '8px 10px',
