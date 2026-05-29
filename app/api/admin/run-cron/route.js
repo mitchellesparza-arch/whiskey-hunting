@@ -3,6 +3,7 @@ import { getToken }     from 'next-auth/jwt'
 
 const ALLOWED_PATHS = new Set([
   '/api/admin/bottle-seed',
+  '/api/admin/backfill-prices',
   '/api/market-price/refresh',
   '/api/cron',
   '/api/cron/algolia-sweep',

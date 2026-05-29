@@ -358,6 +358,13 @@ export default function AdminPage() {
                 method: 'POST',
               },
               {
+                key:    'backfillPrices',
+                label:  '1b. Backfill Prices',
+                desc:   'Writes market prices + MSRP from Redis price cache into canonical bottle records.',
+                url:    '/api/admin/backfill-prices',
+                method: 'POST',
+              },
+              {
                 key:    'market',
                 label:  '2. Market Price Refresh',
                 desc:   'Pulls UA hammer prices + images + live Binny\'s MSRP. Run after UA scraper.',
