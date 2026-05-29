@@ -368,7 +368,7 @@ function BottleForm({ value, onChange, onAiScan, onBarcode, scanning, setScannin
 
       {scanning === 'barcode' && (
         <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--hairline-2)' }}>
-          <BarcodeScanner onDetected={code => { onBarcode(code); setScanning(false) }} />
+          <BarcodeScanner onResult={code => { onBarcode(code); setScanning(false) }} />
           <button type="button" onClick={() => setScanning(false)} style={{ width: '100%', padding: 8, background: 'var(--bg-elev-3)', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
         </div>
       )}
@@ -497,7 +497,7 @@ function CreateListingModal({ onClose, onCreated, userEmail, open }) {
   async function handleBarcode(code) {
     setLookingUp(true); setLookupMsg(null)
     try {
-      const r = await fetch(`/api/whiskey-db?upc=${encodeURIComponent(code)}`)
+      const r = await fetch(`/api/lookup?upc=${encodeURIComponent(code)}`)
       const d = await r.json()
       if (d.found) {
         updateCurrentBottle({
@@ -1070,13 +1070,21 @@ function MarketplaceTab({ userEmail }) {
 export default function MarketplacePage() {
   const { data: session } = useSession()
   const userIsPro = isPro(session?.user?.tier)
-  // Default free users to marketplace tab since auctions are gated
-  const [tab, setTab] = useState(userIsPro ? 'auctions' : 'marketplace')
+  const [tab, setTab] = useState('marketplace')
+  const tabInitialized = useRef(false)
+  // Set Pro users to auctions tab on first session load (useState initial value
+  // can't use session since it's null on first render)
+  useEffect(() => {
+    if (!tabInitialized.current && session?.user?.tier) {
+      tabInitialized.current = true
+      if (isPro(session.user.tier)) setTab('auctions')
+    }
+  }, [session?.user?.tier])
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
       <AppHeader sub={tab === 'auctions' ? 'Unicorn Auctions · Live Deals' : 'Buy · Sell · Trade'} />
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-4 pt-6" style={{ paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
 
         {/* Source toggle — same pattern as Tracker */}
         <div

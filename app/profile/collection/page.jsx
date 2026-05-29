@@ -6,7 +6,7 @@ import Link           from 'next/link'
 import {
   ArrowLeft, Plus, X, Camera, Tag, ChevronLeft, ChevronRight, Gavel,
   Star, Wine, FlaskConical, BarChart2, Image as ImageIcon,
-  CheckCircle, SkipForward, RefreshCw, Pencil, Loader, Eye, EyeOff, Printer,
+  CheckCircle, SkipForward, RefreshCw, Pencil, Loader, EyeOff, Printer,
 } from 'lucide-react'
 import BarcodeScanner   from '../../finds/BarcodeScanner.jsx'
 import Button           from '../../components/ui/Button.jsx'
@@ -1454,6 +1454,7 @@ export default function CollectionPage() {
 
   const [bottles,       setBottles]       = useState([])
   const [loaded,        setLoaded]        = useState(false)
+  const [loadError,     setLoadError]     = useState(false)
   const [sort,          setSort]          = useState('score')
   const [showAdd,       setShowAdd]       = useState(false)
   const [removing,      setRemoving]      = useState(null)
@@ -1477,7 +1478,7 @@ export default function CollectionPage() {
 
   useEffect(() => {
     fetch('/api/collection')
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json() })
       .then(d => {
         const bs = d.bottles ?? []
         setBottles(bs)
@@ -1491,7 +1492,7 @@ export default function CollectionPage() {
           )
         ).then(pairs => setMarketPrices(Object.fromEntries(pairs)))
       })
-      .catch(() => {})
+      .catch(() => setLoadError(true))
       .finally(() => setLoaded(true))
 
     fetch('/api/samples')
@@ -1511,7 +1512,7 @@ export default function CollectionPage() {
     try {
       const res  = await fetch(`/api/collection?id=${id}`, { method: 'DELETE' })
       const data = await res.json()
-      if (data.bottles) setBottles(data.bottles)
+      if (res.ok && data.bottles) setBottles(data.bottles)
     } catch {}
     setRemoving(null)
   }
@@ -1521,9 +1522,12 @@ export default function CollectionPage() {
     try {
       const res  = await fetch(`/api/samples?id=${id}`, { method: 'DELETE' })
       const data = await res.json()
-      if (data.samples) setSamples(data.samples)
-    } catch {}
-    setRemovingSample(null)
+      if (res.ok && data.samples) setSamples(data.samples)
+    } catch (err) {
+      console.warn('[collection] removeSample failed:', err.message)
+    } finally {
+      setRemovingSample(null)
+    }
   }
 
   function handleLabelBottle(bottle) {
@@ -1604,7 +1608,7 @@ export default function CollectionPage() {
         </Button>
       </div>
 
-      <div style={{ maxWidth: 700, margin: '0 auto', padding: 'var(--sp-4) var(--sp-3)' }}>
+      <div style={{ maxWidth: 700, margin: '0 auto', padding: 'var(--sp-4) var(--sp-3)', paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
 
         {/* Summary Strip */}
         <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-4)' }}>
@@ -1766,6 +1770,10 @@ export default function CollectionPage() {
             <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-body)', textAlign: 'center', padding: 'var(--sp-8) 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sp-2)' }}>
               <Loader size={16} strokeWidth={1.75} />Loading…
             </p>
+          ) : loadError ? (
+            <p style={{ color: 'var(--red)', fontSize: 'var(--fs-body)', textAlign: 'center', padding: 'var(--sp-8) 0' }}>
+              Failed to load your collection. Please refresh.
+            </p>
           ) : sorted.length === 0 ? (
             <EmptyState
               icon="Wine"
@@ -1812,11 +1820,13 @@ export default function CollectionPage() {
         />
       )}
 
-      <AddBottleSheet
-        open={showAdd}
-        onClose={() => setShowAdd(false)}
-        onAdd={(bottles) => { setBottles(bottles); setShowAdd(false) }}
-      />
+      {showAdd && (
+        <AddBottleSheet
+          open={showAdd}
+          onClose={() => setShowAdd(false)}
+          onAdd={(bottles) => { setBottles(bottles); setShowAdd(false) }}
+        />
+      )}
 
       <AddSampleSheet
         open={showAddSample}

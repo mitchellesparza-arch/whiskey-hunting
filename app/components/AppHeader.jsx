@@ -95,6 +95,7 @@ export default function AppHeader({ sub, action, unreadCount = 0 }) {
             {/* Bell */}
             <button
               onClick={() => { setNotifOpen(true); setSettingsOpen(false) }}
+              aria-label="Notifications"
               title="Notifications"
               style={{
                 position:     'relative',
@@ -132,6 +133,7 @@ export default function AppHeader({ sub, action, unreadCount = 0 }) {
             {/* Settings gear */}
             <button
               onClick={() => { setSettingsOpen(true); setNotifOpen(false) }}
+              aria-label="Settings"
               title="Settings"
               style={{
                 display:      'grid',

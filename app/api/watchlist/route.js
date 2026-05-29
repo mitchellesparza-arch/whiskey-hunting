@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
-import { getToken }     from 'next-auth/jwt'
-import { Redis }        from '@upstash/redis'
-import { isPro }        from '../../../lib/tier.js'
+import { NextResponse }     from 'next/server'
+import { getToken }         from 'next-auth/jwt'
+import { Redis }            from '@upstash/redis'
+import { isPro }            from '../../../lib/tier.js'
+import { getUserProfile }   from '../../../lib/friends.js'
 
 const FREE_WATCHLIST_LIMIT = 3
 
@@ -55,8 +56,12 @@ export async function POST(request) {
   const bottles = await getBottles(token.email)
   const name    = bottle.trim()
 
+  // Re-read tier live from Redis so mid-session upgrades take effect immediately
+  let tier = token.tier
+  try { const p = await getUserProfile(token.email); tier = p?.tier ?? tier } catch {}
+
   // Enforce free-tier watchlist limit
-  if (!isPro(token.tier) && !bottles.includes(name) && bottles.length >= FREE_WATCHLIST_LIMIT) {
+  if (!isPro(tier) && !bottles.includes(name) && bottles.length >= FREE_WATCHLIST_LIMIT) {
     return NextResponse.json({
       error:      'Watchlist limit reached',
       limit:      FREE_WATCHLIST_LIMIT,

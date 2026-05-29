@@ -14,10 +14,11 @@ import { isPro }           from '../../../../lib/tier.js'
  */
 export async function POST(req) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
-  if (!token?.email)        return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
-  if (!isPro(token.tier))   return NextResponse.json({ error: 'Pro required' },    { status: 403 })
+  if (!token?.email) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
 
+  // Read tier live from Redis — JWT can be stale after a mid-session upgrade
   const profile = await getUserProfile(token.email)
+  if (!isPro(profile?.tier ?? token.tier)) return NextResponse.json({ error: 'Pro required' }, { status: 403 })
   if (!profile?.stripeCustomerId) {
     return NextResponse.json({ error: 'No Stripe customer found' }, { status: 404 })
   }

@@ -56,7 +56,7 @@ export async function GET(request) {
   try {
     // ── Discover all Chicagoland stores ───────────────────────────────────────
     const stores = await fetchChicagolandStores()
-    console.log(`[cron] ${stores.length} stores · ${5} canaries`)
+    console.log(`[cron] ${stores.length} stores`)
 
     // ── Load previous state ───────────────────────────────────────────────────
     // State key format: "{storeCode}:{bottleName}"
@@ -94,7 +94,7 @@ export async function GET(request) {
         let label     = bottle.name
 
         if (wasInStock === false && curr.inStock === true) {
-          // Out → in transition: clear truck signal
+          // Out → in transition: truck arrival signal
           triggered = true
         } else if (
           curr.inStock &&

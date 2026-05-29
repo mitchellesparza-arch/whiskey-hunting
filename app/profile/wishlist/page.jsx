@@ -137,7 +137,7 @@ function AddBottleModal({ onClose, onAdded }) {
   async function handleBarcode(code) {
     setLookingUp(true); setLookupMsg(null)
     try {
-      const r = await fetch(`/api/whiskey-db?upc=${encodeURIComponent(code)}`)
+      const r = await fetch(`/api/lookup?upc=${encodeURIComponent(code)}`)
       const d = await r.json()
       if (d.found) {
         setName(d.bottle?.name ?? name)
@@ -218,7 +218,7 @@ function AddBottleModal({ onClose, onAdded }) {
             </div>
             {scanning && (
               <div style={{ marginTop: 'var(--sp-2)' }}>
-                <BarcodeScanner onCode={handleBarcode} onClose={() => setScanning(false)} />
+                <BarcodeScanner onResult={handleBarcode} onClose={() => setScanning(false)} />
               </div>
             )}
             {lookupMsg && (
@@ -517,6 +517,7 @@ export default function WishlistPage() {
 
   const [wishlist,     setWishlist]     = useState([])
   const [loaded,       setLoaded]       = useState(false)
+  const [loadError,    setLoadError]    = useState(false)
   const [marketPrices, setMarketPrices] = useState({})
   const [filterTab,    setFilterTab]    = useState('all')
   const [showAdd,      setShowAdd]      = useState(false)
@@ -529,9 +530,9 @@ export default function WishlistPage() {
 
   useEffect(() => {
     fetch('/api/wishlist')
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json() })
       .then(d => setWishlist(d.wishlist ?? []))
-      .catch(() => {})
+      .catch(() => setLoadError(true))
       .finally(() => setLoaded(true))
   }, [])
 
@@ -616,6 +617,10 @@ export default function WishlistPage() {
         {/* List */}
         {!loaded ? (
           <div style={{ textAlign: 'center', padding: 'var(--sp-12) 0', color: 'var(--text-dim)' }}>Loading…</div>
+        ) : loadError ? (
+          <div style={{ textAlign: 'center', padding: 'var(--sp-12) 0', color: 'var(--red)', fontSize: 'var(--fs-body)' }}>
+            Failed to load your wishlist. Please refresh.
+          </div>
         ) : filtered.length === 0 ? (
           filterTab === 'all' ? (
             <EmptyState

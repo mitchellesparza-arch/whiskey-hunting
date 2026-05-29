@@ -377,7 +377,7 @@ export default function TrackerPage() {
           : "Chicagoland Binny's · Truck Tracker"}
       />
 
-      <main className="max-w-6xl mx-auto px-4 py-8 space-y-10">
+      <main className="max-w-6xl mx-auto px-4 pt-8 space-y-10" style={{ paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
 
         {/* Source toggle */}
         <div

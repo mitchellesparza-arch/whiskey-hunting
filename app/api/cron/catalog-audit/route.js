@@ -200,11 +200,10 @@ async function sendAuditEmail(stats) {
 
 export async function GET(request) {
   const secret = process.env.CRON_SECRET
-  if (secret) {
-    const auth  = request.headers.get('authorization') ?? ''
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
-    if (token !== secret) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!secret) return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
+  const auth  = request.headers.get('authorization') ?? ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
+  if (token !== secret) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const runAt  = new Date().toISOString()
   const cutoff = daysAgo(7)

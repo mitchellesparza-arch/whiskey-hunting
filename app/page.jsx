@@ -51,6 +51,115 @@ function FreshnessBadge({ timestamp }) {
   return null
 }
 
+// ─── FindCard (hoisted so React keeps a stable identity across re-renders) ───
+
+function FindCard({ find, isArchived = false, onBottleClick, onStoreClick, userEmail = '', onDelete, onVote, deletingId }) {
+  const votes     = find.votes ?? { up: [], down: [] }
+  const upCount   = votes.up.length
+  const downCount = votes.down.length
+  const myVote    = votes.up.includes(userEmail) ? 'up'
+                  : votes.down.includes(userEmail) ? 'down'
+                  : null
+
+  return (
+    <div className="card" style={{ padding: 0, opacity: isArchived ? 0.6 : 1 }}>
+      <div style={{ padding: 'var(--sp-3) var(--sp-4)', borderBottom: '1px solid var(--hairline)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+          <button
+            onClick={() => onBottleClick?.(find.bottleName)}
+            style={{
+              background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+              textAlign: 'left', fontFamily: 'inherit',
+              fontWeight: 700, fontSize: 'var(--fs-h3)', color: 'var(--text-primary)',
+              lineHeight: 1.3, fontStyle: isArchived ? 'italic' : 'normal',
+            }}
+          >
+            🥃 {find.bottleName}
+          </button>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+            {!isArchived && <FreshnessBadge timestamp={find.timestamp} />}
+            <button
+              onClick={() => onDelete?.(find.id)}
+              disabled={deletingId === find.id}
+              style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 16, padding: 0 }}
+            >
+              {deletingId === find.id ? '⏳' : '✕'}
+            </button>
+          </div>
+        </div>
+        <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginBottom: 2 }}>
+          <button
+            onClick={() => find.store?.placeId && onStoreClick?.(find.store)}
+            style={{
+              background: 'none', border: 'none', padding: 0, fontFamily: 'inherit',
+              fontSize: 'var(--fs-meta)', cursor: find.store?.placeId ? 'pointer' : 'default',
+              color: find.store?.placeId ? 'var(--text-2)' : 'var(--text-muted)',
+            }}
+          >📍 {find.store?.name ?? '—'}</button>
+          {find.store?.address && <span style={{ color: 'var(--text-dim)' }}> · {find.store.address}</span>}
+        </div>
+        <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <span>{fmtDate(find.timestamp)}{find.timestamp && ` · ${fmtTimeAgo(find.timestamp)}`}</span>
+          {find.price && <span style={{ color: 'var(--copper-400)', fontWeight: 700 }}>${Number(find.price).toFixed(2)}</span>}
+          <span style={{ color: 'var(--text-dim)' }}>by {find.submitterName}</span>
+          {isArchived && <span style={{ fontStyle: 'italic', color: 'var(--text-dim)' }}>— archived after 24h</span>}
+        </div>
+      </div>
+
+      {find.photoUrl && (
+        <img
+          src={find.photoUrl}
+          alt="bottle"
+          style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block', borderBottom: '1px solid var(--hairline)' }}
+        />
+      )}
+
+      {find.notes && (
+        <div style={{ padding: 'var(--sp-3) var(--sp-4)', fontSize: 'var(--fs-meta)', color: 'var(--text-2)', fontStyle: 'italic', borderBottom: '1px solid var(--hairline)' }}>
+          &ldquo;{find.notes}&rdquo;
+        </div>
+      )}
+
+      {!isArchived && (
+        <div style={{ padding: 'var(--sp-2) var(--sp-4)', display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => onVote?.(find.id, 'up')}
+            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+            onMouseUp={e => { e.currentTarget.style.transform = '' }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: 'var(--sp-1) var(--sp-3)', borderRadius: 'var(--r-sm)',
+              border: myVote === 'up' ? '1px solid rgba(93,211,158,0.4)' : '1px solid var(--hairline)',
+              cursor: 'pointer',
+              background: myVote === 'up' ? 'var(--green-bg)' : 'var(--bg-elev-3)',
+              color: myVote === 'up' ? 'var(--green)' : 'var(--text-dim)',
+              fontSize: 'var(--fs-meta)', fontWeight: 700, transition: 'var(--t-fast)',
+            }}
+          >
+            <ThumbsUp size={13} /> Still There{upCount > 0 ? ` (${upCount})` : ''}
+          </button>
+          <button
+            onClick={() => onVote?.(find.id, 'down')}
+            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+            onMouseUp={e => { e.currentTarget.style.transform = '' }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: 'var(--sp-1) var(--sp-3)', borderRadius: 'var(--r-sm)',
+              border: myVote === 'down' ? '1px solid rgba(248,113,113,0.4)' : '1px solid var(--hairline)',
+              cursor: 'pointer',
+              background: myVote === 'down' ? 'var(--red-bg)' : 'var(--bg-elev-3)',
+              color: myVote === 'down' ? 'var(--red)' : 'var(--text-dim)',
+              fontSize: 'var(--fs-meta)', fontWeight: 700, transition: 'var(--t-fast)',
+            }}
+          >
+            <ThumbsDown size={13} /> Gone{downCount > 0 ? ` (${downCount})` : ''}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function FindsPage() {
@@ -82,6 +191,7 @@ export default function FindsPage() {
   const [submitting,   setSubmitting]   = useState(false)
   const [submitError,  setSubmitError]  = useState(null)
   const [submitted,    setSubmitted]    = useState(false)
+  const submittedTimerRef = useRef(null)
 
   // UPC lookup status
   const [upcLooking,   setUpcLooking]   = useState(false)
@@ -135,6 +245,9 @@ export default function FindsPage() {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
+
+  // Cleanup submitted banner timer on unmount
+  useEffect(() => () => clearTimeout(submittedTimerRef.current), [])
 
   // ── Google Places autocomplete ─────────────────────────────────────────────
   useEffect(() => {
@@ -390,7 +503,8 @@ export default function FindsPage() {
       setPhotoFile(null)
       setPhotoPreview(null)
       setSubmitted(data.delayed ? 'delayed' : true)
-      setTimeout(() => setSubmitted(false), data.delayed ? 6000 : 3000)
+      clearTimeout(submittedTimerRef.current)
+      submittedTimerRef.current = setTimeout(() => setSubmitted(false), data.delayed ? 6000 : 3000)
     } catch (err) {
       setSubmitError(err.message)
     } finally {
@@ -459,131 +573,12 @@ export default function FindsPage() {
 
   const MEDAL_COLOR = ['var(--amber)', 'var(--text-muted)', 'var(--copper-600)']
 
-  function FindCard({ find, isArchived = false, onBottleClick, onStoreClick }) {
-    const userEmail = session?.user?.email ?? ''
-    const votes     = find.votes ?? { up: [], down: [] }
-    const upCount   = votes.up.length
-    const downCount = votes.down.length
-    const myVote    = votes.up.includes(userEmail) ? 'up'
-                    : votes.down.includes(userEmail) ? 'down'
-                    : null
-
-    return (
-      <div className="card" style={{ padding: 0, opacity: isArchived ? 0.6 : 1 }}>
-        <div style={{ padding: 'var(--sp-3) var(--sp-4)', borderBottom: '1px solid var(--hairline)' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-            <button
-              onClick={() => onBottleClick?.(find.bottleName)}
-              style={{
-                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                textAlign: 'left', fontFamily: 'inherit',
-                fontWeight: 700, fontSize: 'var(--fs-h3)', color: 'var(--text-primary)',
-                lineHeight: 1.3, fontStyle: isArchived ? 'italic' : 'normal',
-              }}
-            >
-              🥃 {find.bottleName}
-            </button>
-            <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
-              {!isArchived && <FreshnessBadge timestamp={find.timestamp} />}
-              <button
-                onClick={() => handleDelete(find.id)}
-                disabled={deletingId === find.id}
-                style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 16, padding: 0 }}
-              >
-                {deletingId === find.id ? '⏳' : '✕'}
-              </button>
-            </div>
-          </div>
-          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginBottom: 2 }}>
-            <button
-              onClick={() => find.store?.placeId && onStoreClick?.(find.store)}
-              style={{
-                background: 'none', border: 'none', padding: 0, fontFamily: 'inherit',
-                fontSize: 'var(--fs-meta)', cursor: find.store?.placeId ? 'pointer' : 'default',
-                color: find.store?.placeId ? 'var(--text-2)' : 'var(--text-muted)',
-              }}
-            >📍 {find.store?.name ?? '—'}</button>
-            {find.store?.address && <span style={{ color: 'var(--text-dim)' }}> · {find.store.address}</span>}
-          </div>
-          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <span>{fmtDate(find.timestamp)}{find.timestamp && ` · ${fmtTimeAgo(find.timestamp)}`}</span>
-            {find.price && <span style={{ color: 'var(--copper-400)', fontWeight: 700 }}>${Number(find.price).toFixed(2)}</span>}
-            <span style={{ color: 'var(--text-dim)' }}>by {find.submitterName}</span>
-            {isArchived && <span style={{ fontStyle: 'italic', color: 'var(--text-dim)' }}>— archived after 24h</span>}
-          </div>
-        </div>
-
-        {find.photoUrl && (
-          <img
-            src={find.photoUrl}
-            alt="bottle"
-            style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block', borderBottom: '1px solid var(--hairline)' }}
-          />
-        )}
-
-        {find.notes && (
-          <div style={{ padding: 'var(--sp-3) var(--sp-4)', fontSize: 'var(--fs-meta)', color: 'var(--text-2)', fontStyle: 'italic', borderBottom: '1px solid var(--hairline)' }}>
-            &ldquo;{find.notes}&rdquo;
-          </div>
-        )}
-
-        {/* Vote buttons — not shown on archived finds */}
-        {!isArchived && (
-          <div style={{ padding: 'var(--sp-2) var(--sp-4)', display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => handleVote(find.id, 'up')}
-              onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
-              onMouseUp={e => { e.currentTarget.style.transform = '' }}
-              style={{
-                display:      'flex',
-                alignItems:   'center',
-                gap:          4,
-                padding:      'var(--sp-1) var(--sp-3)',
-                borderRadius: 'var(--r-sm)',
-                border:       myVote === 'up' ? '1px solid rgba(93,211,158,0.4)' : '1px solid var(--hairline)',
-                cursor:       'pointer',
-                background:   myVote === 'up' ? 'var(--green-bg)' : 'var(--bg-elev-3)',
-                color:        myVote === 'up' ? 'var(--green)' : 'var(--text-dim)',
-                fontSize:     'var(--fs-meta)',
-                fontWeight:   700,
-                transition:   'var(--t-fast)',
-              }}
-            >
-              <ThumbsUp size={13} /> Still There{upCount > 0 ? ` (${upCount})` : ''}
-            </button>
-            <button
-              onClick={() => handleVote(find.id, 'down')}
-              onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
-              onMouseUp={e => { e.currentTarget.style.transform = '' }}
-              style={{
-                display:      'flex',
-                alignItems:   'center',
-                gap:          4,
-                padding:      'var(--sp-1) var(--sp-3)',
-                borderRadius: 'var(--r-sm)',
-                border:       myVote === 'down' ? '1px solid rgba(248,113,113,0.4)' : '1px solid var(--hairline)',
-                cursor:       'pointer',
-                background:   myVote === 'down' ? 'var(--red-bg)' : 'var(--bg-elev-3)',
-                color:        myVote === 'down' ? 'var(--red)' : 'var(--text-dim)',
-                fontSize:     'var(--fs-meta)',
-                fontWeight:   700,
-                transition:   'var(--t-fast)',
-              }}
-            >
-              <ThumbsDown size={13} /> Gone{downCount > 0 ? ` (${downCount})` : ''}
-            </button>
-          </div>
-        )}
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
 
       <AppHeader sub="Community Finds · Chicagoland" />
 
-      <div style={{ maxWidth: 700, margin: '0 auto', padding: 'var(--sp-4) var(--sp-3)' }}>
+      <div style={{ maxWidth: 700, margin: '0 auto', padding: 'var(--sp-4) var(--sp-3)', paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
 
         {/* Free-tier delay notice */}
         {session && !isPro(session.user?.tier) && (
@@ -1016,7 +1011,7 @@ export default function FindsPage() {
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {finds.map(find => (
-                  <FindCard key={find.id} find={find} onBottleClick={setActiveBottle} onStoreClick={setActiveStore} />
+                  <FindCard key={find.id} find={find} onBottleClick={setActiveBottle} onStoreClick={setActiveStore} userEmail={session?.user?.email ?? ''} onDelete={handleDelete} onVote={handleVote} deletingId={deletingId} />
                 ))}
               </div>
 
@@ -1037,7 +1032,7 @@ export default function FindsPage() {
                   {showArchived && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
                       {archived.map(find => (
-                        <FindCard key={find.id} find={find} isArchived onBottleClick={setActiveBottle} onStoreClick={setActiveStore} />
+                        <FindCard key={find.id} find={find} isArchived onBottleClick={setActiveBottle} onStoreClick={setActiveStore} userEmail={session?.user?.email ?? ''} onDelete={handleDelete} onVote={handleVote} deletingId={deletingId} />
                       ))}
                     </div>
                   )}

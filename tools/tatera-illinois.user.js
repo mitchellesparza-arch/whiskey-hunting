@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tater Tracker — Tatera Illinois relay
 // @namespace    https://whiskey-hunter.vercel.app/
-// @version      0.3.1
+// @version      0.3.2
 // @description  Watch the Tatera.io #illinois Discord channel for Costco bourbon alerts and POST them to Tater Tracker's /api/ingest/tatera endpoint.
 // @match        https://discord.com/channels/*
 // @match        https://canary.discord.com/channels/*
@@ -45,6 +45,12 @@ const CONFIG = {
   const log              = (...a) => console.log(LOG_TAG, ...a)
   const warn             = (...a) => console.warn(LOG_TAG, ...a)
 
+  // ── Placeholder guard ─────────────────────────────────────────────────────
+  if (CONFIG.CHANNEL_URL.includes('REPLACE_') || CONFIG.INGEST_SECRET === 'REPLACE_ME') {
+    warn('CONFIG placeholders not filled in — script is disabled. Edit the CONFIG block at the top of the script.')
+    return
+  }
+
   // ── Channel match ─────────────────────────────────────────────────────────
   const channelPath = (() => {
     try { return new URL(CONFIG.CHANNEL_URL).pathname }
@@ -80,8 +86,19 @@ const CONFIG = {
     const [, channelId, messageId] = m
 
     // Author — Discord wraps username in [class*="username"] or [id^="message-username-"]
-    const authorEl = node.querySelector('[id^="message-username-"], [class*="username"]')
-    const author   = authorEl?.textContent?.trim()
+    // Continuation messages (same author, same minute) have no author header.
+    // Walk backwards through sibling <li> elements to inherit the author from
+    // the nearest preceding message that has one.
+    let authorEl = node.querySelector('[id^="message-username-"], [class*="username"]')
+    let author   = authorEl?.textContent?.trim()
+    if (!author) {
+      let sib = node.previousElementSibling
+      while (sib) {
+        const a = sib.querySelector('[id^="message-username-"], [class*="username"]')?.textContent?.trim()
+        if (a) { author = a; break }
+        sib = sib.previousElementSibling
+      }
+    }
     if (!author || !author.toLowerCase().includes(CONFIG.BOT_AUTHOR.toLowerCase())) return null
 
     // Title — embeds put the headline in [class*="embedTitle"]
@@ -131,7 +148,9 @@ const CONFIG = {
     const storeRaw   = fields['store'] || ''
 
     // Store format: "Naperville (342), IL"  or  "North Riverside IL (1153), IL"
-    const storeMatch = storeRaw.match(/^(.+?)\s*\((\d+)\)\s*,\s*([A-Z]{2})\s*$/)
+    // [A-Za-z]{2} handles both upper and lowercase state codes (field keys are
+    // lowercased but values preserve original Discord casing).
+    const storeMatch = storeRaw.match(/^(.+?)\s*\((\d+)\)\s*,\s*([A-Za-z]{2})\s*$/)
     if (!itemNumber || !storeMatch) {
       log('skipped — missing item# or unparseable store:', { productName, storeRaw, itemNumber, fields })
       return null
@@ -226,7 +245,7 @@ const CONFIG = {
         markSeen(messageId)
       }
     }
-    log(`backfill: ${old} marked seen (>1h old), ${recent} processed (recent)`)
+    log(`backfill: ${old} marked seen (>8h old), ${recent} processed (recent)`)
   }
 
   // ── MutationObserver — watch for new <li id="chat-messages-..."> insertions

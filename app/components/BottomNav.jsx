@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { MapPin, Search, Truck, Store, User } from 'lucide-react'
 
 const TABS = [
@@ -16,10 +17,12 @@ const HIDDEN_ON = ['/login', '/pending']
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const { status } = useSession()
   const [badge,   setBadge]   = useState(0)
   const [pressed, setPressed] = useState(null)
 
   useEffect(() => {
+    if (status !== 'authenticated' || HIDDEN_ON.includes(pathname)) return
     fetch('/api/finds')
       .then(r => r.json())
       .then(d => {
@@ -27,7 +30,7 @@ export default function BottomNav() {
         setBadge((d.finds ?? []).filter(f => f.timestamp > cutoff).length)
       })
       .catch(() => {})
-  }, [pathname])
+  }, [pathname, status])
 
   if (HIDDEN_ON.includes(pathname)) return null
 
