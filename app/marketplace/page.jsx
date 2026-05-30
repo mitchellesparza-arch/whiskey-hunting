@@ -284,6 +284,7 @@ function DealDetailSheet({ deal, open, onClose, starred, onToggleStar, watched, 
 
   return (
     <Sheet open={open} onClose={onClose} title="">
+      <div style={{ padding: 'var(--sp-5)' }}>
       <div className="space-y-5">
 
         {/* Image */}
@@ -482,6 +483,7 @@ function DealDetailSheet({ deal, open, onClose, starred, onToggleStar, watched, 
           >Bid Now on UA →</a>
         </div>
 
+      </div>
       </div>
     </Sheet>
   )
