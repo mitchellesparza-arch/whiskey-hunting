@@ -4,9 +4,10 @@ import { checkAllCanaries }          from '../../../lib/checker.js'
 import { hotlineBottles }            from '../../../lib/bottles.js'
 import { getLastState, saveState, logEvent } from '../../../lib/history.js'
 import { sendTruckEmail }            from '../../../lib/email.js'
-import { postTruckAlert }            from '../../../lib/discord.js'
+import { postTruckAlert, postRetailerFind } from '../../../lib/discord.js'
 import { sendBroadcast }             from '../../../lib/push.js'
 import { processPendingNotifs }      from '../../../lib/finds.js'
+import { checkAllRetailers }         from '../../../lib/retailers.js'
 
 const RESTOCK_THRESHOLD = 3   // quantity jump of ≥3 = truck signal
 
@@ -59,11 +60,15 @@ export async function GET(request) {
     console.log(`[cron] ${stores.length} stores`)
 
     // ── Load previous state ───────────────────────────────────────────────────
-    // State key format: "{storeCode}:{bottleName}"
+    // State key format: "{storeCode}:{bottleName}" for canaries
+    //                   "retailer:{retailerName}:{bottleName}" for multi-retailer
     const lastState = await getLastState()
 
-    // ── Check all canaries across all stores ──────────────────────────────────
-    const canaryResults = await checkAllCanaries(stores)
+    // ── Check Binny's canaries + multi-retailer in parallel ──────────────────
+    const [canaryResults, retailerResults] = await Promise.all([
+      checkAllCanaries(stores),
+      checkAllRetailers(),
+    ])
 
     // ── Detect truck arrivals ─────────────────────────────────────────────────
     // trucksByStore: Map(storeCode → Map(distributor → triggeredBy[]))
@@ -170,6 +175,49 @@ export async function GET(request) {
     }
     await saveState(newState)
 
+    // ── Multi-retailer: detect new in-stock finds ─────────────────────────────
+    const retailerFinds = []
+
+    for (const result of retailerResults) {
+      const stateKey = `retailer:${result.retailer}:${result.bottle}`
+      const prev     = lastState[stateKey]
+      const wasInStock = prev?.inStock ?? null
+
+      // Persist latest reading
+      newState[stateKey] = {
+        inStock:   result.inStock,
+        price:     result.price,
+        retailer:  result.retailer,
+        checkedAt,
+      }
+
+      // Alert only on out→in transitions (or first time seen as in-stock)
+      if (result.inStock && wasInStock === false) {
+        retailerFinds.push(result)
+      } else if (result.inStock && wasInStock === null) {
+        // First observation — log but don't alert (avoid flood on first run)
+        console.log(`[cron] New retailer find (first seen): ${result.bottle} @ ${result.retailer}`)
+      }
+    }
+
+    if (retailerFinds.length) {
+      console.log('[cron] New retailer finds:', retailerFinds.map(r => `${r.bottle}@${r.retailer}`).join(', '))
+      // Discord alert per find
+      await Promise.allSettled(
+        retailerFinds.map(r => postRetailerFind(r).catch(() => {}))
+      )
+      // Push notification
+      const summary = retailerFinds.map(r => `${r.bottle} at ${r.retailer}`).join('; ')
+      await sendBroadcast({
+        title: '🥃 Allocated Bottle Found',
+        body:  summary,
+        url:   '/tracker',
+        tag:   'retailer-find',
+      }, 'trucks').catch(() => {})
+    } else {
+      console.log(`[cron] Retailer check: ${retailerResults.filter(r=>r.inStock).length} in stock, no new finds`)
+    }
+
     // ── Process delayed find notifications (free-tier 1-hour delay) ───────────
     let delayedProcessed = 0
     try {
@@ -189,6 +237,9 @@ export async function GET(request) {
       canaries:         canaryResults.length,
       truckEvents:      truckEvents.map(e => ({ store: e.storeName, distributor: e.distributor, triggeredBy: e.triggeredBy })),
       emailSent:        truckEvents.length > 0,
+      retailerResults:  retailerResults.length,
+      retailerInStock:  retailerResults.filter(r => r.inStock).length,
+      retailerNewFinds: retailerFinds.map(r => ({ bottle: r.bottle, retailer: r.retailer, price: r.price })),
       delayedProcessed,
     })
 

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { Truck, ChevronDown, ChevronUp } from 'lucide-react'
 import AppHeader from '../components/AppHeader.jsx'
 import CostcoTracker from '../components/CostcoTracker.jsx'
+import IndependentsTab from '../components/IndependentsTab.jsx'
 import SectionHeader from '../components/ui/SectionHeader.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import ProGate from '../components/ProGate.jsx'
@@ -443,12 +444,13 @@ export default function TrackerPage() {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const fromQuery = params.get('tab')
-    if (fromQuery === 'costco' || fromQuery === 'binnys') {
+    const VALID = ['costco', 'binnys', 'independents']
+    if (VALID.includes(fromQuery)) {
       setTab(fromQuery)
       return
     }
     const stored = localStorage.getItem(TAB_LS_KEY)
-    if (stored === 'costco' || stored === 'binnys') setTab(stored)
+    if (VALID.includes(stored)) setTab(stored)
   }, [])
 
   function switchTab(next) {
@@ -541,9 +543,11 @@ export default function TrackerPage() {
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
 
       <AppHeader
-        sub={tab === 'costco'
-          ? 'Illinois Costco · Bourbon Alerts'
-          : "Chicagoland Binny's · Truck Tracker"}
+        sub={
+          tab === 'costco'       ? 'Illinois Costco · Bourbon Alerts'      :
+          tab === 'independents' ? 'Chicagoland Independents · Live Stock'  :
+                                   "Chicagoland Binny's · Truck Tracker"
+        }
       />
 
       <main className="max-w-6xl mx-auto px-4 pt-8 space-y-10" style={{ paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
@@ -562,8 +566,9 @@ export default function TrackerPage() {
           }}
         >
           {[
-            { key: 'binnys', label: "🚛 Binny's" },
-            { key: 'costco', label: '🥃 Costco'  },
+            { key: 'binnys',       label: "🚛 Binny's"     },
+            { key: 'costco',       label: '🥃 Costco'       },
+            { key: 'independents', label: '🏪 Independents' },
           ].map(({ key, label }) => {
             const active = tab === key
             return (
@@ -582,6 +587,7 @@ export default function TrackerPage() {
                   fontSize:     13,
                   cursor:       'pointer',
                   transition:   'all 0.15s',
+                  whiteSpace:   'nowrap',
                 }}
               >
                 {label}
@@ -590,7 +596,8 @@ export default function TrackerPage() {
           })}
         </div>
 
-        {tab === 'costco' && <CostcoTracker />}
+        {tab === 'costco'       && <CostcoTracker />}
+        {tab === 'independents' && <IndependentsTab />}
 
         {tab === 'binnys' && <>
         {/* Store Activity Summary */}
