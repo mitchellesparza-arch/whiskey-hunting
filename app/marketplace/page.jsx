@@ -288,8 +288,8 @@ function DealDetailSheet({ deal, open, onClose, starred, onToggleStar, watched, 
 
         {/* Image */}
         {deal.image_url && (
-          <div style={{ borderRadius: 12, overflow: 'hidden', background: 'var(--bg-elev-2)', maxHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src={deal.image_url} alt="" style={{ maxWidth: '100%', maxHeight: 220, objectFit: 'contain' }} />
+          <div style={{ borderRadius: 12, background: 'var(--bg-elev-2)', border: '1px solid var(--hairline-2)', height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', overflow: 'hidden' }}>
+            <img src={deal.image_url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
           </div>
         )}
 
