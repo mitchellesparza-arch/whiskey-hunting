@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { Truck, ChevronDown, ChevronUp } from 'lucide-react'
 import AppHeader from '../components/AppHeader.jsx'
@@ -64,6 +64,68 @@ const DEFAULT_COLOR = { bg: 'var(--bg-elev-2)', border: 'var(--hairline-2)', tex
 
 function distColor(distributor) {
   return DIST_COLOR[distributor] ?? DEFAULT_COLOR
+}
+
+// RGB base colors for heatmap cells (matches distributor brand colors above)
+const DIST_RGB = {
+  'Breakthru Beverage': [217, 126,  44],
+  "Southern Glazer's":  [ 93, 211, 158],
+  'RNDC':               [143, 181, 255],
+  'BC Merchants':       [185, 164, 255],
+}
+const DEFAULT_RGB = [154, 124, 85]
+
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+
+function weekStart(date) {
+  const d = new Date(date)
+  const dow = d.getDay() // 0=Sun
+  const diff = dow === 0 ? -6 : 1 - dow // shift to Monday
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+
+function calcStreak(evts) {
+  if (!evts.length) return 0
+  const weekSet = new Set(evts.map(e => weekStart(new Date(e.timestamp))))
+  let cursor = weekStart(new Date())
+  // If no delivery yet this week, start checking from last week
+  if (!weekSet.has(cursor)) cursor -= WEEK_MS
+  let streak = 0
+  while (weekSet.has(cursor) && streak < 52) { streak++; cursor -= WEEK_MS }
+  return streak
+}
+
+function computePatterns(events, storeFilter) {
+  const evts = storeFilter
+    ? events.filter(e => (e.storeName ?? e.storeCode ?? 'Orland Park') === storeFilter)
+    : events
+
+  const byDist = {}
+  for (const e of evts) {
+    const d = e.distributor ?? 'Unknown'
+    if (!byDist[d]) byDist[d] = []
+    byDist[d].push(e)
+  }
+
+  const result = {}
+  for (const [dist, de] of Object.entries(byDist)) {
+    const dayCounts = [0, 0, 0, 0, 0, 0, 0] // Mon–Sun
+    for (const e of de) {
+      const dow = new Date(e.timestamp).getDay() // 0=Sun
+      dayCounts[dow === 0 ? 6 : dow - 1]++
+    }
+    const sorted = [...de].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    result[dist] = {
+      dayCounts,
+      lastTs:  sorted[0]?.timestamp ?? null,
+      streak:  calcStreak(de),
+      total:   de.length,
+    }
+  }
+  return result
 }
 
 // ── Distributor Map builder ───────────────────────────────────────────────────
@@ -243,6 +305,113 @@ function StoreActivityCard({ storeName, events, isSelected, onSelect, isFavorite
         </div>
       </button>
     </div>
+  )
+}
+
+// ── Delivery Patterns heatmap ─────────────────────────────────────────────────
+
+function DeliveryPatterns({ events, selectedStore }) {
+  const patterns = useMemo(() => computePatterns(events, selectedStore), [events, selectedStore])
+  const dists = Object.keys(patterns)
+  if (!dists.length) return null
+
+  return (
+    <section>
+      <SectionHeader overline="Delivery Patterns" title="" />
+      <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-meta)', marginTop: 'var(--sp-1)', marginBottom: 'var(--sp-4)' }}>
+        Day-of-week frequency across all recorded deliveries
+        {selectedStore ? ` · Binny's ${selectedStore}` : ' · all stores'}
+      </p>
+      <div className="space-y-3">
+        {dists.map(dist => {
+          const col  = distColor(dist)
+          const rgb  = DIST_RGB[dist] ?? DEFAULT_RGB
+          const { dayCounts, lastTs, streak, total } = patterns[dist]
+          const maxCount = Math.max(...dayCounts, 1)
+          const topDay   = DAYS[dayCounts.indexOf(Math.max(...dayCounts))]
+
+          return (
+            <div key={dist} className="card px-4 py-3">
+              {/* Header row */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <span style={{ color: col.text, fontWeight: 700, fontSize: 'var(--fs-body)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Truck size={13} color={col.text} strokeWidth={2.5} />
+                  {dist}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {streak >= 2 && (
+                    <span style={{
+                      color: streak >= 8 ? 'var(--green)' : streak >= 4 ? 'var(--amber)' : 'var(--text-muted)',
+                      fontSize: 'var(--fs-overline)', fontWeight: 700,
+                    }}>
+                      🔥 {streak}wk
+                    </span>
+                  )}
+                  <span style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>
+                    {lastTs ? timeAgo(lastTs) : '—'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Day heatmap */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 5 }}>
+                {DAYS.map((day, i) => {
+                  const count     = dayCounts[i]
+                  const intensity = count / maxCount
+                  const alpha     = count > 0 ? 0.15 + intensity * 0.75 : 0.06
+                  return (
+                    <div key={day} style={{ textAlign: 'center' }}>
+                      <div
+                        title={`${day}: ${count} delivery${count !== 1 ? 's' : ''}`}
+                        style={{
+                          height:       32,
+                          borderRadius: 6,
+                          background:   `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`,
+                          border:       count > 0
+                            ? `1px solid rgba(${rgb[0]},${rgb[1]},${rgb[2]},${Math.min(alpha + 0.2, 1)})`
+                            : '1px solid var(--hairline)',
+                          marginBottom: 4,
+                          display:      'flex',
+                          alignItems:   'center',
+                          justifyContent: 'center',
+                          fontSize:     '0.65rem',
+                          fontWeight:   count > 0 ? 700 : 400,
+                          color:        count > 0
+                            ? `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${Math.min(0.6 + intensity * 0.4, 1)})`
+                            : 'var(--text-dim)',
+                          transition:   'background 0.2s',
+                        }}
+                      >
+                        {count > 0 ? count : ''}
+                      </div>
+                      <span style={{
+                        fontSize:   '0.6rem',
+                        fontWeight: count === Math.max(...dayCounts) && count > 0 ? 700 : 400,
+                        color:      count === Math.max(...dayCounts) && count > 0
+                          ? `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.9)`
+                          : 'var(--text-dim)',
+                      }}>
+                        {day.slice(0, 2)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Footer meta */}
+              <div style={{ marginTop: 10, display: 'flex', gap: 12, fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>
+                <span>{total} delivery{total !== 1 ? 's' : ''} recorded</span>
+                {Math.max(...dayCounts) > 0 && (
+                  <span style={{ color: col.text, opacity: 0.8 }}>
+                    Most common: {topDay}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -469,6 +638,11 @@ export default function TrackerPage() {
               ))}
             </div>
           </section>
+        )}
+
+        {/* Delivery Patterns */}
+        {historyLoaded && truckEvents.length > 0 && (
+          <DeliveryPatterns events={truckEvents} selectedStore={selectedStore} />
         )}
 
         {/* Truck History */}
