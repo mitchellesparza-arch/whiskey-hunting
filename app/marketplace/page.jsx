@@ -93,7 +93,18 @@ function dealSavings(deal) {
   return null
 }
 
-function DealCard({ deal, rank, starred, onToggleStar, showMsrp }) {
+function normStr(s) {
+  return (s ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function nameMatch(a, b) {
+  const wa = normStr(a).split(/\s+/).filter(w => w.length >= 3)
+  const wb = new Set(normStr(b).split(/\s+/).filter(w => w.length >= 3))
+  if (!wa.length || !wb.size) return 0
+  return wa.filter(w => wb.has(w)).length / Math.max(wa.length, wb.size)
+}
+
+function DealCard({ deal, rank, starred, onToggleStar, showMsrp, watched, onClick }) {
   const catStyle = getCatStyle(deal.category)
   const disc     = discountTier(deal.discount_vs_estimate)
   const timeInfo = timeUrgency(deal.end_datetime)
@@ -104,11 +115,21 @@ function DealCard({ deal, rank, starred, onToggleStar, showMsrp }) {
     : null
 
   return (
-    <div className="card flex flex-col gap-0 overflow-hidden"
-      style={{ borderColor: disc.glow ? 'rgba(34,197,94,0.4)' : undefined }}>
+    <div
+      className="card flex flex-col gap-0 overflow-hidden"
+      style={{ borderColor: disc.glow ? 'rgba(34,197,94,0.4)' : undefined, cursor: 'pointer' }}
+      onClick={onClick}
+    >
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600 }}>
           #{rank} · Lot {deal.lot_number ?? '—'}
+          {watched && (
+            <span style={{
+              marginLeft: 7, background: 'rgba(96,165,250,0.15)', color: 'var(--blue)',
+              border: '1px solid rgba(96,165,250,0.35)', borderRadius: 'var(--r-pill)',
+              padding: '1px 6px', fontSize: '0.62rem', fontWeight: 700, verticalAlign: 'middle',
+            }}>👁 Watched</span>
+          )}
         </span>
         <div className="flex items-center gap-1.5">
           <button
@@ -206,14 +227,269 @@ function DealCard({ deal, rank, starred, onToggleStar, showMsrp }) {
             </span>
           )}
         </div>
-        <a href={deal.lot_url} target="_blank" rel="noopener noreferrer" style={{
-          background: 'var(--copper-500)', color: 'var(--text-inverse)', fontWeight: 700, fontSize: '0.72rem',
-          borderRadius: 'var(--r-sm)', padding: '5px 12px', textDecoration: 'none', whiteSpace: 'nowrap',
-        }}>Bid Now →</a>
+        <a href={deal.lot_url} target="_blank" rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()}
+          style={{
+            background: 'var(--copper-500)', color: 'var(--text-inverse)', fontWeight: 700, fontSize: '0.72rem',
+            borderRadius: 'var(--r-sm)', padding: '5px 12px', textDecoration: 'none', whiteSpace: 'nowrap',
+          }}>Bid Now →</a>
       </div>
     </div>
   )
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEAL DETAIL SHEET
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PERIODS = [
+  { key: '3m',  label: '3M'  },
+  { key: '6m',  label: '6M'  },
+  { key: '12m', label: '12M' },
+  { key: 'all', label: 'All' },
+]
+
+function DealDetailSheet({ deal, open, onClose, starred, onToggleStar, watched, onAddToWatchlist }) {
+  const [period,      setPeriod]      = useState('all')
+  const [history,     setHistory]     = useState(null)
+  const [histLoading, setHistLoading] = useState(false)
+  const [histError,   setHistError]   = useState(null)
+  const [adding,      setAdding]      = useState(false)
+
+  useEffect(() => {
+    if (!open || !deal?.bottle_name) { if (!open) { setHistory(null); setHistError(null) }; return }
+    let cancelled = false
+    setHistLoading(true); setHistError(null)
+    fetch(`/api/ua-price-history?title=${encodeURIComponent(deal.bottle_name)}&period=${period}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setHistory(d) })
+      .catch(e => { if (!cancelled) setHistError(e.message) })
+      .finally(() => { if (!cancelled) setHistLoading(false) })
+    return () => { cancelled = true }
+  }, [open, deal?.bottle_name, period])
+
+  async function handleAddToWatchlist() {
+    if (!onAddToWatchlist) return
+    setAdding(true)
+    await onAddToWatchlist(deal.bottle_name)
+    setAdding(false)
+  }
+
+  if (!deal) return null
+
+  const catStyle = getCatStyle(deal.category)
+  const disc     = discountTier(deal.discount_vs_estimate)
+  const savings  = dealSavings(deal)
+  const timeInfo = timeUrgency(deal.end_datetime)
+
+  return (
+    <Sheet open={open} onClose={onClose} title="">
+      <div className="space-y-5">
+
+        {/* Image */}
+        {deal.image_url && (
+          <div style={{ borderRadius: 12, overflow: 'hidden', background: 'var(--bg-elev-2)', maxHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={deal.image_url} alt="" style={{ maxWidth: '100%', maxHeight: 220, objectFit: 'contain' }} />
+          </div>
+        )}
+
+        {/* Badges + title */}
+        <div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+            {deal.section !== 'General' && (
+              <span style={{
+                background:   deal.section === 'Horn of Unicorn' ? 'rgba(201,168,76,0.2)' : 'rgba(58,175,169,0.2)',
+                color:        deal.section === 'Horn of Unicorn' ? '#c9a84c' : '#3aafa9',
+                border:       `1px solid ${deal.section === 'Horn of Unicorn' ? 'rgba(201,168,76,0.4)' : 'rgba(58,175,169,0.4)'}`,
+                borderRadius: 'var(--r-pill)', padding: '2px 9px', fontSize: '0.72rem', fontWeight: 700,
+              }}>{deal.section === 'Horn of Unicorn' ? '🦄' : '💰'} {deal.section}</span>
+            )}
+            <span style={{
+              background: catStyle.bg, color: catStyle.color,
+              border: `1px solid ${catStyle.color}40`,
+              borderRadius: 'var(--r-pill)', padding: '2px 9px', fontSize: '0.72rem', fontWeight: 700,
+            }}>{deal.category}</span>
+            {watched && (
+              <span style={{
+                background: 'rgba(96,165,250,0.15)', color: 'var(--blue)',
+                border: '1px solid rgba(96,165,250,0.35)',
+                borderRadius: 'var(--r-pill)', padding: '2px 9px', fontSize: '0.72rem', fontWeight: 700,
+              }}>👁 On Your Watchlist</span>
+            )}
+          </div>
+          <h2 style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '1.05rem', lineHeight: 1.35, margin: 0 }}>
+            {deal.bottle_name}
+          </h2>
+          <div style={{ color: 'var(--text-dim)', fontSize: '0.72rem', marginTop: 5 }}>
+            Lot #{deal.lot_number}{deal.auction_name ? ` · ${deal.auction_name}` : ''}
+          </div>
+        </div>
+
+        {/* Current bid + discount */}
+        <div className="card px-4 py-3" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Current Bid</div>
+            <div style={{ color: 'var(--text-primary)', fontSize: '2rem', fontWeight: 800, lineHeight: 1 }}>{fmtUSD(deal.current_bid)}</div>
+            {savings != null && savings > 0 && (
+              <div style={{ color: 'var(--green)', fontSize: '0.78rem', fontWeight: 600, marginTop: 3 }}>saves ~{fmtUSD(savings)}</div>
+            )}
+            {deal.ua_estimate_display && (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: 3 }}>est. {deal.ua_estimate_display}</div>
+            )}
+            {deal.msrp && (
+              <div style={{ color: 'var(--text-dim)', fontSize: '0.72rem', marginTop: 2 }}>MSRP ${deal.msrp}</div>
+            )}
+          </div>
+          <div style={{
+            background: `${disc.color}18`, border: `1px solid ${disc.color}50`,
+            borderRadius: 10, padding: '8px 14px', textAlign: 'center', flexShrink: 0,
+          }}>
+            <div style={{ color: disc.color, fontSize: '1.5rem', fontWeight: 800, lineHeight: 1 }}>{disc.label}</div>
+            <div style={{ color: disc.color + 'aa', fontSize: '0.65rem', marginTop: 2 }}>
+              {(deal.discount_vs_estimate ?? 0) > 0 ? 'below est.' : 'above est.'}
+            </div>
+          </div>
+        </div>
+
+        {/* Reserve + time row */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          {deal.reserve_price != null && (
+            <div className="card flex-1 px-3 py-2" style={{ textAlign: 'center' }}>
+              <div style={{ color: deal.reserve_met ? 'var(--green)' : 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem' }}>
+                {deal.reserve_met ? '✓ Reserve Met' : 'Reserve Not Met'}
+              </div>
+            </div>
+          )}
+          {deal.end_datetime && (
+            <div className="card flex-1 px-3 py-2" style={{ textAlign: 'center' }}>
+              <div style={{ color: 'var(--text-dim)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Closes</div>
+              <div style={{ color: timeInfo.color, fontWeight: 700, fontSize: '0.82rem', marginTop: 2 }}>
+                {new Date(deal.end_datetime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Sale History ── */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.95rem' }}>Sale History</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {PERIODS.map(p => (
+                <button key={p.key} onClick={() => setPeriod(p.key)} style={{
+                  padding: '4px 11px', borderRadius: 'var(--r-pill)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
+                  background: period === p.key ? 'var(--copper-500)' : 'transparent',
+                  border:     period === p.key ? 'none' : '1px solid var(--hairline-2)',
+                  color:      period === p.key ? 'var(--text-inverse)' : 'var(--text-muted)',
+                  transition: 'all 0.15s',
+                }}>{p.label}</button>
+              ))}
+            </div>
+          </div>
+
+          {histLoading && (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="animate-pulse" style={{ height: 38, background: 'var(--bg-elev-2)', borderRadius: 8 }} />
+              ))}
+            </div>
+          )}
+
+          {!histLoading && history?.stats && (
+            <div className="grid grid-cols-4 gap-2" style={{ marginBottom: 14 }}>
+              {[
+                { label: 'Avg price', value: history.stats.avg },
+                { label: 'Low sale',  value: history.stats.low  },
+                { label: 'High sale', value: history.stats.high },
+                { label: 'Last sale', value: history.stats.last },
+              ].map(({ label, value }) => (
+                <div key={label} className="card px-2 py-2" style={{ textAlign: 'center' }}>
+                  <div style={{ color: 'var(--copper-400)', fontWeight: 800, fontSize: '0.88rem', lineHeight: 1 }}>{fmtUSD(value)}</div>
+                  <div style={{ color: 'var(--text-dim)', fontSize: '0.6rem', marginTop: 3 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!histLoading && history?.total > 0 && (
+            <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+              <div style={{ color: 'var(--text-dim)', fontSize: '0.68rem', marginBottom: 8 }}>{history.total} total sales</div>
+              {history.sales.map((sale, i) => (
+                <div key={i} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '9px 0',
+                  borderBottom: i < history.sales.length - 1 ? '1px solid var(--hairline)' : 'none',
+                }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                    {new Date(sale.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.9rem' }}>{fmtUSD(sale.price)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!histLoading && !histError && history !== null && history.total === 0 && (
+            <div style={{ color: 'var(--text-dim)', fontSize: '0.82rem', textAlign: 'center', padding: '20px 0' }}>
+              No sale history found for this bottle
+            </div>
+          )}
+
+          {histError && (
+            <div style={{ color: 'var(--red)', fontSize: '0.82rem', textAlign: 'center', padding: '16px 0' }}>
+              Couldn&apos;t load history
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={() => onToggleStar?.(deal.lot_id)}
+            style={{
+              padding: '12px 16px', borderRadius: 'var(--r-md)', cursor: 'pointer', fontSize: '1.15rem',
+              background: starred ? 'rgba(251,191,36,0.12)' : 'transparent',
+              border: `1px solid ${starred ? 'rgba(251,191,36,0.4)' : 'var(--hairline-2)'}`,
+              color: starred ? 'var(--amber)' : 'var(--text-dim)',
+              transition: 'all 0.15s',
+            }}
+            aria-label={starred ? 'Unstar' : 'Star'}
+          >{starred ? '★' : '☆'}</button>
+
+          {!watched && onAddToWatchlist && (
+            <button
+              onClick={handleAddToWatchlist}
+              disabled={adding}
+              style={{
+                flex: 1, padding: '12px', borderRadius: 'var(--r-md)', cursor: adding ? 'not-allowed' : 'pointer',
+                background: 'transparent', border: '1px solid var(--hairline-2)',
+                color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 600,
+                opacity: adding ? 0.6 : 1,
+              }}
+            >{adding ? 'Adding…' : '+ Add to Watchlist'}</button>
+          )}
+
+          <a
+            href={deal.lot_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '12px', borderRadius: 'var(--r-md)',
+              background: 'var(--copper-500)', color: 'var(--text-inverse)',
+              fontWeight: 800, fontSize: '0.9rem', textDecoration: 'none',
+            }}
+          >Bid Now on UA →</a>
+        </div>
+
+      </div>
+    </Sheet>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUCTIONS TAB
+// ─────────────────────────────────────────────────────────────────────────────
 
 function AuctionsTab() {
   const [data,            setData]            = useState(null)
@@ -226,14 +502,17 @@ function AuctionsTab() {
   const [reserveFilter,   setReserveFilter]   = useState('')
   const [searchText,      setSearchText]      = useState('')
   const [showMsrp,        setShowMsrp]        = useState(false)
-  const [showStarredOnly, setShowStarredOnly] = useState(false)
-  const [starredIds,      setStarredIds]      = useState(() => {
+  const [showStarredOnly,  setShowStarredOnly]  = useState(false)
+  const [starredIds,       setStarredIds]       = useState(() => {
     try {
       const raw = localStorage.getItem('wh:ua:starred')
       return new Set(raw ? JSON.parse(raw) : [])
     } catch { return new Set() }
   })
-  const [showCount,       setShowCount]       = useState(20)
+  const [watchedBottles,   setWatchedBottles]   = useState([])
+  const [showWatchedOnly,  setShowWatchedOnly]  = useState(false)
+  const [selectedDeal,     setSelectedDeal]     = useState(null)
+  const [showCount,        setShowCount]        = useState(20)
 
   const fetchDeals = useCallback(async () => {
     setLoading(true); setError(null)
@@ -247,7 +526,13 @@ function AuctionsTab() {
   }, [])
 
   useEffect(() => { fetchDeals() }, [fetchDeals])
-  useEffect(() => setShowCount(20), [category, sort, minBid, minSavings, reserveFilter, searchText, showStarredOnly])
+  useEffect(() => setShowCount(20), [category, sort, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly])
+  useEffect(() => {
+    fetch('/api/watchlist')
+      .then(r => r.ok ? r.json() : { bottles: [] })
+      .then(d => setWatchedBottles(d.bottles ?? []))
+      .catch(() => {})
+  }, [])
 
   function toggleStar(lotId) {
     if (!lotId) return
@@ -259,6 +544,28 @@ function AuctionsTab() {
     })
   }
 
+  async function addToWatchlist(bottleName) {
+    try {
+      const r = await fetch('/api/watchlist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bottle: bottleName }),
+      })
+      const d = await r.json()
+      if (r.ok) setWatchedBottles(d.bottles ?? [])
+    } catch {}
+  }
+
+  const watchedDealIds = useMemo(() => {
+    if (!watchedBottles.length || !data?.deals) return new Set()
+    const ids = new Set()
+    for (const deal of data.deals) {
+      for (const w of watchedBottles) {
+        if (nameMatch(w, deal.bottle_name) >= 0.4) { ids.add(deal.lot_id); break }
+      }
+    }
+    return ids
+  }, [data, watchedBottles])
+
   const filteredDeals = useMemo(() => {
     let deals = data?.deals ?? []
     if (category)    deals = deals.filter(d => d.category === category)
@@ -269,7 +576,8 @@ function AuctionsTab() {
       const q = searchText.trim().toLowerCase()
       deals = deals.filter(d => d.bottle_name?.toLowerCase().includes(q))
     }
-    if (showStarredOnly) deals = deals.filter(d => starredIds.has(d.lot_id))
+    if (showStarredOnly)  deals = deals.filter(d => starredIds.has(d.lot_id))
+    if (showWatchedOnly)  deals = deals.filter(d => watchedDealIds.has(d.lot_id))
     if (sort === 'savings') {
       deals = [...deals].sort((a, b) => (dealSavings(b) ?? -Infinity) - (dealSavings(a) ?? -Infinity))
     } else if (sort === 'closing') {
@@ -281,7 +589,7 @@ function AuctionsTab() {
     }
     // 'discount' is pre-sorted by the API
     return deals
-  }, [data, category, minBid, minSavings, reserveFilter, searchText, showStarredOnly, sort, starredIds])
+  }, [data, category, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, sort, starredIds, watchedDealIds])
 
   const visibleDeals     = filteredDeals.slice(0, showCount)
   const catCounts        = data?.category_counts ?? {}
@@ -362,12 +670,12 @@ function AuctionsTab() {
           <Chip tone={sort === 'discount' ? 'copper' : 'neutral'} onClick={() => setSort('discount')}>Best Discount %</Chip>
           <Chip tone={sort === 'savings'  ? 'copper' : 'neutral'} onClick={() => setSort('savings')}>$ Saved</Chip>
           <Chip tone={sort === 'closing'  ? 'copper' : 'neutral'} onClick={() => setSort('closing')}>Closing Soon</Chip>
-          <span style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-            <Chip
-              tone={showStarredOnly ? 'copper' : 'neutral'}
-              onClick={() => setShowStarredOnly(v => !v)}
-            >
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <Chip tone={showStarredOnly ? 'copper' : 'neutral'} onClick={() => setShowStarredOnly(v => !v)}>
               {showStarredOnly ? '★ Starred' : `★${starredIds.size > 0 ? ` (${starredIds.size})` : ''}`}
+            </Chip>
+            <Chip tone={showWatchedOnly ? 'copper' : 'neutral'} onClick={() => setShowWatchedOnly(v => !v)}>
+              {showWatchedOnly ? '👁 Watchlist' : `👁${watchedDealIds.size > 0 ? ` (${watchedDealIds.size})` : ''}`}
             </Chip>
             <Chip tone={showMsrp ? 'copper' : 'neutral'} onClick={() => setShowMsrp(v => !v)}>
               MSRP
@@ -441,6 +749,8 @@ function AuctionsTab() {
                 starred={starredIds.has(deal.lot_id)}
                 onToggleStar={toggleStar}
                 showMsrp={showMsrp}
+                watched={watchedDealIds.has(deal.lot_id)}
+                onClick={() => setSelectedDeal(deal)}
               />
             ))}
           </div>
@@ -461,6 +771,16 @@ function AuctionsTab() {
         Data from <a href="https://www.unicornauctions.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)' }}>unicornauctions.com</a>
         {data?.scraped_at && <> · Last updated {new Date(data.scraped_at).toLocaleString()}</>}
       </div>
+
+      <DealDetailSheet
+        open={!!selectedDeal}
+        deal={selectedDeal}
+        onClose={() => setSelectedDeal(null)}
+        starred={starredIds.has(selectedDeal?.lot_id)}
+        onToggleStar={toggleStar}
+        watched={watchedDealIds.has(selectedDeal?.lot_id)}
+        onAddToWatchlist={addToWatchlist}
+      />
     </div>
   )
 }
