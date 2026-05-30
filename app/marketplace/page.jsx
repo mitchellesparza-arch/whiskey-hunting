@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import AppHeader from '../components/AppHeader.jsx'
 import BarcodeScanner from '../finds/BarcodeScanner.jsx'
@@ -86,11 +86,22 @@ function timeUrgency(endDatetime) {
   return                      { label: fmtMs(ms), color: 'var(--text-muted)',  urgent: false }
 }
 
-function DealCard({ deal, rank }) {
+function dealSavings(deal) {
+  if (deal.ua_estimate_mid != null && deal.current_bid != null) {
+    return deal.ua_estimate_mid - deal.current_bid
+  }
+  return null
+}
+
+function DealCard({ deal, rank, starred, onToggleStar, showMsrp }) {
   const catStyle = getCatStyle(deal.category)
   const disc     = discountTier(deal.discount_vs_estimate)
   const timeInfo = timeUrgency(deal.end_datetime)
   const barWidth = Math.min(Math.max(deal.discount_vs_estimate ?? 0, 0), 100)
+  const savings  = dealSavings(deal)
+  const msrpDisc = (showMsrp && deal.msrp != null && deal.discount_vs_msrp != null)
+    ? discountTier(deal.discount_vs_msrp)
+    : null
 
   return (
     <div className="card flex flex-col gap-0 overflow-hidden"
@@ -100,6 +111,16 @@ function DealCard({ deal, rank }) {
           #{rank} · Lot {deal.lot_number ?? '—'}
         </span>
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={e => { e.stopPropagation(); onToggleStar?.(deal.lot_id) }}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '0.95rem', lineHeight: 1, padding: '0 2px',
+              color: starred ? 'var(--amber)' : 'var(--text-dim)',
+              transition: 'color 0.15s',
+            }}
+            aria-label={starred ? 'Unstar lot' : 'Star lot'}
+          >{starred ? '★' : '☆'}</button>
           {deal.section !== 'General' && (
             <span style={{
               background:   deal.section === 'Horn of Unicorn' ? 'rgba(201,168,76,0.2)' : 'rgba(58,175,169,0.2)',
@@ -138,16 +159,33 @@ function DealCard({ deal, rank }) {
         <div>
           <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Current Bid</div>
           <div style={{ color: 'var(--text-primary)', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1 }}>{fmtUSD(deal.current_bid)}</div>
+          {savings != null && savings > 0 && (
+            <div style={{ color: 'var(--green)', fontSize: '0.72rem', fontWeight: 600, marginTop: 2 }}>saves ~{fmtUSD(savings)}</div>
+          )}
           {deal.ua_estimate_display && <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: 3 }}>est. {deal.ua_estimate_display}</div>}
         </div>
-        <div style={{
-          background: `${disc.color}18`, border: `1px solid ${disc.color}50`,
-          borderRadius: 10, padding: '6px 12px', textAlign: 'center', flexShrink: 0,
-        }}>
-          <div style={{ color: disc.color, fontSize: '1.25rem', fontWeight: 800, lineHeight: 1 }}>{disc.label}</div>
-          <div style={{ color: disc.color + 'aa', fontSize: '0.6rem', marginTop: 2 }}>
-            {(deal.discount_vs_estimate ?? 0) > 0 ? 'below est.' : 'above est.'}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end', flexShrink: 0 }}>
+          <div style={{
+            background: `${disc.color}18`, border: `1px solid ${disc.color}50`,
+            borderRadius: 10, padding: '6px 12px', textAlign: 'center',
+          }}>
+            <div style={{ color: disc.color, fontSize: '1.25rem', fontWeight: 800, lineHeight: 1 }}>{disc.label}</div>
+            <div style={{ color: disc.color + 'aa', fontSize: '0.6rem', marginTop: 2 }}>
+              {(deal.discount_vs_estimate ?? 0) > 0 ? 'below est.' : 'above est.'}
+            </div>
           </div>
+          {msrpDisc && (
+            <div style={{
+              background: `${msrpDisc.color}12`, border: `1px solid ${msrpDisc.color}40`,
+              borderRadius: 8, padding: '4px 10px', textAlign: 'center',
+            }}>
+              <div style={{ color: msrpDisc.color, fontSize: '0.85rem', fontWeight: 700, lineHeight: 1 }}>{msrpDisc.label}</div>
+              <div style={{ color: 'var(--text-dim)', fontSize: '0.58rem', marginTop: 1 }}>vs MSRP ${deal.msrp}</div>
+            </div>
+          )}
+          {showMsrp && deal.msrp == null && (
+            <div style={{ color: 'var(--text-dim)', fontSize: '0.62rem', paddingRight: 2 }}>no MSRP</div>
+          )}
         </div>
       </div>
 
@@ -178,44 +216,78 @@ function DealCard({ deal, rank }) {
 }
 
 function AuctionsTab() {
-  const [data,           setData]           = useState(null)
-  const [loading,        setLoading]        = useState(true)
-  const [error,          setError]          = useState(null)
-  const [category,       setCategory]       = useState('')
-  const [sort,           setSort]           = useState('discount')
-  const [minBid,         setMinBid]         = useState(0)
-  const [reserveFilter,  setReserveFilter]  = useState('')    // '' | 'met-or-none'
-  const [showCount,      setShowCount]      = useState(20)
+  const [data,            setData]            = useState(null)
+  const [loading,         setLoading]         = useState(true)
+  const [error,           setError]           = useState(null)
+  const [category,        setCategory]        = useState('')
+  const [sort,            setSort]            = useState('discount')
+  const [minBid,          setMinBid]          = useState(0)
+  const [minSavings,      setMinSavings]      = useState(0)
+  const [reserveFilter,   setReserveFilter]   = useState('')
+  const [searchText,      setSearchText]      = useState('')
+  const [showMsrp,        setShowMsrp]        = useState(false)
+  const [showStarredOnly, setShowStarredOnly] = useState(false)
+  const [starredIds,      setStarredIds]      = useState(() => {
+    try {
+      const raw = localStorage.getItem('wh:ua:starred')
+      return new Set(raw ? JSON.parse(raw) : [])
+    } catch { return new Set() }
+  })
+  const [showCount,       setShowCount]       = useState(20)
 
   const fetchDeals = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const params = new URLSearchParams({
-        // Pull deep so post-filter views (Reserve, Category, Min Bid) still
-        // have a populated list — the default sort skews top results toward
-        // "reserve not met", so a small limit empties the filtered set.
-        limit: '1000',
-        sort,
-        ...(category ? { category } : {}),
-        ...(minBid > 0 ? { minBid: String(minBid) } : {}),
-        ...(reserveFilter ? { reserve: reserveFilter } : {}),
-      })
-      const res  = await fetch(`/api/unicorn-deals?${params}`)
+      const res  = await fetch('/api/unicorn-deals?limit=1000')
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Unknown error')
       setData(json)
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
-  }, [category, sort, minBid, reserveFilter])
+  }, [])
 
   useEffect(() => { fetchDeals() }, [fetchDeals])
-  useEffect(() => setShowCount(20), [category, sort, minBid, reserveFilter])
+  useEffect(() => setShowCount(20), [category, sort, minBid, minSavings, reserveFilter, searchText, showStarredOnly])
 
-  const deals        = data?.deals ?? []
-  const visibleDeals = deals.slice(0, showCount)
-  const catCounts    = data?.category_counts ?? {}
-  const whiskeyCats  = ['Bourbon','Rye','Tennessee','Scotch','American','Japanese','Irish','Canadian','Distilled Spirits','Blended'].filter(c => catCounts[c])
-  const MIN_BID_OPTS = [0, 50, 100, 250, 500, 1000]
+  function toggleStar(lotId) {
+    if (!lotId) return
+    setStarredIds(prev => {
+      const next = new Set(prev)
+      if (next.has(lotId)) next.delete(lotId); else next.add(lotId)
+      try { localStorage.setItem('wh:ua:starred', JSON.stringify([...next])) } catch {}
+      return next
+    })
+  }
+
+  const filteredDeals = useMemo(() => {
+    let deals = data?.deals ?? []
+    if (category)    deals = deals.filter(d => d.category === category)
+    if (minBid > 0)  deals = deals.filter(d => (d.current_bid ?? 0) >= minBid)
+    if (minSavings > 0) deals = deals.filter(d => (dealSavings(d) ?? 0) >= minSavings)
+    if (reserveFilter === 'met-or-none') deals = deals.filter(d => d.reserve_met === true || !d.reserve_price)
+    if (searchText.trim()) {
+      const q = searchText.trim().toLowerCase()
+      deals = deals.filter(d => d.bottle_name?.toLowerCase().includes(q))
+    }
+    if (showStarredOnly) deals = deals.filter(d => starredIds.has(d.lot_id))
+    if (sort === 'savings') {
+      deals = [...deals].sort((a, b) => (dealSavings(b) ?? -Infinity) - (dealSavings(a) ?? -Infinity))
+    } else if (sort === 'closing') {
+      deals = [...deals].sort((a, b) => {
+        const ta = a.end_datetime ? new Date(a.end_datetime).getTime() : Infinity
+        const tb = b.end_datetime ? new Date(b.end_datetime).getTime() : Infinity
+        return ta - tb
+      })
+    }
+    // 'discount' is pre-sorted by the API
+    return deals
+  }, [data, category, minBid, minSavings, reserveFilter, searchText, showStarredOnly, sort, starredIds])
+
+  const visibleDeals     = filteredDeals.slice(0, showCount)
+  const catCounts        = data?.category_counts ?? {}
+  const whiskeyCats      = ['Bourbon','Rye','Tennessee','Scotch','American','Japanese','Irish','Canadian','Distilled Spirits','Blended'].filter(c => catCounts[c])
+  const MIN_BID_OPTS     = [0, 50, 100, 250, 500, 1000]
+  const MIN_SAVINGS_OPTS = [0, 50, 100, 250, 500]
 
   const weekend = (() => { const d = new Date().getDay(); return d === 0 ? 'sunday' : d === 6 ? 'saturday' : null })()
 
@@ -244,7 +316,7 @@ function AuctionsTab() {
           {[
             { label: 'Whiskey Lots',   value: data.total_lots?.toLocaleString() ?? '—',            color: 'var(--text-primary)' },
             { label: 'Below Estimate', value: data.total_with_discount?.toLocaleString() ?? '—',   color: 'var(--green)' },
-            { label: 'Showing',        value: `${data.total_filtered ?? deals.length} filtered`,   color: 'var(--copper-400)' },
+            { label: 'Showing',        value: `${filteredDeals.length} filtered`,                   color: 'var(--copper-400)' },
             { label: 'Data Age',       value: timeAgo(new Date(data.scraped_at).getTime()),         color: 'var(--text-muted)' },
           ].map(({ label, value, color }) => (
             <div key={label} className="card px-4 py-3">
@@ -255,7 +327,25 @@ function AuctionsTab() {
         </div>
       )}
 
+      {/* Search */}
+      <div style={{ position: 'relative' }}>
+        <input
+          type="search"
+          placeholder="Search bottles…"
+          value={searchText}
+          onChange={e => setSearchText(e.target.value)}
+          style={{
+            width: '100%', padding: '10px 14px 10px 36px', boxSizing: 'border-box',
+            background: 'var(--bg-elev-2)', border: '1px solid var(--hairline-2)',
+            borderRadius: 'var(--r-md)', color: 'var(--text-primary)', fontSize: '0.9rem',
+            outline: 'none',
+          }}
+        />
+        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', fontSize: '0.85rem', pointerEvents: 'none' }}>🔍</span>
+      </div>
+
       <div className="space-y-3">
+        {/* Category */}
         <div className="flex flex-wrap gap-2 items-center">
           <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</span>
           <Chip tone={!category ? 'copper' : 'neutral'} onClick={() => setCategory('')}>All</Chip>
@@ -265,17 +355,43 @@ function AuctionsTab() {
             </Chip>
           ))}
         </div>
+
+        {/* Sort + controls */}
         <div className="flex flex-wrap gap-2 items-center">
           <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sort</span>
-          <Chip tone={sort === 'discount' ? 'copper' : 'neutral'} onClick={() => setSort('discount')}>Best Discount</Chip>
-          <Chip tone={sort === 'closing' ? 'copper' : 'neutral'} onClick={() => setSort('closing')}>Closing Soon</Chip>
-          <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginLeft: 8 }}>Min Bid</span>
+          <Chip tone={sort === 'discount' ? 'copper' : 'neutral'} onClick={() => setSort('discount')}>Best Discount %</Chip>
+          <Chip tone={sort === 'savings'  ? 'copper' : 'neutral'} onClick={() => setSort('savings')}>$ Saved</Chip>
+          <Chip tone={sort === 'closing'  ? 'copper' : 'neutral'} onClick={() => setSort('closing')}>Closing Soon</Chip>
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            <Chip
+              tone={showStarredOnly ? 'copper' : 'neutral'}
+              onClick={() => setShowStarredOnly(v => !v)}
+            >
+              {showStarredOnly ? '★ Starred' : `★${starredIds.size > 0 ? ` (${starredIds.size})` : ''}`}
+            </Chip>
+            <Chip tone={showMsrp ? 'copper' : 'neutral'} onClick={() => setShowMsrp(v => !v)}>
+              MSRP
+            </Chip>
+          </span>
+        </div>
+
+        {/* Min Bid + Min $ Saved */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Min Bid</span>
           {MIN_BID_OPTS.map(v => (
             <Chip key={v} tone={minBid === v ? 'copper' : 'neutral'} onClick={() => setMinBid(v)}>
               {v === 0 ? 'Any' : `$${v.toLocaleString()}+`}
             </Chip>
           ))}
+          <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginLeft: 8 }}>$ Saved</span>
+          {MIN_SAVINGS_OPTS.map(v => (
+            <Chip key={`s${v}`} tone={minSavings === v ? 'copper' : 'neutral'} onClick={() => setMinSavings(v)}>
+              {v === 0 ? 'Any' : `$${v.toLocaleString()}+`}
+            </Chip>
+          ))}
         </div>
+
+        {/* Reserve */}
         <div className="flex flex-wrap gap-2 items-center">
           <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reserve</span>
           <Chip tone={!reserveFilter ? 'copper' : 'neutral'} onClick={() => setReserveFilter('')}>Any</Chip>
@@ -310,22 +426,31 @@ function AuctionsTab() {
         </div>
       )}
 
-      {!loading && !error && deals.length === 0 && (
+      {!loading && !error && filteredDeals.length === 0 && (
         <EmptyState icon="Gavel" title="No deals match your filters" />
       )}
 
       {!loading && !error && visibleDeals.length > 0 && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {visibleDeals.map((deal, i) => <DealCard key={deal.lot_id ?? i} deal={deal} rank={i + 1} />)}
+            {visibleDeals.map((deal, i) => (
+              <DealCard
+                key={deal.lot_id ?? i}
+                deal={deal}
+                rank={i + 1}
+                starred={starredIds.has(deal.lot_id)}
+                onToggleStar={toggleStar}
+                showMsrp={showMsrp}
+              />
+            ))}
           </div>
-          {deals.length > showCount && (
+          {filteredDeals.length > showCount && (
             <div style={{ textAlign: 'center', paddingTop: 8 }}>
               <button onClick={() => setShowCount(c => c + 20)} style={{
                 border: 'var(--hairline-2)', borderRadius: 8, padding: '10px 24px',
                 color: 'var(--text-muted)', background: 'transparent', fontSize: '0.85rem', cursor: 'pointer',
               }}>
-                Show more ({deals.length - showCount} remaining)
+                Show more ({filteredDeals.length - showCount} remaining)
               </button>
             </div>
           )}
