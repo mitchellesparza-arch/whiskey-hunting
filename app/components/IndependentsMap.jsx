@@ -250,7 +250,7 @@ export default function IndependentsMap({ retailers, allFinds, selected, onSelec
     <div
       ref={containerRef}
       style={{
-        height:       220,
+        height:       320,
         borderRadius: 'var(--r-md)',
         overflow:     'hidden',
         border:       '1px solid var(--hairline)',
