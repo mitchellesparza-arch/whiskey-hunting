@@ -1,48 +1,52 @@
-import { NextResponse }      from 'next/server'
+import { NextResponse }               from 'next/server'
 import { checkAllRetailers, RETAILERS } from '../../../lib/retailers.js'
 
 /**
  * GET /api/independents
- *
- * Runs a live check of all independent Chicagoland retailers and returns
- * structured results with retailer metadata merged in.
  *
  * Response:
  * {
  *   retailers: [
  *     {
  *       name, location, url, lat, lng,
- *       bottles: [{ bottle, inStock, price, url }]
- *       inStockCount: number
+ *       bottles: [...],
+ *       inStockCount: number,
+ *       catalogSize: number|null,   // how many products were on their whiskey page
+ *       accessible: boolean,        // did we successfully read their catalog?
+ *       source: 'shopify'|'cityhive'|'custom'
  *     }
  *   ],
- *   allFinds: [{ bottle, retailer, location, price, url }],   // in-stock only
+ *   allFinds: [...],   // in-stock only
  *   checkedAt: ISO string
  * }
  */
 export async function GET() {
   const checkedAt = new Date().toISOString()
 
-  const results = await checkAllRetailers()
+  const { finds, diagnostics } = await checkAllRetailers()
 
-  // Group results by retailer
+  // Group finds by retailer
   const byRetailer = {}
-  for (const r of results) {
+  for (const r of finds) {
     if (!byRetailer[r.retailer]) byRetailer[r.retailer] = []
     byRetailer[r.retailer].push(r)
   }
 
-  // Merge with static retailer metadata (coordinates, url, location)
-  const retailers = RETAILERS.map(meta => {
+  // Merge static retailer metadata + live finds + diagnostics
+  const retailers = RETAILERS.filter(r => r.lat).map(meta => {
     const bottles = byRetailer[meta.name] ?? []
+    const diag    = diagnostics[meta.name] ?? {}
     return {
       ...meta,
       bottles,
       inStockCount: bottles.filter(b => b.inStock).length,
+      catalogSize:  diag.catalogSize  ?? null,
+      accessible:   diag.accessible   ?? true,
+      source:       diag.source       ?? 'unknown',
     }
   })
 
-  const allFinds = results.filter(r => r.inStock)
+  const allFinds = finds.filter(r => r.inStock)
 
   return NextResponse.json({ retailers, allFinds, checkedAt })
 }

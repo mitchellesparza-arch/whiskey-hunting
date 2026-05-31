@@ -47,12 +47,12 @@ export async function GET() {
   // ── Merge live retailer status ────────────────────────────────────────────
   // Run concurrently with a timeout so a slow retailer doesn't stall the page
   try {
-    const retailerResults = await Promise.race([
+    const { finds: retailerFinds } = await Promise.race([
       checkAllRetailers(),
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
     ])
 
-    const inStockResults = retailerResults.filter(r => r.inStock)
+    const inStockResults = retailerFinds.filter(r => r.inStock)
 
     for (const bottle of bottles) {
       // Match retailer finds to this bottle by fuzzy name match

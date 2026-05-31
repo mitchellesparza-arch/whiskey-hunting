@@ -65,7 +65,7 @@ export async function GET(request) {
     const lastState = await getLastState()
 
     // ── Check Binny's canaries + multi-retailer in parallel ──────────────────
-    const [canaryResults, retailerResults] = await Promise.all([
+    const [canaryResults, { finds: retailerResults }] = await Promise.all([
       checkAllCanaries(stores),
       checkAllRetailers(),
     ])
