@@ -376,7 +376,7 @@ function BottleView({ allFinds }) {
       if (!map[f.bottle]) map[f.bottle] = { bottle: f.bottle, stores: [] }
       map[f.bottle].stores.push(f)
     })
-    return Object.values(map).sort((a, b) => b.stores.length - a.stores.length)
+    return Object.values(map).sort((a, b) => a.bottle.localeCompare(b.bottle))
   }, [allFinds])
 
   if (!grouped.length) return (
