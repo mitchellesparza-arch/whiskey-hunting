@@ -21,10 +21,17 @@ const IndependentsMap = dynamic(() => import('./IndependentsMap.jsx'), {
 const SOURCE_CONF = {
   shopify: {
     label:  'Live inventory',
-    detail: 'Shopify tracks stock in real-time — if it says in stock, a customer can add it to cart right now.',
+    detail: 'Shopify tracks stock in real-time — if it says in stock, you can add it to cart right now.',
     color:  'var(--green)',
     bg:     'rgba(93,211,158,0.10)',
     border: 'rgba(93,211,158,0.20)',
+  },
+  shopify_multi: {
+    label:  'Multi-location',
+    detail: 'In stock somewhere across their locations — catalog is shared so we can\'t tell which specific store has it. Call ahead.',
+    color:  'var(--amber)',
+    bg:     'rgba(217,126,44,0.10)',
+    border: 'rgba(217,126,44,0.20)',
   },
   cityhive: {
     label:  'Live inventory',
@@ -107,7 +114,9 @@ function BottleRow({ find, isCatalog }) {
 function RetailerCard({ retailer, allFinds, selected, onSelect }) {
   const finds      = allFinds.filter(f => f.retailer === retailer.name)
   const hasStock   = finds.length > 0
-  const conf       = SOURCE_CONF[retailer.source ?? 'unknown']
+  // Use shopify_multi for multi-location Shopify stores (can't pinpoint which store)
+  const sourceKey  = retailer.source === 'shopify' && retailer.multiLocation ? 'shopify_multi' : (retailer.source ?? 'unknown')
+  const conf       = SOURCE_CONF[sourceKey]
   const isCatalog  = retailer.source === 'custom'
   const isSelected = selected === retailer.name
 
@@ -186,6 +195,14 @@ function RetailerCard({ retailer, allFinds, selected, onSelect }) {
             <MapPin size={10} />
             <span style={{ fontSize: 'var(--fs-meta)' }}>{retailer.location}</span>
           </div>
+
+          {/* Multi-location note */}
+          {retailer.multiLocation && hasStock && (
+            <div style={{ marginTop: 4, fontSize: 10, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span>📍</span>
+              <span>Stock confirmed across {retailer.locationNames?.join(', ')} — call your nearest to confirm on-shelf</span>
+            </div>
+          )}
 
           {/* Zero-hit diagnostic */}
           {zeroHitMsg && (
@@ -486,7 +503,8 @@ export default function IndependentsTab() {
             marginBottom: 'var(--sp-3)',
           }}>
             {[
-              { label: 'Live inventory', color: 'var(--green)',    bg: 'rgba(93,211,158,0.10)', border: 'rgba(93,211,158,0.20)', tip: 'Shopify or City Hive — updates as items sell' },
+              { label: 'Live inventory',   color: 'var(--green)',    bg: 'rgba(93,211,158,0.10)',  border: 'rgba(93,211,158,0.20)',  tip: 'City Hive or Shopify single-store — updates as items sell' },
+              { label: 'Multi-location',   color: 'var(--amber)',    bg: 'rgba(217,126,44,0.10)',  border: 'rgba(217,126,44,0.20)',  tip: 'Shared catalog — stock confirmed across locations but which store is unknown. Call ahead.' },
               { label: 'Catalog listing', color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.10)', tip: 'They carry it — call ahead to confirm on-shelf today' },
             ].map(t => (
               <span key={t.label} title={t.tip} style={{
