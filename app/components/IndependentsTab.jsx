@@ -1,7 +1,173 @@
 'use client'
 import dynamic      from 'next/dynamic'
 import { useState, useEffect, useMemo } from 'react'
-import { MapPin, RefreshCw, ExternalLink, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
+import { MapPin, RefreshCw, ExternalLink, ChevronDown, ChevronUp, AlertCircle, BookOpen } from 'lucide-react'
+
+// ─── How It Works guide ───────────────────────────────────────────────────────
+
+const GUIDE_SECTIONS = [
+  {
+    icon: '🟢',
+    title: 'Live inventory',
+    body: 'Most stores here use Shopify or City Hive — both track stock in real-time as items sell. When a bottle shows "in stock," Shopify\'s own engine has verified the count is above zero. It\'s the same signal that controls whether the Add to Cart button is active on their website. If we say it\'s in stock, you can buy it right now.',
+  },
+  {
+    icon: '🟡',
+    title: 'Multi-location stores',
+    body: 'Some stores (like Liquor Barn) run a single shared catalog across multiple locations. "In stock" means it exists somewhere across their network — but we can\'t tell which specific store. When you see the amber Multi-location badge, call ahead to your nearest location before making the trip.',
+  },
+  {
+    icon: '⬛',
+    title: 'Catalog listings',
+    body: 'A handful of stores list bottles without real-time stock counts. These show "Ask in store" instead of a price. It means they\'re known to carry the bottle — but it might not be on the shelf today. Always call ahead for catalog-listed bottles.',
+  },
+  {
+    icon: '🔢',
+    title: 'Stock quantities',
+    body: 'Where visible, we show the total units in the store\'s network (e.g. "34 in network"). For high-value bottles, some stores deliberately hide the count — that doesn\'t mean they\'re out, it just means they don\'t want to advertise scarcity. If availability shows true but no count appears, assume they have at least one.',
+  },
+  {
+    icon: '✗',
+    title: 'Zero matches',
+    body: 'When a store shows no bottles found, we still checked their full catalog — you\'ll see "X products checked, 0 matched." This means we looked and nothing from our tracked list was available at that moment. Check back later; allocated bottles move in and out of stock quickly.',
+  },
+]
+
+function HowItWorksGuide() {
+  const LS_KEY = 'wh:indie-guide-open'
+  const [open, setOpen] = useState(false)
+
+  // Restore collapsed state from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(LS_KEY)
+      // Default open on first visit (stored === null), collapsed after
+      setOpen(stored === null ? true : stored === 'true')
+    } catch {}
+  }, [])
+
+  function toggle() {
+    const next = !open
+    setOpen(next)
+    try { localStorage.setItem(LS_KEY, String(next)) } catch {}
+  }
+
+  return (
+    <div style={{
+      background:   'var(--bg-elev-1)',
+      border:       '1px solid var(--hairline)',
+      borderRadius: 'var(--r-md)',
+      overflow:     'hidden',
+      marginBottom: 'var(--sp-4)',
+    }}>
+      {/* Header — always visible */}
+      <button
+        onClick={toggle}
+        style={{
+          width:          '100%',
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'space-between',
+          gap:            10,
+          padding:        'var(--sp-3) var(--sp-4)',
+          background:     'none',
+          border:         'none',
+          cursor:         'pointer',
+          textAlign:      'left',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <BookOpen size={14} color="var(--copper-400)" />
+          <span style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>
+            How inventory tracking works
+          </span>
+          <span style={{
+            fontSize: 9, fontWeight: 700, letterSpacing: '0.06em',
+            textTransform: 'uppercase', color: 'var(--copper-400)',
+            background: 'rgba(217,126,44,0.10)', padding: '1px 6px', borderRadius: 'var(--r-sm)',
+          }}>
+            Guide
+          </span>
+        </div>
+        <div style={{ color: 'var(--text-dim)', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+          {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+        </div>
+      </button>
+
+      {/* Expandable body */}
+      {open && (
+        <div style={{ borderTop: '1px solid var(--hairline)' }}>
+          {GUIDE_SECTIONS.map((s, i) => (
+            <div
+              key={s.title}
+              style={{
+                display:      'flex',
+                gap:          12,
+                padding:      'var(--sp-3) var(--sp-4)',
+                borderBottom: i < GUIDE_SECTIONS.length - 1 ? '1px solid var(--hairline)' : 'none',
+              }}
+            >
+              {/* Icon */}
+              <div style={{
+                flexShrink:     0,
+                width:          28,
+                height:         28,
+                borderRadius:   'var(--r-sm)',
+                background:     'var(--bg-elev-2)',
+                border:         '1px solid var(--hairline)',
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+                fontSize:       14,
+                marginTop:      1,
+              }}>
+                {s.icon}
+              </div>
+
+              {/* Text */}
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  fontWeight:   700,
+                  fontSize:     'var(--fs-body)',
+                  color:        'var(--text-primary)',
+                  marginBottom: 4,
+                }}>
+                  {s.title}
+                </div>
+                <div style={{
+                  fontSize:   'var(--fs-meta)',
+                  color:      'var(--text-muted)',
+                  lineHeight: 1.6,
+                }}>
+                  {s.body}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Dismiss link */}
+          <div style={{
+            padding:    'var(--sp-2) var(--sp-4)',
+            background: 'var(--bg-elev-2)',
+            display:    'flex',
+            justifyContent: 'flex-end',
+          }}>
+            <button
+              onClick={toggle}
+              style={{
+                background: 'none', border: 'none',
+                color:      'var(--text-dim)', cursor: 'pointer',
+                fontSize:   'var(--fs-meta)', fontFamily: 'inherit',
+              }}
+            >
+              Got it — hide guide ↑
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 const IndependentsMap = dynamic(() => import('./IndependentsMap.jsx'), {
   ssr:     false,
@@ -412,6 +578,9 @@ export default function IndependentsTab() {
         </div>
       </div>
 
+      {/* How it works guide */}
+      <HowItWorksGuide />
+
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex', alignItems: 'flex-start',
@@ -568,18 +737,6 @@ export default function IndependentsTab() {
             <BottleView allFinds={allFinds} />
           )}
 
-          {/* Footer */}
-          <div style={{
-            marginTop: 'var(--sp-6)', padding: 'var(--sp-3) var(--sp-4)',
-            background: 'var(--bg-elev-1)', border: '1px solid var(--hairline)',
-            borderRadius: 'var(--r-md)', fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', lineHeight: 1.6,
-          }}>
-            <strong style={{ color: 'var(--text-muted)' }}>How it works</strong>
-            {' '}— {retailers.filter(r => r.lat).length} Chicagoland retailers checked each run.
-            {' '}<strong style={{ color: 'var(--green)' }}>Live inventory</strong> stores (Shopify / City Hive) update stock in real-time with each sale.
-            {' '}<strong style={{ color: 'var(--text-muted)' }}>Catalog listing</strong> stores confirm they carry the bottle — call ahead to verify it's physically on the shelf.
-            {' '}Stores showing zero matches had their full catalog checked; none of our tracked bottles were listed as available at that moment.
-          </div>
         </>
       )}
 
