@@ -590,12 +590,7 @@ export default function IndependentsTab() {
             <BottleView allFinds={allFinds} />
           ) : (
             (() => {
-              const sorted = [...retailers].sort((a, b) => {
-                const aHas = allFinds.some(f => f.retailer === a.name)
-                const bHas = allFinds.some(f => f.retailer === b.name)
-                if (bHas !== aHas) return bHas ? 1 : -1
-                return allFinds.filter(f => f.retailer === b.name).length - allFinds.filter(f => f.retailer === a.name).length
-              })
+              const sorted = [...retailers].sort((a, b) => a.name.localeCompare(b.name))
               const stocked = sorted.filter(r => allFinds.some(f => f.retailer === r.name))
               const empty   = sorted.filter(r => !allFinds.some(f => f.retailer === r.name))
               return (
