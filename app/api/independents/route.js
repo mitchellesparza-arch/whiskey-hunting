@@ -1,6 +1,8 @@
 import { NextResponse }               from 'next/server'
 import { checkAllRetailers, RETAILERS } from '../../../lib/retailers.js'
 
+export const maxDuration = 30
+
 /**
  * GET /api/independents
  *
