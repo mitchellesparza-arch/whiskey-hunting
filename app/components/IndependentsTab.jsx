@@ -232,13 +232,14 @@ function timeAgo(iso) {
 
 // ─── Single bottle row ────────────────────────────────────────────────────────
 function BottleRow({ find, isCatalog }) {
-  // Quantity display: only show for Liquor Barn (HTML-scraped aggregate across 3 stores)
+  // Quantity display: only for Liquor Barn (scraped from page HTML)
+  // null qty + multi-location = likely in-store pickup only (button grays out online)
   const showQty     = find.quantity != null && find.quantity > 0
   const qtyLow      = showQty && find.quantity <= 10
+  const isPickupOnly = find.retailer === 'Liquor Barn' && find.quantity == null && find.inStock
   const qtyLabel    = showQty
-    ? `${find.quantity} in network`   // aggregate across all LB locations
-    : find.quantity === 0 ? null       // 0 = OOS, shouldn't appear in inStock list
-    : null                             // null = store hid the count
+    ? `${find.quantity} in network`
+    : null
 
   return (
     <a
@@ -269,16 +270,34 @@ function BottleRow({ find, isCatalog }) {
         }}>
           {find.rawName ?? find.bottle}
         </span>
-        {/* Stock quantity — low stock in amber, normal in dim */}
+        {/* Stock quantity */}
         {qtyLabel && (
           <span style={{
-            fontSize: 9, fontWeight: 700,
-            color:    qtyLow ? 'var(--amber)' : 'var(--text-dim)',
-            flexShrink: 0,
+            fontSize: 9, fontWeight: 700, flexShrink: 0,
+            color: qtyLow ? 'var(--amber)' : 'var(--text-dim)',
           }}>
             {qtyLabel}
           </span>
         )}
+        {/* In-store pickup only — grays out online but physically on shelf */}
+        {isPickupOnly && (<>
+          <span style={{
+            fontSize: 9, fontWeight: 700, flexShrink: 0,
+            color: 'var(--amber)',
+          }}
+            title="Liquor Barn sells this in-store only — the online cart button will be grayed out."
+          >
+            not online
+          </span>
+          <span style={{
+            fontSize: 9, fontWeight: 700, flexShrink: 0,
+            color: 'var(--text-dim)',
+          }}
+            title="Allocated bottles at Liquor Barn are often kept behind the counter or in the back. Call ahead to confirm availability and which location has it."
+          >
+            may not be displayed
+          </span>
+        </>)}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
         {find.price ? (
