@@ -1,170 +1,71 @@
 'use client'
 import dynamic      from 'next/dynamic'
 import { useState, useEffect, useMemo } from 'react'
-import { MapPin, RefreshCw, ExternalLink, ChevronDown, ChevronUp, AlertCircle, BookOpen } from 'lucide-react'
+import { MapPin, RefreshCw, ExternalLink, ChevronDown, ChevronUp, HelpCircle, X } from 'lucide-react'
 
-// ─── How It Works guide ───────────────────────────────────────────────────────
+// ─── How It Works — modal content ─────────────────────────────────────────────
 
 const GUIDE_SECTIONS = [
-  {
-    icon: '🟢',
-    title: 'Live inventory',
-    body: 'Most stores here use Shopify or City Hive — both track stock in real-time as items sell. When a bottle shows "in stock," Shopify\'s own engine has verified the count is above zero. It\'s the same signal that controls whether the Add to Cart button is active on their website. If we say it\'s in stock, you can buy it right now.',
-  },
-  {
-    icon: '🟡',
-    title: 'Multi-location stores',
-    body: 'Some stores (like Liquor Barn) run a single shared catalog across multiple locations. "In stock" means it exists somewhere across their network — but we can\'t tell which specific store. When you see the amber Multi-location badge, call ahead to your nearest location before making the trip.',
-  },
-  {
-    icon: '⬛',
-    title: 'Catalog listings',
-    body: 'A handful of stores list bottles without real-time stock counts. These show "Ask in store" instead of a price. It means they\'re known to carry the bottle — but it might not be on the shelf today. Always call ahead for catalog-listed bottles.',
-  },
-  {
-    icon: '🔢',
-    title: 'Stock quantities',
-    body: 'Where visible, we show the total units in the store\'s network (e.g. "34 in network"). For high-value bottles, some stores deliberately hide the count — that doesn\'t mean they\'re out, it just means they don\'t want to advertise scarcity. If availability shows true but no count appears, assume they have at least one.',
-  },
-  {
-    icon: '✗',
-    title: 'Zero matches',
-    body: 'When a store shows no bottles found, we still checked their full catalog — you\'ll see "X products checked, 0 matched." This means we looked and nothing from our tracked list was available at that moment. Check back later; allocated bottles move in and out of stock quickly.',
-  },
+  { icon: '🟢', title: 'Live inventory',     body: 'Most stores use Shopify or City Hive — both track stock in real-time. When a bottle shows in stock, that\'s the same signal that controls the Add to Cart button on their site.' },
+  { icon: '🟡', title: 'Multi-location',     body: 'Some stores share one catalog across locations. In stock means it exists somewhere in their network — call ahead to confirm which location has it.' },
+  { icon: '⬛', title: 'Catalog listings',   body: 'A few stores list bottles without real-time counts ("Ask in store"). They\'re known to carry it — but confirm before making the trip.' },
+  { icon: '🔢', title: 'Stock quantities',   body: 'Where visible, we show total units across the network. High-value bottles often hide the count deliberately — if availability shows true, assume at least one.' },
+  { icon: '✗',  title: 'Zero matches',       body: 'We checked — nothing matched. You\'ll see how many products were scanned. Allocated stock moves fast; check back.' },
 ]
 
-function HowItWorksGuide() {
-  const LS_KEY = 'wh:indie-guide-open'
-  const [open, setOpen] = useState(false)
-
-  // Restore collapsed state from localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(LS_KEY)
-      // Default open on first visit (stored === null), collapsed after
-      setOpen(stored === null ? true : stored === 'true')
-    } catch {}
-  }, [])
-
-  function toggle() {
-    const next = !open
-    setOpen(next)
-    try { localStorage.setItem(LS_KEY, String(next)) } catch {}
-  }
-
+function GuideModal({ onClose }) {
   return (
-    <div style={{
-      background:   'var(--bg-elev-1)',
-      border:       '1px solid var(--hairline)',
-      borderRadius: 'var(--r-md)',
-      overflow:     'hidden',
-      marginBottom: 'var(--sp-4)',
-    }}>
-      {/* Header — always visible */}
-      <button
-        onClick={toggle}
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.6)', display: 'flex',
+        alignItems: 'flex-end', justifyContent: 'center',
+        padding: '0 0 env(safe-area-inset-bottom)',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
         style={{
-          width:          '100%',
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'space-between',
-          gap:            10,
-          padding:        'var(--sp-3) var(--sp-4)',
-          background:     'none',
-          border:         'none',
-          cursor:         'pointer',
-          textAlign:      'left',
+          width: '100%', maxWidth: 480,
+          background: 'var(--bg-elev-1)',
+          borderRadius: 'var(--r-md) var(--r-md) 0 0',
+          border: '1px solid var(--hairline)',
+          borderBottom: 'none',
+          overflow: 'hidden',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <BookOpen size={14} color="var(--copper-400)" />
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: 'var(--sp-3) var(--sp-4)',
+          borderBottom: '1px solid var(--hairline)',
+        }}>
           <span style={{ fontWeight: 700, fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>
             How inventory tracking works
           </span>
-          <span style={{
-            fontSize: 9, fontWeight: 700, letterSpacing: '0.06em',
-            textTransform: 'uppercase', color: 'var(--copper-400)',
-            background: 'rgba(217,126,44,0.10)', padding: '1px 6px', borderRadius: 'var(--r-sm)',
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex' }}>
+            <X size={16} />
+          </button>
+        </div>
+        {/* Sections */}
+        {GUIDE_SECTIONS.map((s, i) => (
+          <div key={s.title} style={{
+            display: 'flex', gap: 12, padding: 'var(--sp-3) var(--sp-4)',
+            borderBottom: i < GUIDE_SECTIONS.length - 1 ? '1px solid var(--hairline)' : 'none',
           }}>
-            Guide
-          </span>
-        </div>
-        <div style={{ color: 'var(--text-dim)', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-          {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-        </div>
-      </button>
-
-      {/* Expandable body */}
-      {open && (
-        <div style={{ borderTop: '1px solid var(--hairline)' }}>
-          {GUIDE_SECTIONS.map((s, i) => (
-            <div
-              key={s.title}
-              style={{
-                display:      'flex',
-                gap:          12,
-                padding:      'var(--sp-3) var(--sp-4)',
-                borderBottom: i < GUIDE_SECTIONS.length - 1 ? '1px solid var(--hairline)' : 'none',
-              }}
-            >
-              {/* Icon */}
-              <div style={{
-                flexShrink:     0,
-                width:          28,
-                height:         28,
-                borderRadius:   'var(--r-sm)',
-                background:     'var(--bg-elev-2)',
-                border:         '1px solid var(--hairline)',
-                display:        'flex',
-                alignItems:     'center',
-                justifyContent: 'center',
-                fontSize:       14,
-                marginTop:      1,
-              }}>
-                {s.icon}
-              </div>
-
-              {/* Text */}
-              <div style={{ flex: 1 }}>
-                <div style={{
-                  fontWeight:   700,
-                  fontSize:     'var(--fs-body)',
-                  color:        'var(--text-primary)',
-                  marginBottom: 4,
-                }}>
-                  {s.title}
-                </div>
-                <div style={{
-                  fontSize:   'var(--fs-meta)',
-                  color:      'var(--text-muted)',
-                  lineHeight: 1.6,
-                }}>
-                  {s.body}
-                </div>
-              </div>
+            <div style={{
+              flexShrink: 0, width: 26, height: 26, borderRadius: 'var(--r-sm)',
+              background: 'var(--bg-elev-2)', border: '1px solid var(--hairline)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
+            }}>{s.icon}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 'var(--fs-meta)', color: 'var(--text-primary)', marginBottom: 3 }}>{s.title}</div>
+              <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', lineHeight: 1.55 }}>{s.body}</div>
             </div>
-          ))}
-
-          {/* Dismiss link */}
-          <div style={{
-            padding:    'var(--sp-2) var(--sp-4)',
-            background: 'var(--bg-elev-2)',
-            display:    'flex',
-            justifyContent: 'flex-end',
-          }}>
-            <button
-              onClick={toggle}
-              style={{
-                background: 'none', border: 'none',
-                color:      'var(--text-dim)', cursor: 'pointer',
-                fontSize:   'var(--fs-meta)', fontFamily: 'inherit',
-              }}
-            >
-              Got it — hide guide ↑
-            </button>
           </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   )
 }
@@ -559,9 +460,11 @@ export default function IndependentsTab() {
   const [data,        setData]       = useState(null)
   const [loading,     setLoading]    = useState(true)
   const [refreshing,  setRefreshing] = useState(false)
-  const [view,        setView]       = useState('store')
+  const [view,        setView]       = useState('bottle')
   const [selectedPin, setSelectedPin] = useState(null)
-  const [showMap,     setShowMap]    = useState(true)
+  const [showMap,     setShowMap]    = useState(false)
+  const [showGuide,   setShowGuide]  = useState(false)
+  const [showEmpty,   setShowEmpty]  = useState(false)
 
   async function load(isRefresh = false) {
     if (isRefresh) setRefreshing(true)
@@ -582,23 +485,8 @@ export default function IndependentsTab() {
 
   return (
     <div>
-      {/* Under construction */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.25)',
-        borderRadius: 'var(--r-md)', padding: 'var(--sp-3) var(--sp-4)', marginBottom: 'var(--sp-4)',
-      }}>
-        <span style={{ fontSize: 18, flexShrink: 0 }}>🚧</span>
-        <div>
-          <span style={{ fontWeight: 700, fontSize: 'var(--fs-meta)', color: 'var(--amber)' }}>Under Construction </span>
-          <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
-            — Adding more Chicagoland independents. Coverage will grow.
-          </span>
-        </div>
-      </div>
-
-      {/* How it works guide */}
-      <HowItWorksGuide />
+      {/* Guide modal */}
+      {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div style={{
@@ -608,7 +496,10 @@ export default function IndependentsTab() {
       }}>
         <div>
           {loading ? (
-            <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' }}>Checking {retailers.length || '…'} retailers…</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ height: 22, width: 180, background: 'var(--bg-elev-2)', borderRadius: 'var(--r-sm)', animation: 'shimmer 1.4s ease-in-out infinite' }} />
+              <div style={{ height: 13, width: 120, background: 'var(--bg-elev-2)', borderRadius: 'var(--r-sm)', animation: 'shimmer 1.4s ease-in-out infinite', opacity: 0.6 }} />
+            </div>
           ) : allFinds.length > 0 ? (
             <>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -621,7 +512,7 @@ export default function IndependentsTab() {
               </div>
               {data?.checkedAt && (
                 <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 3 }}>
-                  Checked {timeAgo(data.checkedAt)}
+                  Checked {timeAgo(data.checkedAt)} · {retailers.length} stores
                 </div>
               )}
             </>
@@ -637,7 +528,7 @@ export default function IndependentsTab() {
             display: 'inline-flex', background: 'var(--bg-elev-2)',
             border: '1px solid var(--hairline)', borderRadius: 'var(--r-pill)', padding: 3, gap: 2,
           }}>
-            {[{ id: 'store', label: '🏪 By Store' }, { id: 'bottle', label: '🥃 By Bottle' }].map(({ id, label }) => (
+            {[{ id: 'bottle', label: '🥃 By Bottle' }, { id: 'store', label: '🏪 By Store' }].map(({ id, label }) => (
               <button key={id} onClick={() => setView(id)} style={{
                 padding: '5px 12px', borderRadius: 'var(--r-pill)', border: 'none',
                 background: view === id ? 'var(--copper-500)' : 'transparent',
@@ -647,6 +538,18 @@ export default function IndependentsTab() {
               }}>{label}</button>
             ))}
           </div>
+          <button
+            onClick={() => setShowGuide(true)}
+            title="How inventory tracking works"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 32, height: 32, borderRadius: 'var(--r-full)',
+              border: '1px solid var(--hairline)', background: 'var(--bg-elev-2)',
+              color: 'var(--text-muted)', cursor: 'pointer', padding: 0,
+            }}
+          >
+            <HelpCircle size={15} />
+          </button>
           <button
             onClick={() => load(true)}
             disabled={refreshing || loading}
@@ -664,22 +567,69 @@ export default function IndependentsTab() {
         </div>
       </div>
 
-      {/* Loading */}
+      {/* Loading skeleton */}
       {loading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[1,2,3,4].map(i => (
+          {[72, 56, 72, 56, 64].map((h, i) => (
             <div key={i} style={{
-              height: 64, background: 'var(--bg-elev-1)', border: '1px solid var(--hairline)',
-              borderRadius: 'var(--r-md)', animation: 'shimmer 1.4s ease-in-out infinite',
-            }} />
+              height: h, background: 'var(--bg-elev-1)', border: '1px solid var(--hairline)',
+              borderRadius: 'var(--r-md)', overflow: 'hidden', position: 'relative',
+              animation: `shimmer 1.6s ease-in-out ${i * 0.1}s infinite`,
+            }}>
+              <div style={{ position: 'absolute', top: 14, left: 16, right: 80, height: 12, background: 'var(--bg-elev-3)', borderRadius: 4 }} />
+              <div style={{ position: 'absolute', top: 34, left: 16, width: 100, height: 10, background: 'var(--bg-elev-2)', borderRadius: 4 }} />
+            </div>
           ))}
         </div>
       )}
 
       {!loading && (
         <>
-          {/* Map */}
-          <div style={{ marginBottom: 'var(--sp-4)' }}>
+          {/* Content — bottle view first, store view second */}
+          {view === 'bottle' ? (
+            <BottleView allFinds={allFinds} />
+          ) : (
+            (() => {
+              const sorted = [...retailers].sort((a, b) => {
+                const aHas = allFinds.some(f => f.retailer === a.name)
+                const bHas = allFinds.some(f => f.retailer === b.name)
+                if (bHas !== aHas) return bHas ? 1 : -1
+                return allFinds.filter(f => f.retailer === b.name).length - allFinds.filter(f => f.retailer === a.name).length
+              })
+              const stocked = sorted.filter(r => allFinds.some(f => f.retailer === r.name))
+              const empty   = sorted.filter(r => !allFinds.some(f => f.retailer === r.name))
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {stocked.map(r => (
+                    <RetailerCard key={r.name} retailer={r} allFinds={allFinds} selected={selectedPin} onSelect={setSelectedPin} />
+                  ))}
+                  {empty.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => setShowEmpty(v => !v)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          width: '100%', padding: 'var(--sp-3) var(--sp-4)',
+                          background: 'var(--bg-elev-1)', border: '1px solid var(--hairline)',
+                          borderRadius: 'var(--r-md)', cursor: 'pointer',
+                          color: 'var(--text-dim)', fontSize: 'var(--fs-meta)', fontFamily: 'inherit',
+                        }}
+                      >
+                        <span>{empty.length} store{empty.length !== 1 ? 's' : ''} checked — nothing on our list right now</span>
+                        {showEmpty ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                      </button>
+                      {showEmpty && empty.map(r => (
+                        <RetailerCard key={r.name} retailer={r} allFinds={allFinds} selected={selectedPin} onSelect={setSelectedPin} />
+                      ))}
+                    </>
+                  )}
+                </div>
+              )
+            })()
+          )}
+
+          {/* Map — below content, collapsed by default */}
+          <div style={{ marginTop: 'var(--sp-5)' }}>
             <button
               onClick={() => setShowMap(v => !v)}
               style={{
@@ -690,7 +640,7 @@ export default function IndependentsTab() {
               }}
             >
               <MapPin size={12} />
-              {showMap ? 'Hide map' : 'Show map'}
+              {showMap ? 'Hide map' : 'Show store map'}
               {showMap ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
             {showMap && (
@@ -702,67 +652,13 @@ export default function IndependentsTab() {
               />
             )}
           </div>
-
-          {/* Confidence legend */}
-          <div style={{
-            display: 'flex', gap: 6, flexWrap: 'wrap',
-            marginBottom: 'var(--sp-3)',
-          }}>
-            {[
-              { label: 'Live inventory',   color: 'var(--green)',    bg: 'rgba(93,211,158,0.10)',  border: 'rgba(93,211,158,0.20)',  tip: 'City Hive or Shopify single-store — updates as items sell' },
-              { label: 'Multi-location',   color: 'var(--amber)',    bg: 'rgba(217,126,44,0.10)',  border: 'rgba(217,126,44,0.20)',  tip: 'Shared catalog — stock confirmed across locations but which store is unknown. Call ahead.' },
-              { label: 'Catalog listing', color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.10)', tip: 'They carry it — call ahead to confirm on-shelf today' },
-            ].map(t => (
-              <span key={t.label} title={t.tip} style={{
-                fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
-                textTransform: 'uppercase', cursor: 'help',
-                color: t.color, background: t.bg,
-                border: `1px solid ${t.border}`,
-                padding: '2px 7px', borderRadius: 'var(--r-sm)',
-              }}>
-                {t.label}
-              </span>
-            ))}
-            <span style={{ fontSize: 10, color: 'var(--text-dim)', alignSelf: 'center' }}>
-              — hover badge for details
-            </span>
-          </div>
-
-          {/* Content */}
-          {view === 'store' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[...retailers]
-                .sort((a, b) => {
-                  // in-stock stores first, then by find count
-                  const aHas = allFinds.some(f => f.retailer === a.name)
-                  const bHas = allFinds.some(f => f.retailer === b.name)
-                  if (bHas !== aHas) return bHas ? 1 : -1
-                  const aCount = allFinds.filter(f => f.retailer === a.name).length
-                  const bCount = allFinds.filter(f => f.retailer === b.name).length
-                  return bCount - aCount
-                })
-                .map(r => (
-                  <RetailerCard
-                    key={r.name}
-                    retailer={r}
-                    allFinds={allFinds}
-                    selected={selectedPin}
-                    onSelect={setSelectedPin}
-                  />
-                ))
-              }
-            </div>
-          ) : (
-            <BottleView allFinds={allFinds} />
-          )}
-
         </>
       )}
 
       <style>{`
         @keyframes pulse   { 0%{transform:scale(1);opacity:0.8} 100%{transform:scale(1.8);opacity:0} }
         @keyframes spin    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes shimmer { 0%,100%{opacity:0.5} 50%{opacity:1} }
+        @keyframes shimmer { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
       `}</style>
     </div>
   )
