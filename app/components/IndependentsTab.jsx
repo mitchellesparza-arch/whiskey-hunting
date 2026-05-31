@@ -512,7 +512,7 @@ export default function IndependentsTab() {
               </div>
               {data?.checkedAt && (
                 <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 3 }}>
-                  Checked {timeAgo(data.checkedAt)} · {retailers.length} stores
+                  Scanned {timeAgo(data.checkedAt)}{data.fromCache ? ' · cached' : ''} · {retailers.length} stores
                 </div>
               )}
             </>
