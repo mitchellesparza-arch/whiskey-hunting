@@ -7,6 +7,7 @@ import { MapPin, RefreshCw, ExternalLink, ChevronDown, ChevronUp, HelpCircle, X 
 
 const GUIDE_SECTIONS = [
   { icon: '🟢', title: 'Live inventory',     body: 'Most stores use Shopify or City Hive — both track stock in real-time. When a bottle shows in stock, that\'s the same signal that controls the Add to Cart button on their site.' },
+  { icon: '🟠', title: 'In-store only',      body: 'Some of the most sought-after bottles (WLW, Pappy, BTAC) are sold in-store only — the online cart is grayed out, but we confirm physical stock via the pickup availability API. These need a relationship or direct call to acquire.' },
   { icon: '🟡', title: 'Multi-location',     body: 'Some stores share one catalog across locations. In stock means it exists somewhere in their network — call ahead to confirm which location has it.' },
   { icon: '⬛', title: 'Catalog listings',   body: 'A few stores list bottles without real-time counts ("Ask in store"). They\'re known to carry it — but confirm before making the trip.' },
   { icon: '🔢', title: 'Stock quantities',   body: 'Where visible, we show total units across the network. High-value bottles often hide the count deliberately — if availability shows true, assume at least one.' },
@@ -133,14 +134,9 @@ function timeAgo(iso) {
 
 // ─── Single bottle row ────────────────────────────────────────────────────────
 function BottleRow({ find, isCatalog }) {
-  // Quantity display: only for Liquor Barn (scraped from page HTML)
-  // null qty + multi-location = likely in-store pickup only (button grays out online)
-  const showQty     = find.quantity != null && find.quantity > 0
-  const qtyLow      = showQty && find.quantity <= 10
-  const isPickupOnly = find.retailer === 'Liquor Barn' && find.quantity == null && find.inStock
-  const qtyLabel    = showQty
-    ? `${find.quantity} in network`
-    : null
+  const showQty  = find.quantity != null && find.quantity > 0
+  const qtyLow   = showQty && find.quantity <= 10
+  const qtyLabel = showQty ? `${find.quantity} in network` : null
 
   return (
     <a
@@ -153,8 +149,8 @@ function BottleRow({ find, isCatalog }) {
         justifyContent: 'space-between',
         gap:            8,
         padding:        '7px 10px',
-        background:     'var(--bg-elev-2)',
-        border:         '1px solid var(--hairline)',
+        background:     find.pickupOnly ? 'rgba(217,126,44,0.06)' : 'var(--bg-elev-2)',
+        border:         `1px solid ${find.pickupOnly ? 'rgba(217,126,44,0.25)' : 'var(--hairline)'}`,
         borderRadius:   'var(--r-sm)',
         textDecoration: 'none',
         transition:     'background 0.12s',
@@ -163,7 +159,7 @@ function BottleRow({ find, isCatalog }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
         <span style={{
           width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-          background: isCatalog ? 'var(--text-dim)' : 'var(--green)',
+          background: isCatalog ? 'var(--text-dim)' : find.pickupOnly ? 'var(--amber)' : 'var(--green)',
         }} />
         <span style={{
           fontSize: 'var(--fs-meta)', fontWeight: 600, color: 'var(--text-primary)',
@@ -180,25 +176,22 @@ function BottleRow({ find, isCatalog }) {
             {qtyLabel}
           </span>
         )}
-        {/* In-store pickup only — grays out online but physically on shelf */}
-        {isPickupOnly && (<>
-          <span style={{
-            fontSize: 9, fontWeight: 700, flexShrink: 0,
-            color: 'var(--amber)',
-          }}
-            title="Liquor Barn sells this in-store only — the online cart button will be grayed out."
+        {/* In-store only — not purchasable online, must call or visit */}
+        {find.pickupOnly && (
+          <span
+            title="Not available for online purchase — in-store only. Call ahead or visit; allocated bottles are often behind the counter."
+            style={{
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
+              textTransform: 'uppercase', flexShrink: 0,
+              color: 'var(--amber)',
+              background: 'rgba(217,126,44,0.12)',
+              border: '1px solid rgba(217,126,44,0.30)',
+              padding: '1px 5px', borderRadius: 'var(--r-sm)',
+            }}
           >
-            not online
+            In-store only
           </span>
-          <span style={{
-            fontSize: 9, fontWeight: 700, flexShrink: 0,
-            color: 'var(--text-dim)',
-          }}
-            title="Allocated bottles at Liquor Barn are often kept behind the counter or in the back. Call ahead to confirm availability and which location has it."
-          >
-            may not be displayed
-          </span>
-        </>)}
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
         {find.price ? (
@@ -425,17 +418,33 @@ function BottleView({ allFinds }) {
                 justifyContent: 'space-between',
                 padding: '8px 16px',
                 borderBottom: i < stores.length - 1 ? '1px solid var(--hairline)' : 'none',
+                background: s.pickupOnly ? 'rgba(217,126,44,0.04)' : 'transparent',
                 textDecoration: 'none', gap: 8,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                <MapPin size={11} color="var(--text-dim)" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap' }}>
+                <MapPin size={11} color={s.pickupOnly ? 'var(--amber)' : 'var(--text-dim)'} />
                 <span style={{ fontSize: 'var(--fs-meta)', fontWeight: 600, color: 'var(--text-secondary)' }}>
                   {s.retailer}
                 </span>
                 <span style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)' }}>
                   {s.location}
                 </span>
+                {s.pickupOnly && (
+                  <span
+                    title="Not available for online purchase — in-store only. Call ahead; allocated bottles are often kept behind the counter."
+                    style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      color: 'var(--amber)',
+                      background: 'rgba(217,126,44,0.12)',
+                      border: '1px solid rgba(217,126,44,0.30)',
+                      padding: '1px 5px', borderRadius: 'var(--r-sm)',
+                    }}
+                  >
+                    In-store only
+                  </span>
+                )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                 {s.price ? (
