@@ -7,8 +7,8 @@ import { MapPin, RefreshCw, ExternalLink, ChevronDown, ChevronUp, HelpCircle, X 
 
 const GUIDE_SECTIONS = [
   { icon: '🟢', title: 'Live inventory',     body: 'Most stores use Shopify or City Hive — both track stock in real-time. When a bottle shows in stock, that\'s the same signal that controls the Add to Cart button on their site.' },
-  { icon: '🟠', title: 'In-store only',      body: 'Some of the most sought-after bottles (WLW, Pappy, BTAC) are sold in-store only — the online cart is grayed out, but we confirm physical stock via the pickup availability API. These need a relationship or direct call to acquire.' },
-  { icon: '🟡', title: 'Multi-location',     body: 'Some stores share one catalog across locations. In stock means it exists somewhere in their network — call ahead to confirm which location has it.' },
+  { icon: '🟠', title: 'In-store only',      body: 'Some of the most sought-after bottles (WLW, Pappy, BTAC) are sold in-store only — the online cart is grayed out, but we confirm physical stock via the pickup availability API. These require a relationship with the store to acquire.' },
+  { icon: '🟡', title: 'Multi-location',     body: 'Some stores share one catalog across locations. In stock means it exists somewhere in their network — visit your nearest location to check.' },
   { icon: '⬛', title: 'Catalog listings',   body: 'A few stores list bottles without real-time counts ("Ask in store"). They\'re known to carry it — but confirm before making the trip.' },
   { icon: '🔢', title: 'Stock quantities',   body: 'Where visible, we show total units across the network. High-value bottles often hide the count deliberately — if availability shows true, assume at least one.' },
   { icon: '✗',  title: 'Zero matches',       body: 'We checked — nothing matched. You\'ll see how many products were scanned. Allocated stock moves fast; check back.' },
@@ -96,7 +96,7 @@ const SOURCE_CONF = {
   },
   shopify_multi: {
     label:  'Multi-location',
-    detail: 'In stock somewhere across their locations — catalog is shared so we can\'t tell which specific store has it. Call ahead.',
+    detail: 'In stock somewhere across their locations — catalog is shared so we can\'t tell which specific store has it. Visit your nearest location.',
     color:  'var(--amber)',
     bg:     'rgba(217,126,44,0.10)',
     border: 'rgba(217,126,44,0.20)',
@@ -110,7 +110,7 @@ const SOURCE_CONF = {
   },
   custom: {
     label:  'Catalog listing',
-    detail: 'This store lists bottles without real-time stock counts. Call ahead to confirm it\'s on the shelf today.',
+    detail: 'This store lists bottles without real-time stock counts. Visit to confirm it\'s on the shelf today.',
     color:  'var(--text-muted)',
     bg:     'rgba(255,255,255,0.04)',
     border: 'rgba(255,255,255,0.10)',
@@ -179,7 +179,7 @@ function BottleRow({ find, isCatalog }) {
         {/* In-store only — not purchasable online, must call or visit */}
         {find.pickupOnly && (
           <span
-            title="Not available for online purchase — in-store only. Call ahead or visit; allocated bottles are often behind the counter."
+            title="Not available for online purchase — in-store only. Allocated bottles are often kept behind the counter; a relationship with the store helps."
             style={{
               fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
               textTransform: 'uppercase', flexShrink: 0,
@@ -297,7 +297,7 @@ function RetailerCard({ retailer, allFinds, selected, onSelect }) {
           {retailer.multiLocation && hasStock && (
             <div style={{ marginTop: 4, fontSize: 10, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 4 }}>
               <span>📍</span>
-              <span>Stock confirmed across {retailer.locationNames?.join(', ')} — call your nearest to confirm on-shelf</span>
+              <span>Stock confirmed across {retailer.locationNames?.join(', ')} — visit your nearest location</span>
             </div>
           )}
 
@@ -432,7 +432,7 @@ function BottleView({ allFinds }) {
                 </span>
                 {s.pickupOnly && (
                   <span
-                    title="Not available for online purchase — in-store only. Call ahead; allocated bottles are often kept behind the counter."
+                    title="Not available for online purchase — in-store only. Allocated bottles are often kept behind the counter; a relationship with the store helps."
                     style={{
                       fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
                       textTransform: 'uppercase',
