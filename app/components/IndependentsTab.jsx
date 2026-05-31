@@ -66,6 +66,14 @@ function timeAgo(iso) {
 
 // ─── Single bottle row ────────────────────────────────────────────────────────
 function BottleRow({ find, isCatalog }) {
+  // Quantity display: only show for Liquor Barn (HTML-scraped aggregate across 3 stores)
+  const showQty     = find.quantity != null && find.quantity > 0
+  const qtyLow      = showQty && find.quantity <= 10
+  const qtyLabel    = showQty
+    ? `${find.quantity} in network`   // aggregate across all LB locations
+    : find.quantity === 0 ? null       // 0 = OOS, shouldn't appear in inStock list
+    : null                             // null = store hid the count
+
   return (
     <a
       href={find.url}
@@ -95,6 +103,16 @@ function BottleRow({ find, isCatalog }) {
         }}>
           {find.rawName ?? find.bottle}
         </span>
+        {/* Stock quantity — low stock in amber, normal in dim */}
+        {qtyLabel && (
+          <span style={{
+            fontSize: 9, fontWeight: 700,
+            color:    qtyLow ? 'var(--amber)' : 'var(--text-dim)',
+            flexShrink: 0,
+          }}>
+            {qtyLabel}
+          </span>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
         {find.price ? (
