@@ -1,4 +1,4 @@
-import { NextResponse }                    from 'next/server'
+import { NextResponse, after }             from 'next/server'
 import { Redis }                           from '@upstash/redis'
 import Anthropic                           from '@anthropic-ai/sdk'
 import { listBottleSlugs, bottleCount }    from '../../../../lib/bottle-db.js'
@@ -80,19 +80,23 @@ Return only the JSON object. Rules:
   }
 }
 
-export async function GET(request)  { return handleBackfill(request) }
-export async function POST(request) { return handleBackfill(request) }
-
-async function handleBackfill(request) {
+function withAfter(request) {
   const secret = process.env.CRON_SECRET
   if (!secret) return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
   const auth  = request.headers.get('authorization') ?? ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
   if (token !== secret) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 503 })
   }
+  after(() => handleBackfill())
+  return NextResponse.json({ ok: true, status: 'processing' })
+}
+
+export async function GET(request)  { return withAfter(request) }
+export async function POST(request) { return withAfter(request) }
+
+async function handleBackfill() {
 
   const redis  = Redis.fromEnv()
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })

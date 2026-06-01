@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server'
-import { readFileSync }  from 'fs'
-import path              from 'path'
-import { Redis }         from '@upstash/redis'
-import { upsertBottle }  from '../../../../lib/bottle-db.js'
+import { NextResponse, after } from 'next/server'
+import { readFileSync }        from 'fs'
+import path                    from 'path'
+import { Redis }               from '@upstash/redis'
+import { upsertBottle }        from '../../../../lib/bottle-db.js'
 
 export const maxDuration = 300
 
@@ -264,15 +264,6 @@ async function fetchBinnysAlgoliaMsrp() {
 // ─── shared handler ───────────────────────────────────────────────────────────
 
 async function handleRefresh(request) {
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    const auth  = request.headers.get('authorization') ?? ''
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
-    if (token !== cronSecret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  }
-
   const start   = Date.now()
   const redis   = Redis.fromEnv()
   const entries = JSON.parse(readFileSync(DATA_PATH, 'utf8'))
@@ -492,8 +483,18 @@ async function handleRefresh(request) {
   })
 }
 
-// GET — Vercel cron (Authorization: Bearer CRON_SECRET)
-export async function GET(request) { return handleRefresh(request) }
+function withAfter(request) {
+  const cronSecret = process.env.CRON_SECRET
+  if (cronSecret) {
+    const auth  = request.headers.get('authorization') ?? ''
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
+    if (token !== cronSecret) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+  }
+  after(() => handleRefresh(request))
+  return NextResponse.json({ ok: true, status: 'processing' })
+}
 
-// POST — manual curl trigger
-export async function POST(request) { return handleRefresh(request) }
+export async function GET(request)  { return withAfter(request) }
+export async function POST(request) { return withAfter(request) }
