@@ -4,6 +4,8 @@ import Anthropic                           from '@anthropic-ai/sdk'
 import { listBottleSlugs, bottleCount }    from '../../../../lib/bottle-db.js'
 import { searchCatalog }                   from '../../../../lib/catalog.js'
 
+export const maxDuration = 300
+
 /**
  * POST /api/admin/backfill-msrp
  * Authorization: Bearer CRON_SECRET

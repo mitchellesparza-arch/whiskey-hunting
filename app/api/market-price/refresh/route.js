@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { readFileSync }  from 'fs'
 import path              from 'path'
+import { Redis }         from '@upstash/redis'
 import { upsertBottle }  from '../../../../lib/bottle-db.js'
+
+export const maxDuration = 300
 
 const DATA_PATH = path.join(process.cwd(), 'lib', 'market-prices-data.json')
 const UA_GQL    = 'https://graphql.beta.unicornauctions.com/graphql'
@@ -50,15 +53,11 @@ function median(arr) {
   return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2)
 }
 
-async function redisSet(key, value) {
-  const { Redis } = await import('@upstash/redis')
-  const redis     = Redis.fromEnv()
+async function redisSet(key, value, redis) {
   await redis.set(key, JSON.stringify(value), { ex: TTL })
 }
 
-async function redisHset(key, fields) {
-  const { Redis } = await import('@upstash/redis')
-  const redis     = Redis.fromEnv()
+async function redisHset(key, fields, redis) {
   await redis.hset(key, fields)
 }
 
@@ -275,6 +274,7 @@ async function handleRefresh(request) {
   }
 
   const start   = Date.now()
+  const redis   = Redis.fromEnv()
   const entries = JSON.parse(readFileSync(DATA_PATH, 'utf8'))
   const diag    = { lotsFetched: 0, specialFiltered: 0, errors: [] }
 
@@ -363,27 +363,26 @@ async function handleRefresh(request) {
       try {
         const norm     = normName(entry.name)
         const imgUrl   = uaImageMap.get(entry.name)
-        await redisSet(`wh:market-prices:live:${norm}`, value)
-        for (const alias of (entry.aliases ?? []))
-          await redisSet(`wh:market-prices:live:${normName(alias)}`, value)
 
-        // Cache image URL under the short canonical name so /api/algolia-image
-        // can find it via wh:ua:img:{norm} — the full lot title key in
-        // wh:ua:catalog never matches the user's shorter collection name.
-        if (imgUrl) {
-          imgCacheWrites.push([norm, imgUrl, ...(entry.aliases ?? []).map(normName)])
-          const cands = uaImageCandidates.get(entry.name)
-          if (cands?.length > 1) imgCandidateWrites.push([norm, cands.map(c => c.imageUrl)])
-        }
-
-        // Price history — one snapshot per month stored in a hash (field = YYYY-MM)
-        const histKey   = `wh:price-history:${norm}`
+        // Pipeline all per-entry writes into one round trip
+        const aliases  = (entry.aliases ?? []).map(normName)
+        const histKey  = `wh:price-history:${norm}`
         const histPoint = JSON.stringify({ avg: value.avg, low: value.low, high: value.high })
-        await redisHset(histKey, { [now]: histPoint })
-        // Seed the static-JSON baseline as a separate historical data point the first time
+        const p = redis.pipeline()
+        p.set(`wh:market-prices:live:${norm}`, JSON.stringify(value), { ex: TTL })
+        for (const alias of aliases)
+          p.set(`wh:market-prices:live:${alias}`, JSON.stringify(value), { ex: TTL })
+        p.hset(histKey, { [now]: histPoint })
         if (entry.secondary?.avg && entry.lastUpdated && entry.lastUpdated < now) {
           const baseline = JSON.stringify({ avg: entry.secondary.avg, low: entry.secondary.low, high: entry.secondary.high })
-          await redisHset(histKey, { [entry.lastUpdated]: baseline })
+          p.hset(histKey, { [entry.lastUpdated]: baseline })
+        }
+        await p.exec()
+
+        if (imgUrl) {
+          imgCacheWrites.push([norm, imgUrl, ...aliases])
+          const cands = uaImageCandidates.get(entry.name)
+          if (cands?.length > 1) imgCandidateWrites.push([norm, cands.map(c => c.imageUrl)])
         }
 
         // Enrich canonical bottle DB with whatever we learned this run.
@@ -413,31 +412,25 @@ async function handleRefresh(request) {
   let imagesCached = 0
   if (imgCacheWrites.length > 0) {
     try {
-      const { Redis } = await import('@upstash/redis')
-      const redis     = Redis.fromEnv()
-      const TTL_IMG   = 30 * 24 * 60 * 60
-      await Promise.allSettled(
-        imgCacheWrites.flatMap(([norm, imgUrl, ...aliases]) =>
-          [norm, ...aliases].map(k => redis.set(`wh:ua:img:${k}`, imgUrl, { ex: TTL_IMG }))
-        )
-      )
+      const TTL_IMG = 30 * 24 * 60 * 60
+      const p = redis.pipeline()
+      for (const [norm, imgUrl, ...aliases] of imgCacheWrites)
+        for (const k of [norm, ...aliases])
+          p.set(`wh:ua:img:${k}`, imgUrl, { ex: TTL_IMG })
+      await p.exec()
       imagesCached = imgCacheWrites.length
     } catch (err) {
       console.warn('[market-price/refresh] image cache write failed:', err.message)
     }
   }
 
-  // Write ranked candidate lists — wh:ua:imgs:{norm} → JSON array of URLs
   if (imgCandidateWrites.length > 0) {
     try {
-      const { Redis } = await import('@upstash/redis')
-      const redis   = Redis.fromEnv()
       const TTL_IMG = 30 * 24 * 60 * 60
-      await Promise.allSettled(
-        imgCandidateWrites.map(([norm, urls]) =>
-          redis.set(`wh:ua:imgs:${norm}`, JSON.stringify(urls), { ex: TTL_IMG })
-        )
-      )
+      const p = redis.pipeline()
+      for (const [norm, urls] of imgCandidateWrites)
+        p.set(`wh:ua:imgs:${norm}`, JSON.stringify(urls), { ex: TTL_IMG })
+      await p.exec()
     } catch (err) {
       console.warn('[market-price/refresh] image candidates write failed:', err.message)
     }
@@ -449,9 +442,6 @@ async function handleRefresh(request) {
   let imagePatched = 0
   if (uaImageLots.length > 0) {
     try {
-      const { Redis } = await import('@upstash/redis')
-      const redis     = Redis.fromEnv()
-
       // normTitle → imageUrl (first non-null wins)
       const imgMap = new Map()
       for (const lot of uaImageLots) {
@@ -479,38 +469,6 @@ async function handleRefresh(request) {
     }
   }
 
-  // ── Upsert all UA catalog entries into canonical bottle DB ───────────────────
-  // The UA catalog has 6k+ bottles with images — far more than the static 400-
-  // entry catalog.  Upserting here means every UA lot title becomes a canonical
-  // record, growing the DB and filling image gaps automatically each week.
-  let uaCatalogUpserted = 0
-  try {
-    const { Redis: _Redis } = await import('@upstash/redis')
-    const _redis    = _Redis.fromEnv()
-    const uaCatalog = await _redis.hgetall('wh:ua:catalog') ?? {}
-
-    const uaCatalogEntries = Object.entries(uaCatalog)
-    const BATCH_SIZE = 20
-    for (let i = 0; i < uaCatalogEntries.length; i += BATCH_SIZE) {
-      await Promise.allSettled(
-        uaCatalogEntries.slice(i, i + BATCH_SIZE).map(async ([, raw]) => {
-          const e = typeof raw === 'string' ? JSON.parse(raw) : raw
-          const name = e.name ?? null
-          if (!name) return
-          await upsertBottle({
-            name,
-            category:   e.category  ?? null,
-            imageUrl:   e.imageUrl  ?? null,
-            lastSeenUA: e.lastSeen  ? Date.parse(e.lastSeen)  : Date.now(),
-          }, 'ua', { skipFuzzy: true })
-          uaCatalogUpserted++
-        })
-      )
-    }
-  } catch (err) {
-    console.warn('[market-price/refresh] UA catalog upsert failed:', err.message)
-  }
-
   // Surface a clear failure signal when the UA pipeline returns nothing — the
   // previous schema break went unnoticed for months because the cron's success
   // path didn't distinguish "0 matches" from "fetch errored silently".
@@ -530,7 +488,6 @@ async function handleRefresh(request) {
     binnysMatched: binnysMap.size,
     imagesCached,
     imagePatched,
-    uaCatalogUpserted,
     ms:            Date.now() - start,
   })
 }
