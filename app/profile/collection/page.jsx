@@ -164,21 +164,22 @@ function BottleCard({ bottle, onRemove, onEdit, onLabel, unicornMatches, marketP
         {/* Score / Photo Column */}
         {bottle.photoUrl ? (
           <div style={{
-            width:       64,
-            height:      88,
-            flexShrink:  0,
-            position:    'relative',
-            background:  '#fff',
-            borderRight: '1px solid var(--hairline)',
-            overflow:    'hidden',
-            display:     'flex',
-            alignItems:  'center',
+            width:          64,
+            alignSelf:      'stretch',
+            flexShrink:     0,
+            position:       'relative',
+            background:     '#fff',
+            borderRight:    '1px solid var(--hairline)',
+            overflow:       'hidden',
+            display:        'flex',
+            alignItems:     'center',
             justifyContent: 'center',
+            minHeight:      88,
           }}>
             <img
               src={bottle.photoUrl}
               alt={bottle.name}
-              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', padding: '4px 2px' }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', padding: '4px 2px', position: 'absolute', inset: 0 }}
               onError={e => { e.target.style.display = 'none' }}
             />
             {score != null && (
@@ -770,11 +771,26 @@ function AddBottleSheet({ open, onClose, onAdd }) {
   const [upcMiss,     setUpcMiss]     = useState(false)  // true when barcode scanned but not in DB
   const [suggestions, setSuggestions] = useState([])
   const [error,       setError]       = useState(null)
+  const [catalogImg,  setCatalogImg]  = useState({ imageUrl: null, candidates: null, loading: false, source: null })
+  const [catalogIdx,  setCatalogIdx]  = useState(0)
   const photoInputRef = useRef(null)
   const nameDebounce  = useRef(null)
 
+  async function fetchCatalogImg(bottleName) {
+    if (!bottleName || bottleName.trim().length < 3) return
+    setCatalogImg({ imageUrl: null, candidates: null, loading: true, source: null })
+    setCatalogIdx(0)
+    try {
+      const r = await fetch(`/api/algolia-image?name=${encodeURIComponent(bottleName)}`)
+      const d = await r.json()
+      setCatalogImg({ imageUrl: d.imageUrl ?? null, candidates: d.candidates ?? null, loading: false, source: d.source ?? null })
+    } catch {
+      setCatalogImg({ imageUrl: null, candidates: null, loading: false, source: null })
+    }
+  }
+
   function applyBottle(b, msg) {
-    if (b.name)       setName(b.name)
+    if (b.name)       { setName(b.name); fetchCatalogImg(b.name) }
     if (b.distillery) setDistillery(b.distillery)
     if (b.category)   setCategory(b.category)
     if (b.imageUrl)   setPhotoUrl(b.imageUrl)
@@ -997,16 +1013,16 @@ function AddBottleSheet({ open, onClose, onAdd }) {
         </div>
       )}
 
-      {/* Photo preview from UPC scan */}
-      {photoUrl && (
+      {/* Photo preview — confirmed photo or catalog suggestion */}
+      {photoUrl ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', marginBottom: 'var(--sp-2)' }}>
           <img
             src={photoUrl}
             alt="Bottle"
-            style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 'var(--r-md)', border: '1px solid var(--hairline-2)', flexShrink: 0 }}
+            style={{ width: 56, height: 72, objectFit: 'contain', borderRadius: 'var(--r-md)', border: '1px solid var(--hairline-2)', background: '#fff', padding: 2, flexShrink: 0 }}
             onError={() => setPhotoUrl(null)}
           />
-          <div style={{ flex: 1, fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>Photo pre-populated from scan</div>
+          <div style={{ flex: 1, fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>Photo selected</div>
           <button
             type="button"
             onClick={() => setPhotoUrl(null)}
@@ -1015,7 +1031,43 @@ function AddBottleSheet({ open, onClose, onAdd }) {
             <X size={16} strokeWidth={1.75} />
           </button>
         </div>
-      )}
+      ) : catalogImg.loading ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', marginBottom: 'var(--sp-2)', color: 'var(--text-dim)', fontSize: 'var(--fs-meta)' }}>
+          <Loader size={13} strokeWidth={1.75} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+          Checking catalog for photo…
+        </div>
+      ) : catalogImg.imageUrl ? (() => {
+        const candidates = catalogImg.candidates
+        const displayUrl = candidates?.length > 1 ? (candidates[catalogIdx] ?? catalogImg.imageUrl) : catalogImg.imageUrl
+        const total = candidates?.length ?? 1
+        return (
+          <div style={{ marginBottom: 'var(--sp-2)', padding: 'var(--sp-2)', background: 'var(--bg-elev-1)', borderRadius: 'var(--r-md)', border: '1px solid var(--hairline)' }}>
+            <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-muted)', marginBottom: 'var(--sp-1)', letterSpacing: 0.3, textTransform: 'uppercase' }}>
+              Catalog photo{total > 1 ? ` · ${catalogIdx + 1} of ${total}` : ''}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+              {total > 1 && (
+                <button type="button" onClick={() => setCatalogIdx(i => Math.max(0, i - 1))} disabled={catalogIdx === 0}
+                  style={{ flexShrink: 0, background: 'var(--bg-elev-2)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r-md)', padding: 'var(--sp-1)', cursor: catalogIdx === 0 ? 'default' : 'pointer', opacity: catalogIdx === 0 ? 0.3 : 1, color: 'var(--text-primary)', display: 'flex' }}>
+                  <ChevronLeft size={16} strokeWidth={1.75} />
+                </button>
+              )}
+              <img key={displayUrl} src={displayUrl} alt="Catalog photo"
+                style={{ width: 56, height: 72, objectFit: 'contain', borderRadius: 'var(--r-md)', border: '1px solid var(--hairline-2)', background: '#fff', padding: 2, flexShrink: 0 }} />
+              {total > 1 && (
+                <button type="button" onClick={() => setCatalogIdx(i => Math.min(total - 1, i + 1))} disabled={catalogIdx === total - 1}
+                  style={{ flexShrink: 0, background: 'var(--bg-elev-2)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r-md)', padding: 'var(--sp-1)', cursor: catalogIdx === total - 1 ? 'default' : 'pointer', opacity: catalogIdx === total - 1 ? 0.3 : 1, color: 'var(--text-primary)', display: 'flex' }}>
+                  <ChevronRight size={16} strokeWidth={1.75} />
+                </button>
+              )}
+              <button type="button" onClick={() => setPhotoUrl(displayUrl)}
+                style={{ flex: 1, background: 'var(--copper-500)', color: '#fff', border: 'none', borderRadius: 'var(--r-md)', padding: 'var(--sp-2) var(--sp-3)', fontSize: 'var(--fs-meta)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Use this
+              </button>
+            </div>
+          </div>
+        )
+      })() : null}
 
       {showScanner && (
         <div style={{ marginBottom: 'var(--sp-3)' }}>
