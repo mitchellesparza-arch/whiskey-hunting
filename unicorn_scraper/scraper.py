@@ -265,7 +265,11 @@ async def _get_active_auction_uuids() -> list[dict]:
     auctions = []
 
     async with async_playwright() as pw:
-        browser = await pw.chromium.launch(headless=True)
+        try:
+            browser = await pw.chromium.launch(headless=True)
+        except Exception as exc:
+            log.error("Playwright browser launch failed (browser binary missing?): %s", exc)
+            return []
         ctx = await browser.new_context(
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
