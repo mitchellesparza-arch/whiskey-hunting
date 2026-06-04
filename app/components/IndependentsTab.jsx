@@ -447,6 +447,14 @@ function BottleView({ allFinds }) {
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                {s.quantity != null && s.quantity > 0 && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 700,
+                    color: s.quantity <= 10 ? 'var(--amber)' : 'var(--text-dim)',
+                  }}>
+                    {s.quantity}
+                  </span>
+                )}
                 {s.price ? (
                   <span style={{ fontSize: 'var(--fs-meta)', fontWeight: 700, color: 'var(--copper-400)' }}>
                     ${s.price.toFixed(2)}
