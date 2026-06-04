@@ -145,9 +145,15 @@ export async function GET(request) {
 
       if (res.ok) {
         const data = await res.json()
-        const best = (data.hits ?? []).find(h => h.imageUrl && nameSimilar(name, h.productName ?? ''))
-        if (best) {
-          return NextResponse.json({ imageUrl: best.imageUrl, productName: best.productName, objectID: best.objectID, source: 'algolia' })
+        const withImages = (data.hits ?? []).filter(h => h.imageUrl)
+        if (withImages.length) {
+          // Put nameSimilar matches first, others after — preserves Algolia rank within each group
+          const similar = withImages.filter(h => nameSimilar(name, h.productName ?? ''))
+          const others  = withImages.filter(h => !nameSimilar(name, h.productName ?? ''))
+          const ordered = [...similar, ...others]
+          const best      = ordered[0]
+          const candidates = ordered.length > 1 ? ordered.map(h => h.imageUrl) : null
+          return NextResponse.json({ imageUrl: best.imageUrl, productName: best.productName, objectID: best.objectID, source: 'algolia', candidates })
         }
       }
     }
