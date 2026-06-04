@@ -3,6 +3,7 @@ import { getToken }     from 'next-auth/jwt'
 import Anthropic        from '@anthropic-ai/sdk'
 import { findByName }   from '../../../../lib/whiskey-db.js'
 import { isPro }        from '../../../../lib/tier.js'
+import { getUserProfile } from '../../../../lib/friends.js'
 
 /**
  * POST /api/lookup/photo
@@ -15,7 +16,15 @@ export async function POST(req) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
   if (!token?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  if (!isPro(token.tier)) {
+  // token.tier is only set at sign-in time; fetch live from Redis so tier upgrades
+  // take effect immediately without requiring a sign-out.
+  let liveTier = token.tier ?? 'free'
+  try {
+    const profile = await getUserProfile(token.email.toLowerCase())
+    if (profile?.tier) liveTier = profile.tier
+  } catch {}
+
+  if (!isPro(liveTier)) {
     return NextResponse.json({ error: 'Pro required', upgradeRequired: true }, { status: 403 })
   }
 

@@ -165,17 +165,20 @@ function BottleCard({ bottle, onRemove, onEdit, onLabel, unicornMatches, marketP
         {bottle.photoUrl ? (
           <div style={{
             width:       64,
-            height:      80,
+            height:      88,
             flexShrink:  0,
             position:    'relative',
-            background:  'var(--bg-base)',
+            background:  '#fff',
             borderRight: '1px solid var(--hairline)',
             overflow:    'hidden',
+            display:     'flex',
+            alignItems:  'center',
+            justifyContent: 'center',
           }}>
             <img
               src={bottle.photoUrl}
               alt={bottle.name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', padding: '4px 2px' }}
               onError={e => { e.target.style.display = 'none' }}
             />
             {score != null && (
