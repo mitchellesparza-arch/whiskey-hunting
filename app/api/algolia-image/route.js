@@ -118,9 +118,9 @@ export async function GET(request) {
     return NextResponse.json({ imageUrl: null })
   }
 
-  try {
-    // Direct objectID lookup — most reliable, no matching needed
-    if (objectID) {
+  // Direct objectID lookup — most reliable, no name-matching needed, no cycling required
+  if (objectID) {
+    try {
       const url = `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/${ALGOLIA_INDEX}/${encodeURIComponent(objectID)}`
       const res = await fetch(url, { headers: algoliaHeaders(), cache: 'no-store' })
       if (res.ok) {
@@ -129,39 +129,54 @@ export async function GET(request) {
           return NextResponse.json({ imageUrl: hit.imageUrl, productName: hit.productName ?? null, objectID: hit.objectID ?? objectID, source: 'algolia' })
         }
       }
-      // Algolia miss — fall through to UA sources using the name param if provided
-    } else {
-      // Text search by name — take first hit with similar enough name
-      const url = `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/${ALGOLIA_INDEX}/query`
-      const res = await fetch(url, {
-        method:  'POST',
-        headers: { ...algoliaHeaders(), 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          query:                name,
-          hitsPerPage:          5,
-          attributesToRetrieve: ['productName', 'objectID', 'imageUrl'],
-        }),
-      })
+    } catch {}
+    // objectID miss — fall through to name-based lookup if name also provided
+    if (!name) return NextResponse.json({ imageUrl: null })
+  }
 
-      if (res.ok) {
-        const data = await res.json()
-        const withImages = (data.hits ?? []).filter(h => h.imageUrl)
-        if (withImages.length) {
-          // Put nameSimilar matches first, others after — preserves Algolia rank within each group
-          const similar = withImages.filter(h => nameSimilar(name, h.productName ?? ''))
-          const others  = withImages.filter(h => !nameSimilar(name, h.productName ?? ''))
-          const ordered = [...similar, ...others]
-          const best      = ordered[0]
-          const candidates = ordered.length > 1 ? ordered.map(h => h.imageUrl) : null
-          return NextResponse.json({ imageUrl: best.imageUrl, productName: best.productName, objectID: best.objectID, source: 'algolia', candidates })
-        }
-      }
-    }
-  } catch { /* fall through to UA sources */ }
+  // Name-based lookup: run Algolia text search and UA catalog in parallel so
+  // both sources contribute to the candidates pool regardless of which finds something.
+  const [algoliaData, ua] = await Promise.all([
+    (async () => {
+      if (!ALGOLIA_APP_ID || !ALGOLIA_API_KEY) return null
+      try {
+        const url = `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/${ALGOLIA_INDEX}/query`
+        const res = await fetch(url, {
+          method:  'POST',
+          headers: { ...algoliaHeaders(), 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            query:                name,
+            hitsPerPage:          10,
+            attributesToRetrieve: ['productName', 'objectID', 'imageUrl'],
+          }),
+        })
+        return res.ok ? res.json() : null
+      } catch { return null }
+    })(),
+    uaImageFallback(name),
+  ])
 
-  // Algolia returned nothing — try UA catalog and UA image cache
-  const ua = await uaImageFallback(name)
-  if (ua) return NextResponse.json({ imageUrl: ua.imageUrl, source: ua.source, candidates: ua.candidates ?? null })
+  // Build ordered candidates pool:
+  //   1. nameSimilar Algolia hits (Binny's catalog, good for tracked bottles)
+  //   2. UA auction images (covers rare/allocated bottles not in Binny's)
+  //   3. Other Algolia hits that didn't pass nameSimilar (still possibly useful)
+  const algoliaHits  = (algoliaData?.hits ?? []).filter(h => h.imageUrl)
+  const similar      = algoliaHits.filter(h =>  nameSimilar(name ?? '', h.productName ?? ''))
+  const dissimilar   = algoliaHits.filter(h => !nameSimilar(name ?? '', h.productName ?? ''))
+  const uaImages     = ua?.candidates ?? (ua?.imageUrl ? [ua.imageUrl] : [])
 
-  return NextResponse.json({ imageUrl: null })
+  const seen = new Set()
+  const candidates = [...similar.map(h => h.imageUrl), ...uaImages, ...dissimilar.map(h => h.imageUrl)]
+    .filter(u => { if (!u || seen.has(u)) return false; seen.add(u); return true })
+
+  if (!candidates.length) return NextResponse.json({ imageUrl: null })
+
+  const primarySource = similar.length ? 'algolia' : ua ? (ua.source ?? 'ua-catalog') : 'algolia'
+  return NextResponse.json({
+    imageUrl:    candidates[0],
+    productName: similar[0]?.productName ?? null,
+    objectID:    similar[0]?.objectID    ?? null,
+    source:      primarySource,
+    candidates:  candidates.length > 1 ? candidates : null,
+  })
 }
