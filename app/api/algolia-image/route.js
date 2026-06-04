@@ -23,6 +23,18 @@ function nameSimilar(a, b) {
   return hits / Math.max(wordsA.length, wordsB.length) >= 0.6
 }
 
+// Directional match: are most of the query's significant words present in the catalog key?
+// Catalog lot names are often longer/fuller than collection bottle names, so we check
+// coverage from the query's perspective rather than symmetric overlap.
+function nameMatch(query, catalogKey) {
+  const sig = s => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => w.length > 2)
+  const qWords = sig(query)
+  const cWords = sig(catalogKey)
+  if (qWords.length < 2 || !cWords.length) return 0
+  const hits = qWords.filter(w => cWords.includes(w)).length
+  return hits / qWords.length  // coverage score 0–1
+}
+
 function normName(s) {
   return (s ?? '')
     .toLowerCase()
@@ -40,14 +52,14 @@ async function uaImageFallback(name) {
   try {
     const redis = Redis.fromEnv()
 
-    // 1. UA catalog stored imageUrl (populated by scraper once GQL imageUrl is live)
+    // 1. UA catalog stored imageUrl — exact key match
     const catalogVal = await redis.hget('wh:ua:catalog', nk)
     if (catalogVal) {
       const meta = typeof catalogVal === 'string' ? JSON.parse(catalogVal) : catalogVal
       if (meta?.imageUrl) return { imageUrl: meta.imageUrl, source: 'ua-catalog' }
     }
 
-    // 2. UA image cache (populated by /api/ua-image og:image scraping)
+    // 2. UA image cache — exact key match (populated by /api/ua-image og:image scraping)
     const [cached, cachedCandidates] = await Promise.all([
       redis.get(`wh:ua:img:${nk}`),
       redis.get(`wh:ua:imgs:${nk}`),
@@ -57,6 +69,26 @@ async function uaImageFallback(name) {
         ? (typeof cachedCandidates === 'string' ? JSON.parse(cachedCandidates) : cachedCandidates)
         : null
       return { imageUrl: cached, source: 'ua-cache', candidates }
+    }
+
+    // 3. Fuzzy scan of catalog keys — catches cases where the collection bottle name
+    //    is shorter/different than the full auction lot name stored as a catalog key
+    //    (e.g. "Pappy Van Winkle 15 Year" vs "pappy van winkle s family reserve 15 year old bourbon")
+    const catalogKeys = await redis.hkeys('wh:ua:catalog')
+    if (catalogKeys.length) {
+      let bestKey = null
+      let bestScore = 0
+      for (const k of catalogKeys) {
+        const score = nameMatch(nk, k)
+        if (score > bestScore) { bestScore = score; bestKey = k }
+      }
+      if (bestKey && bestScore >= 0.75) {
+        const val = await redis.hget('wh:ua:catalog', bestKey)
+        if (val) {
+          const meta = typeof val === 'string' ? JSON.parse(val) : val
+          if (meta?.imageUrl) return { imageUrl: meta.imageUrl, source: 'ua-catalog' }
+        }
+      }
     }
   } catch { /* non-critical — fall through */ }
 
