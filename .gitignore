@@ -19,6 +19,10 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Auto-purchase browser profile (session cookies — never commit)
+scripts/rb-profile/
+scripts/purchase-error-*.png
+
 # Python scraper artifacts
 unicorn_scraper/__pycache__/
 unicorn_scraper/debug_screenshots/

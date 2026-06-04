@@ -7,7 +7,7 @@ import { sendTruckEmail }            from '../../../lib/email.js'
 import { postTruckAlert, postRetailerFind } from '../../../lib/discord.js'
 import { sendBroadcast }             from '../../../lib/push.js'
 import { processPendingNotifs }      from '../../../lib/finds.js'
-import { checkAllRetailers }         from '../../../lib/retailers.js'
+import { checkAllRetailers }         from '../../../lib/independents/index.js'
 
 const RESTOCK_THRESHOLD = 3   // quantity jump of ≥3 = truck signal
 

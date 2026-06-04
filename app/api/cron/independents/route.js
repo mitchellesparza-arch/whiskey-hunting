@@ -1,6 +1,6 @@
 import { NextResponse }                from 'next/server'
 import { Redis }                       from '@upstash/redis'
-import { checkAllRetailers, RETAILERS, checkCityHiveStoreAPI, checkCityHiveStoreHTML } from '../../../../lib/retailers.js'
+import { checkAllRetailers, RETAILERS } from '../../../../lib/independents/index.js'
 
 export const maxDuration = 60
 

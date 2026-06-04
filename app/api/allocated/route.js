@@ -1,6 +1,6 @@
 import { NextResponse }     from 'next/server'
 import { hotlineBottles }   from '../../../lib/bottles.js'
-import { checkAllRetailers } from '../../../lib/retailers.js'
+import { checkAllRetailers } from '../../../lib/independents/index.js'
 
 /**
  * GET /api/allocated
