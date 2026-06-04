@@ -1,3 +1,12 @@
 {
-  "crons": []
+  "crons": [
+    {
+      "path": "/api/market-price/refresh",
+      "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/admin/backfill-msrp",
+      "schedule": "0 8 * * 1"
+    }
+  ]
 }
