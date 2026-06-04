@@ -136,6 +136,7 @@ async function fetchUALotsForCategory(category, cutoff, diag) {
     const res = await fetch(UA_GQL, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      signal:  AbortSignal.timeout(20000),
       body:    JSON.stringify({
         query:     UA_QUERY,
         variables: {
@@ -185,6 +186,7 @@ async function fetchLiveLotImages(diag) {
       const res = await fetch(UA_GQL, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        signal:  AbortSignal.timeout(20000),
         body:    JSON.stringify({
           query:     UA_QUERY,
           variables: { input: { category: cat, state: 'LIVE', limit: UA_PAGE_SIZE, offset: 0 } },
@@ -248,7 +250,7 @@ async function fetchBinnysAlgoliaMsrp() {
       try {
         const res = await fetch(
           `https://${ALG_APP}-dsn.algolia.net/1/indexes/${ALG_INDEX}/${objectID}`,
-          { headers: { 'X-Algolia-Application-Id': ALG_APP, 'X-Algolia-API-Key': ALG_KEY } }
+          { headers: { 'X-Algolia-Application-Id': ALG_APP, 'X-Algolia-API-Key': ALG_KEY }, signal: AbortSignal.timeout(8000) }
         )
         if (!res.ok) return
         const data  = await res.json()
