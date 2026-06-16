@@ -9,15 +9,15 @@ const find = {
   },
   price:    89.99,
   notes:    'Found 2 bottles on the shelf, no limit posted',
-  photoUrl: null,
+  photoUrl: 'https://whiskey-hunter.vercel.app/CURRENT.png',
 }
 
 const threadName = `🥃 ${find.bottleName} — ${find.store.name}`
 
 const fields = []
 if (find.store?.name)    fields.push({ name: '📍 Store',   value: find.store.name,      inline: true  })
-if (find.store?.address) fields.push({ name: '🗺️ Address', value: find.store.address,   inline: true  })
 if (find.price)          fields.push({ name: '💵 Price',   value: `$${find.price}`,      inline: true  })
+if (find.store?.address) fields.push({ name: '🗺️ Address', value: `[${find.store.address}](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(find.store.address)})`, inline: false })
 if (find.notes)          fields.push({ name: '📝 Notes',   value: find.notes,            inline: false })
 
 const payload = {
@@ -25,12 +25,13 @@ const payload = {
   username:    'Tater Tracker',
   avatar_url:  'https://whiskey-hunter.vercel.app/CURRENT.png',
   embeds: [{
-    description: `**${find.submitterName}** just spotted this — tap below to see the full find`,
+    title:       'View this find + all recent finds',
     url:         'https://whiskey-hunter.vercel.app/finds',
+    description: `**${find.submitterName}** just spotted this — tap the title above to see the full feed.\n\n📲 **[Log your own find on Tater Tracker](https://whiskey-hunter.vercel.app)**`,
     color:       0xe8943a,
     fields,
     image:       find.photoUrl ? { url: find.photoUrl } : undefined,
-    footer:      { text: 'Tater Tracker · log your own finds at the link above' },
+    footer:      { text: 'Tater Tracker · free to join at whiskey-hunter.vercel.app' },
     timestamp:   new Date().toISOString(),
   }],
 }
