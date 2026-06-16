@@ -1,14 +1,14 @@
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1516567923324489878/QyiaTdynJAR3pWyNofavjWwftdz_u171FYzA5timZJ1CbRtUDujr51AkfZlNWaEs7lQO'
 
 const find = {
-  bottleName:    'Bardstown Bourbon Co. Collaborative Series',
-  submitterName: 'Joshua Perez',
+  bottleName:    'Eagle Rare 17 Year BTAC',
+  submitterName: 'Mitch E.',
   store: {
-    name:    'Main St. Liquor & Wine',
-    address: '306 W Main St, Carpentersville, IL 60110, USA',
+    name:    'Binny\'s Beverage Depot',
+    address: '213 W Grand Ave, Chicago, IL 60654, USA',
   },
-  price:    159.99,
-  notes:    '"1"',
+  price:    89.99,
+  notes:    'Found 2 bottles on the shelf, no limit posted',
   photoUrl: null,
 }
 
@@ -23,7 +23,7 @@ if (find.notes)          fields.push({ name: '📝 Notes',   value: find.notes, 
 const payload = {
   thread_name: threadName,
   username:    'Tater Tracker',
-  avatar_url:  'https://whiskey-hunter.vercel.app/icon.png',
+  avatar_url:  'https://whiskey-hunter.vercel.app/CURRENT.png',
   embeds: [{
     description: `**${find.submitterName}** just spotted this — tap below to see the full find`,
     url:         'https://whiskey-hunter.vercel.app/finds',
