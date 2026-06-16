@@ -1,14 +1,14 @@
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1516567923324489878/QyiaTdynJAR3pWyNofavjWwftdz_u171FYzA5timZJ1CbRtUDujr51AkfZlNWaEs7lQO'
 
 const find = {
-  bottleName:    'Eagle Rare 17 Year BTAC',
-  submitterName: 'Mitch E.',
+  bottleName:    'Four Roses Single Barrel OBSK Limited',
+  submitterName: 'Dave K.',
   store: {
-    name:    'Binny\'s Beverage Depot',
-    address: '213 W Grand Ave, Chicago, IL 60654, USA',
+    name:    'Friar Tuck Beverage',
+    address: '1111 W Dundee Rd, Buffalo Grove, IL 60089, USA',
   },
-  price:    89.99,
-  notes:    'Found 2 bottles on the shelf, no limit posted',
+  price:    69.99,
+  notes:    'Saw 3 on the shelf around noon',
   photoUrl: 'https://whiskey-hunter.vercel.app/CURRENT.png',
 }
 
@@ -25,13 +25,11 @@ const payload = {
   username:    'Tater Tracker',
   avatar_url:  'https://whiskey-hunter.vercel.app/CURRENT.png',
   embeds: [{
-    title:       'View this find + all recent finds',
-    url:         'https://whiskey-hunter.vercel.app/finds',
-    description: `**${find.submitterName}** just spotted this — tap the title above to see the full feed.\n\n📲 **[Log your own find on Tater Tracker](https://whiskey-hunter.vercel.app)**`,
+    description: `**${find.submitterName}** just spotted this — [tap here to see the full find](https://whiskey-hunter.vercel.app/finds)`,
     color:       0xe8943a,
     fields,
     image:       find.photoUrl ? { url: find.photoUrl } : undefined,
-    footer:      { text: 'Tater Tracker · free to join at whiskey-hunter.vercel.app' },
+    footer:      { text: 'Tater Tracker · log your own finds at the link above' },
     timestamp:   new Date().toISOString(),
   }],
 }
