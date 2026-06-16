@@ -3,8 +3,7 @@ import { getToken }              from 'next-auth/jwt'
 import { getFinds, addFind, removeFind, voteFind, getMonthLeaderboard } from '../../../lib/finds.js'
 import { getUserProfile }        from '../../../lib/friends.js'
 import { sendBroadcast }         from '../../../lib/push.js'
-import { postNewFind }           from '../../../lib/discord.js'
-import { isPro }                 from '../../../lib/tier.js'
+import { postNewFind, postBoBFind } from '../../../lib/discord.js'
 
 /**
  * GET /api/finds
@@ -13,20 +12,9 @@ import { isPro }                 from '../../../lib/tier.js'
  *   archived — archived finds (24–72 h), newest first
  *   leaderboard — top 5 submitters this calendar month
  */
-export async function GET(request) {
+export async function GET() {
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
-    // Always fetch live tier from Redis — getToken() reads the raw JWT which
-    // only updates on sign-in, so stale tokens would silently downgrade
-    // grandfathered/pro viewers to the 1-hour delayed free feed.
-    let viewerTier = token?.tier ?? 'free'
-    if (token?.email) {
-      try {
-        const profile = await getUserProfile(token.email.toLowerCase())
-        viewerTier = profile?.tier ?? viewerTier
-      } catch {}
-    }
-    const all = await getFinds(viewerTier)
+    const all = await getFinds()
 
     const finds    = all.filter(f => f.status === 'active')
     const archived = all.filter(f => f.status === 'archived')
@@ -66,7 +54,6 @@ export async function POST(request) {
     const profile       = await getUserProfile(token.email)
     const submitterName = profile?.name ?? token.name ?? token.email
 
-    const tier  = token.tier ?? 'free'
     const entry = await addFind({
       bottleName,
       upc:      upc      || null,
@@ -76,12 +63,11 @@ export async function POST(request) {
       price:    price    || null,
       submittedBy:   token.email,
       submitterName,
-      tier,
     })
 
-    // All finds post immediately to the map for Pro users.
-    // Fire Discord + broadcast right away for every submission.
+    // Fire all Discord webhooks + broadcast push simultaneously
     await postNewFind(entry).catch(() => {})
+    postBoBFind(entry).catch(() => {})
     sendBroadcast({
       title: '📍 New Find',
       body:  `${submitterName} spotted ${bottleName} at ${store.name}`,
@@ -89,15 +75,7 @@ export async function POST(request) {
       tag:   'find',
     }, 'finds').catch(() => {})
 
-    // Free users see a banner telling them they won't see others' new finds for 1 hour
-    const delayed = !isPro(tier)
-
-    return NextResponse.json({
-      ok:       true,
-      find:     entry,
-      delayed,
-      visibleAt: delayed ? entry.timestamp + (60 * 60 * 1000) : null,
-    })
+    return NextResponse.json({ ok: true, find: entry })
   } catch (err) {
     console.error('[finds] POST error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

@@ -218,12 +218,12 @@ export async function GET(request) {
       console.log(`[cron] Retailer check: ${retailerResults.filter(r=>r.inStock).length} in stock, no new finds`)
     }
 
-    // ── Process delayed find notifications (free-tier 1-hour delay) ───────────
+    // ── Drain any legacy pending-notifs queue entries (safety net) ───────────
     let delayedProcessed = 0
     try {
       delayedProcessed = await processPendingNotifs()
       if (delayedProcessed > 0) {
-        console.log(`[cron] Processed ${delayedProcessed} delayed find notification(s)`)
+        console.log(`[cron] Drained ${delayedProcessed} legacy pending notification(s)`)
       }
     } catch (err) {
       console.warn('[cron] processPendingNotifs failed (non-fatal):', err.message)

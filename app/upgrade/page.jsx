@@ -9,7 +9,7 @@ import { isPro }                from '../../lib/tier.js'
 
 const FEATURES = [
   { icon: '🚛', label: 'Truck Tracker',         desc: 'Real-time distributor truck alerts across Chicagoland Binny\'s' },
-  { icon: '⚡', label: 'Instant find alerts',   desc: 'Get notified the moment a find is posted — no 1-hour delay' },
+  { icon: '⚡', label: 'Instant find alerts',   desc: 'Get push notifications the moment a find is posted' },
   { icon: '📸', label: 'AI label scanner',      desc: 'Point your camera at any bottle to instantly identify it' },
   { icon: '🔍', label: 'AI bottle search',      desc: 'AI-powered search for rare and limited releases not in the catalog' },
   { icon: '🦄', label: 'Unicorn Auctions',      desc: 'Browse and track live Unicorn Auction deals' },
@@ -222,8 +222,8 @@ function UpgradePageContent() {
             color:        'var(--text-muted)',
             lineHeight:   1.6,
           }}>
-            <strong style={{ color: 'var(--text-secondary)' }}>Free tier still includes:</strong> finds feed
-            (1-hour delay), full search, marketplace browse &amp; post, full profile, and watching up to 3 bottles.
+            <strong style={{ color: 'var(--text-secondary)' }}>Free tier still includes:</strong> real-time finds feed,
+            full search, marketplace browse &amp; post, full profile, and watching up to 3 bottles.
           </div>
         )}
 
