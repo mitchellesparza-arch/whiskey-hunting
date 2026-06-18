@@ -1,5 +1,7 @@
 import { NextResponse }          from 'next/server'
 import { getToken }              from 'next-auth/jwt'
+
+export const dynamic = 'force-dynamic'
 import { getFinds, addFind, removeFind, voteFind, getMonthLeaderboard } from '../../../lib/finds.js'
 import { getUserProfile }        from '../../../lib/friends.js'
 import { sendBroadcast }         from '../../../lib/push.js'
