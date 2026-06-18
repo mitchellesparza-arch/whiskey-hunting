@@ -65,9 +65,9 @@ export async function POST(request) {
       submitterName,
     })
 
-    // Fire all Discord webhooks + broadcast push simultaneously
+    // Fire all Discord webhooks — both awaited so Vercel doesn't kill them early
     await postNewFind(entry).catch(() => {})
-    postBoBFind(entry).catch(() => {})
+    await postBoBFind(entry).catch(() => {})
     sendBroadcast({
       title: '📍 New Find',
       body:  `${submitterName} spotted ${bottleName} at ${store.name}`,
