@@ -668,6 +668,13 @@ function AuctionsTab() {
   const catCounts        = data?.category_counts ?? {}
   const whiskeyCats      = ['Bourbon','Rye','Tennessee','Scotch','American','Japanese','Irish','Canadian','Distilled Spirits','Blended'].filter(c => catCounts[c])
   const otherSpiritCats  = includeOtherSpirits ? Object.keys(catCounts).filter(c => !WHISKEY_CATS.has(c) && catCounts[c]).sort() : []
+
+  // Stat card values — computed from live data, not stale scraper aggregates
+  const lotTotal = Object.entries(catCounts).reduce((sum, [cat, n]) => {
+    if (!includeOtherSpirits && !WHISKEY_CATS.has(cat)) return sum
+    return sum + n
+  }, 0)
+  const belowEstimateCount = filteredDeals.filter(d => (d.discount_vs_estimate ?? 0) > 0).length
   const MIN_BID_OPTS     = [0, 50, 100, 250, 500, 1000]
   const MIN_SAVINGS_OPTS = [0, 50, 100, 250, 500]
 
@@ -696,8 +703,8 @@ function AuctionsTab() {
       {data && !loading && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Whiskey Lots',   value: data.total_lots?.toLocaleString() ?? '—',            color: 'var(--text-primary)' },
-            { label: 'Below Estimate', value: data.total_with_discount?.toLocaleString() ?? '—',   color: 'var(--green)' },
+            { label: includeOtherSpirits ? 'All Lots' : 'Whiskey Lots', value: lotTotal.toLocaleString(),              color: 'var(--text-primary)' },
+            { label: 'Below Estimate', value: `${belowEstimateCount} of ${filteredDeals.length}`,  color: 'var(--green)' },
             { label: 'Showing',        value: `${filteredDeals.length} filtered`,                   color: 'var(--copper-400)' },
             { label: 'Data Age',       value: timeAgo(new Date(data.scraped_at).getTime()),         color: 'var(--text-muted)' },
           ].map(({ label, value, color }) => (
