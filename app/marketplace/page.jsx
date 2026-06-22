@@ -667,7 +667,8 @@ function AuctionsTab() {
   const visibleDeals     = filteredDeals.slice(0, showCount)
   const catCounts        = data?.category_counts ?? {}
   const whiskeyCats      = ['Bourbon','Rye','Tennessee','Scotch','American','Japanese','Irish','Canadian','Distilled Spirits','Blended'].filter(c => catCounts[c])
-  const otherSpiritCats  = Object.keys(catCounts).filter(c => !WHISKEY_CATS.has(c) && catCounts[c]).sort()
+  const dealsCategories  = new Set((data?.deals ?? []).map(d => d.category))
+  const otherSpiritCats  = Object.keys(catCounts).filter(c => !WHISKEY_CATS.has(c) && dealsCategories.has(c)).sort()
   const hasNonWhiskeySelected = [...categories].some(c => !WHISKEY_CATS.has(c))
 
   // Stat card values — computed from live data, not stale scraper aggregates
