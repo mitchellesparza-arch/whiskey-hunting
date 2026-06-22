@@ -504,8 +504,8 @@ function AuctionsTab() {
   const [data,            setData]            = useState(null)
   const [loading,         setLoading]         = useState(true)
   const [error,           setError]           = useState(null)
-  const [category,        setCategory]        = useState(() => {
-    try { return JSON.parse(localStorage.getItem('wh:auctions:filters') ?? '{}').category ?? '' } catch { return '' }
+  const [categories,      setCategories]      = useState(() => {
+    try { const saved = JSON.parse(localStorage.getItem('wh:auctions:filters') ?? '{}').categories; return new Set(Array.isArray(saved) ? saved : []) } catch { return new Set() }
   })
   const [sort,            setSort]            = useState(() => {
     try { return JSON.parse(localStorage.getItem('wh:auctions:filters') ?? '{}').sort ?? 'discount' } catch { return 'discount' }
@@ -548,14 +548,14 @@ function AuctionsTab() {
   }, [])
 
   useEffect(() => { fetchDeals() }, [fetchDeals])
-  useEffect(() => setShowCount(20), [category, sort, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, includeOtherSpirits])
+  useEffect(() => setShowCount(20), [categories, sort, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, includeOtherSpirits])
 
   // Persist filter state across page loads
   useEffect(() => {
     try {
-      localStorage.setItem('wh:auctions:filters', JSON.stringify({ category, sort, minBid, minSavings, reserveFilter, includeOtherSpirits }))
+      localStorage.setItem('wh:auctions:filters', JSON.stringify({ categories: [...categories], sort, minBid, minSavings, reserveFilter, includeOtherSpirits }))
     } catch {}
-  }, [category, sort, minBid, minSavings, reserveFilter, includeOtherSpirits])
+  }, [categories, sort, minBid, minSavings, reserveFilter, includeOtherSpirits])
 
   // Watchlist — serve cached immediately, refresh in background
   useEffect(() => {
@@ -609,7 +609,7 @@ function AuctionsTab() {
   const filteredDeals = useMemo(() => {
     let deals = data?.deals ?? []
     if (!includeOtherSpirits) deals = deals.filter(d => WHISKEY_CATS.has(d.category))
-    if (category)    deals = deals.filter(d => d.category === category)
+    if (categories.size > 0) deals = deals.filter(d => categories.has(d.category))
     if (minBid > 0)  deals = deals.filter(d => (d.current_bid ?? 0) >= minBid)
     if (minSavings > 0) deals = deals.filter(d => (dealSavings(d) ?? 0) >= minSavings)
     if (reserveFilter === 'met-or-none') deals = deals.filter(d => d.reserve_met === true || !d.reserve_price)
@@ -640,7 +640,7 @@ function AuctionsTab() {
     // 'discount' is pre-sorted by the API
     return deals
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, category, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, sort, starredIds, watchedDealIds, includeOtherSpirits])
+  }, [data, categories, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, sort, starredIds, watchedDealIds, includeOtherSpirits])
 
   // Infinite scroll — auto-load next page when sentinel enters viewport
   // (placed after filteredDeals to avoid temporal dead zone in dep array)
@@ -655,7 +655,7 @@ function AuctionsTab() {
 
   // Active filter labels — used in empty state hint
   const activeFilterLabels = [
-    category && `category: ${category}`,
+    categories.size > 0 && `category: ${[...categories].join(', ')}`,
     minBid > 0 && `min bid $${minBid.toLocaleString()}`,
     minSavings > 0 && `$${minSavings.toLocaleString()}+ savings`,
     reserveFilter === 'met-or-none' && 'reserve: met or none',
@@ -743,7 +743,7 @@ function AuctionsTab() {
         </button>
         {activeFilterLabels.length > 0 && (
           <button
-            onClick={() => { setCategory(''); setMinBid(0); setMinSavings(0); setReserveFilter(''); setShowStarredOnly(false); setShowWatchedOnly(false); setSearchText('') }}
+            onClick={() => { setCategories(new Set()); setMinBid(0); setMinSavings(0); setReserveFilter(''); setShowStarredOnly(false); setShowWatchedOnly(false); setSearchText('') }}
             style={{
               padding: '5px 10px', background: 'transparent', border: '1px solid var(--hairline-2)',
               borderRadius: 'var(--r-pill)', color: 'var(--text-dim)', fontSize: '0.72rem', cursor: 'pointer',
@@ -764,14 +764,14 @@ function AuctionsTab() {
           {/* Category */}
           <div className="flex flex-wrap gap-2 items-center">
             <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: 60 }}>Category</span>
-            <Chip tone={!category ? 'copper' : 'neutral'} onClick={() => setCategory('')}>All</Chip>
+            <Chip tone={categories.size === 0 ? 'copper' : 'neutral'} onClick={() => setCategories(new Set())}>All</Chip>
             {whiskeyCats.map(c => (
-              <Chip key={c} tone={category === c ? 'copper' : 'neutral'} onClick={() => setCategory(category === c ? '' : c)} count={catCounts[c]}>
+              <Chip key={c} tone={categories.has(c) ? 'copper' : 'neutral'} onClick={() => setCategories(prev => { const next = new Set(prev); next.has(c) ? next.delete(c) : next.add(c); return next })} count={catCounts[c]}>
                 {c}
               </Chip>
             ))}
             {otherSpiritCats.map(c => (
-              <Chip key={c} tone={category === c ? 'copper' : 'neutral'} onClick={() => setCategory(category === c ? '' : c)} count={catCounts[c]}>
+              <Chip key={c} tone={categories.has(c) ? 'copper' : 'neutral'} onClick={() => setCategories(prev => { const next = new Set(prev); next.has(c) ? next.delete(c) : next.add(c); return next })} count={catCounts[c]}>
                 {c}
               </Chip>
             ))}
@@ -864,7 +864,7 @@ function AuctionsTab() {
         <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
           Showing <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{visibleDeals.length}</span> of{' '}
           <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{filteredDeals.length}</span> lots
-          {category ? ` · ${category}` : ''}
+          {categories.size > 0 ? ` · ${[...categories].join(', ')}` : ''}
         </div>
       )}
 
