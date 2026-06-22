@@ -1,15 +1,15 @@
-const WEBHOOK_URL = 'https://discord.com/api/webhooks/1516567923324489878/QyiaTdynJAR3pWyNofavjWwftdz_u171FYzA5timZJ1CbRtUDujr51AkfZlNWaEs7lQO'
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1517211815418007714/yqt0asGEnU1DLkE9xBtEm3bBU_SsUEEQaKeUYEeaHvilpFeLM-NrlaoLzHdWlO8NBX7l'
 
 const find = {
-  bottleName:    'Four Roses Single Barrel OBSK Limited',
-  submitterName: 'Dave K.',
+  bottleName:    '[TEST] Blanton\'s Original Single Barrel',
+  submitterName: 'Mitch E.',
   store: {
-    name:    'Friar Tuck Beverage',
-    address: '1111 W Dundee Rd, Buffalo Grove, IL 60089, USA',
+    name:    'Binny\'s Beverage Depot — Plainfield',
+    address: '2528 IL-59, Plainfield, IL 60586, USA',
   },
-  price:    69.99,
-  notes:    'Saw 3 on the shelf around noon',
-  photoUrl: 'https://whiskey-hunter.vercel.app/CURRENT.png',
+  price:    49.99,
+  notes:    'This is a test post — not a real find',
+  photoUrl: 'https://whiskey-hunter.vercel.app/Test.jpg',
 }
 
 const threadName = `🥃 ${find.bottleName} — ${find.store.name}`
