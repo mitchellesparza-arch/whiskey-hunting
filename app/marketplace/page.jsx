@@ -532,7 +532,6 @@ function AuctionsTab() {
   const [showWatchedOnly,  setShowWatchedOnly]  = useState(false)
   const [selectedDeal,     setSelectedDeal]     = useState(null)
   const [showCount,        setShowCount]        = useState(20)
-  const [includeOtherSpirits, setIncludeOtherSpirits] = useState(false)
   const [filtersOpen,      setFiltersOpen]      = useState(false)
   const showMoreRef = useRef(null)
 
@@ -548,14 +547,14 @@ function AuctionsTab() {
   }, [])
 
   useEffect(() => { fetchDeals() }, [fetchDeals])
-  useEffect(() => setShowCount(20), [categories, sort, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, includeOtherSpirits])
+  useEffect(() => setShowCount(20), [categories, sort, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly])
 
   // Persist filter state across page loads
   useEffect(() => {
     try {
-      localStorage.setItem('wh:auctions:filters', JSON.stringify({ categories: [...categories], sort, minBid, minSavings, reserveFilter, includeOtherSpirits }))
+      localStorage.setItem('wh:auctions:filters', JSON.stringify({ categories: [...categories], sort, minBid, minSavings, reserveFilter }))
     } catch {}
-  }, [categories, sort, minBid, minSavings, reserveFilter, includeOtherSpirits])
+  }, [categories, sort, minBid, minSavings, reserveFilter])
 
   // Watchlist — serve cached immediately, refresh in background
   useEffect(() => {
@@ -608,7 +607,8 @@ function AuctionsTab() {
 
   const filteredDeals = useMemo(() => {
     let deals = data?.deals ?? []
-    if (!includeOtherSpirits) deals = deals.filter(d => WHISKEY_CATS.has(d.category))
+    const hasNonWhiskey = [...categories].some(c => !WHISKEY_CATS.has(c))
+    if (!hasNonWhiskey) deals = deals.filter(d => WHISKEY_CATS.has(d.category))
     if (categories.size > 0) deals = deals.filter(d => categories.has(d.category))
     if (minBid > 0)  deals = deals.filter(d => (d.current_bid ?? 0) >= minBid)
     if (minSavings > 0) deals = deals.filter(d => (dealSavings(d) ?? 0) >= minSavings)
@@ -640,7 +640,7 @@ function AuctionsTab() {
     // 'discount' is pre-sorted by the API
     return deals
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, categories, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, sort, starredIds, watchedDealIds, includeOtherSpirits])
+  }, [data, categories, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, sort, starredIds, watchedDealIds])
 
   // Infinite scroll — auto-load next page when sentinel enters viewport
   // (placed after filteredDeals to avoid temporal dead zone in dep array)
@@ -667,11 +667,12 @@ function AuctionsTab() {
   const visibleDeals     = filteredDeals.slice(0, showCount)
   const catCounts        = data?.category_counts ?? {}
   const whiskeyCats      = ['Bourbon','Rye','Tennessee','Scotch','American','Japanese','Irish','Canadian','Distilled Spirits','Blended'].filter(c => catCounts[c])
-  const otherSpiritCats  = includeOtherSpirits ? Object.keys(catCounts).filter(c => !WHISKEY_CATS.has(c) && catCounts[c]).sort() : []
+  const otherSpiritCats  = Object.keys(catCounts).filter(c => !WHISKEY_CATS.has(c) && catCounts[c]).sort()
+  const hasNonWhiskeySelected = [...categories].some(c => !WHISKEY_CATS.has(c))
 
   // Stat card values — computed from live data, not stale scraper aggregates
   const lotTotal = Object.entries(catCounts).reduce((sum, [cat, n]) => {
-    if (!includeOtherSpirits && !WHISKEY_CATS.has(cat)) return sum
+    if (!hasNonWhiskeySelected && !WHISKEY_CATS.has(cat)) return sum
     return sum + n
   }, 0)
   const belowEstimateCount = filteredDeals.filter(d => (d.discount_vs_estimate ?? 0) > 0).length
@@ -703,7 +704,7 @@ function AuctionsTab() {
       {data && !loading && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: includeOtherSpirits ? 'All Lots' : 'Whiskey Lots', value: lotTotal.toLocaleString(),              color: 'var(--text-primary)' },
+            { label: hasNonWhiskeySelected ? 'All Lots' : 'Whiskey Lots', value: lotTotal.toLocaleString(),              color: 'var(--text-primary)' },
             { label: 'Below Estimate', value: `${belowEstimateCount} of ${filteredDeals.length}`,  color: 'var(--green)' },
             { label: 'Showing',        value: `${filteredDeals.length} filtered`,                   color: 'var(--copper-400)' },
             { label: 'Data Age',       value: timeAgo(new Date(data.scraped_at).getTime()),         color: 'var(--text-muted)' },
@@ -777,17 +778,14 @@ function AuctionsTab() {
                 {c}
               </Chip>
             ))}
+            {otherSpiritCats.length > 0 && (
+              <span style={{ color: 'var(--hairline-2)', margin: '0 2px', userSelect: 'none' }}>|</span>
+            )}
             {otherSpiritCats.map(c => (
               <Chip key={c} tone={categories.has(c) ? 'copper' : 'neutral'} onClick={() => setCategories(prev => { const next = new Set(prev); next.has(c) ? next.delete(c) : next.add(c); return next })} count={catCounts[c]}>
                 {c}
               </Chip>
             ))}
-            <Chip
-              tone={includeOtherSpirits ? 'copper' : 'neutral'}
-              onClick={() => setIncludeOtherSpirits(v => !v)}
-            >
-              {includeOtherSpirits ? '🥃 Whiskey only' : '+ Rum & Tequila'}
-            </Chip>
           </div>
 
           {/* Sort + controls */}
