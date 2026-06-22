@@ -40,11 +40,13 @@ async function loadData() {
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
-  const limit    = Math.min(parseInt(searchParams.get('limit')  ?? '20'), 1000)
-  const category = searchParams.get('category') ?? ''
-  const minBid   = parseFloat(searchParams.get('minBid') ?? '0')
-  const sort     = searchParams.get('sort') ?? 'discount'   // 'discount' | 'closing'
-  const reserve  = searchParams.get('reserve') ?? ''        // '' | 'met-or-none'
+  const limit      = Math.min(parseInt(searchParams.get('limit')      ?? '20'), 1000)
+  const category   = searchParams.get('category') ?? ''
+  const minBid     = parseFloat(searchParams.get('minBid')     ?? '0')
+  const minSavings = parseFloat(searchParams.get('minSavings') ?? '0')
+  const search     = (searchParams.get('search') ?? '').toLowerCase().trim()
+  const sort       = searchParams.get('sort') ?? 'discount'   // 'discount' | 'closing'
+  const reserve    = searchParams.get('reserve') ?? ''        // '' | 'met-or-none'
 
   const data = await loadData()
 
@@ -62,6 +64,17 @@ export async function GET(request) {
   }
   if (minBid > 0) {
     deals = deals.filter(d => (d.current_bid ?? 0) >= minBid)
+  }
+  if (minSavings > 0) {
+    deals = deals.filter(d => {
+      const savings = d.ua_estimate_mid != null && d.current_bid != null
+        ? d.ua_estimate_mid - d.current_bid
+        : null
+      return (savings ?? 0) >= minSavings
+    })
+  }
+  if (search) {
+    deals = deals.filter(d => d.bottle_name?.toLowerCase().includes(search))
   }
   if (reserve === 'met-or-none') {
     // Eligible to buy at current bid: either reserve has been met, or there

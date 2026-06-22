@@ -59,7 +59,14 @@ const AUCTION_CATEGORY_META = {
   Canadian:           { color: 'var(--copper-400)', bg: 'rgba(251,146,60,0.15)'  },
   'Distilled Spirits':{ color: 'var(--violet)',     bg: 'rgba(167,139,250,0.15)' },
   Blended:            { color: 'var(--text-muted)', bg: 'rgba(148,163,184,0.15)' },
+  Rum:                { color: '#e88c3a',            bg: 'rgba(232,140,58,0.15)'  },
+  Tequila:            { color: '#4ade80',            bg: 'rgba(74,222,128,0.12)'  },
 }
+
+const WHISKEY_CATS = new Set([
+  'Bourbon','Rye','Tennessee','Scotch','American','Japanese',
+  'Irish','Canadian','Distilled Spirits','Blended',
+])
 
 function getCatStyle(cat) {
   return AUCTION_CATEGORY_META[cat] ?? { color: 'var(--text-muted)', bg: 'rgba(154,124,85,0.15)' }
@@ -497,11 +504,21 @@ function AuctionsTab() {
   const [data,            setData]            = useState(null)
   const [loading,         setLoading]         = useState(true)
   const [error,           setError]           = useState(null)
-  const [category,        setCategory]        = useState('')
-  const [sort,            setSort]            = useState('discount')
-  const [minBid,          setMinBid]          = useState(0)
-  const [minSavings,      setMinSavings]      = useState(0)
-  const [reserveFilter,   setReserveFilter]   = useState('')
+  const [category,        setCategory]        = useState(() => {
+    try { return JSON.parse(localStorage.getItem('wh:auctions:filters') ?? '{}').category ?? '' } catch { return '' }
+  })
+  const [sort,            setSort]            = useState(() => {
+    try { return JSON.parse(localStorage.getItem('wh:auctions:filters') ?? '{}').sort ?? 'discount' } catch { return 'discount' }
+  })
+  const [minBid,          setMinBid]          = useState(() => {
+    try { return JSON.parse(localStorage.getItem('wh:auctions:filters') ?? '{}').minBid ?? 0 } catch { return 0 }
+  })
+  const [minSavings,      setMinSavings]      = useState(() => {
+    try { return JSON.parse(localStorage.getItem('wh:auctions:filters') ?? '{}').minSavings ?? 0 } catch { return 0 }
+  })
+  const [reserveFilter,   setReserveFilter]   = useState(() => {
+    try { return JSON.parse(localStorage.getItem('wh:auctions:filters') ?? '{}').reserveFilter ?? '' } catch { return '' }
+  })
   const [searchText,      setSearchText]      = useState('')
   const [showMsrp,        setShowMsrp]        = useState(false)
   const [showStarredOnly,  setShowStarredOnly]  = useState(false)
@@ -515,6 +532,9 @@ function AuctionsTab() {
   const [showWatchedOnly,  setShowWatchedOnly]  = useState(false)
   const [selectedDeal,     setSelectedDeal]     = useState(null)
   const [showCount,        setShowCount]        = useState(20)
+  const [includeOtherSpirits, setIncludeOtherSpirits] = useState(false)
+  const [filtersOpen,      setFiltersOpen]      = useState(false)
+  const showMoreRef = useRef(null)
 
   const fetchDeals = useCallback(async () => {
     setLoading(true); setError(null)
@@ -528,13 +548,40 @@ function AuctionsTab() {
   }, [])
 
   useEffect(() => { fetchDeals() }, [fetchDeals])
-  useEffect(() => setShowCount(20), [category, sort, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly])
+  useEffect(() => setShowCount(20), [category, sort, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, includeOtherSpirits])
+
+  // Persist filter state across page loads
   useEffect(() => {
+    try {
+      localStorage.setItem('wh:auctions:filters', JSON.stringify({ category, sort, minBid, minSavings, reserveFilter, includeOtherSpirits }))
+    } catch {}
+  }, [category, sort, minBid, minSavings, reserveFilter, includeOtherSpirits])
+
+  // Watchlist — serve cached immediately, refresh in background
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('wh:watchlist')
+      if (cached) setWatchedBottles(JSON.parse(cached))
+    } catch {}
     fetch('/api/watchlist')
       .then(r => r.ok ? r.json() : { bottles: [] })
-      .then(d => setWatchedBottles(d.bottles ?? []))
+      .then(d => {
+        const bottles = d.bottles ?? []
+        setWatchedBottles(bottles)
+        try { localStorage.setItem('wh:watchlist', JSON.stringify(bottles)) } catch {}
+      })
       .catch(() => {})
   }, [])
+
+  // Infinite scroll — auto-load next page when sentinel enters viewport
+  useEffect(() => {
+    if (!showMoreRef.current) return
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setShowCount(c => c + 20)
+    }, { rootMargin: '200px' })
+    observer.observe(showMoreRef.current)
+    return () => observer.disconnect()
+  }, [filteredDeals.length, showCount])
 
   function toggleStar(lotId) {
     if (!lotId) return
@@ -570,6 +617,7 @@ function AuctionsTab() {
 
   const filteredDeals = useMemo(() => {
     let deals = data?.deals ?? []
+    if (!includeOtherSpirits) deals = deals.filter(d => WHISKEY_CATS.has(d.category))
     if (category)    deals = deals.filter(d => d.category === category)
     if (minBid > 0)  deals = deals.filter(d => (d.current_bid ?? 0) >= minBid)
     if (minSavings > 0) deals = deals.filter(d => (dealSavings(d) ?? 0) >= minSavings)
@@ -581,21 +629,43 @@ function AuctionsTab() {
     if (showStarredOnly)  deals = deals.filter(d => starredIds.has(d.lot_id))
     if (showWatchedOnly)  deals = deals.filter(d => watchedDealIds.has(d.lot_id))
     if (sort === 'savings') {
-      deals = [...deals].sort((a, b) => (dealSavings(b) ?? -Infinity) - (dealSavings(a) ?? -Infinity))
+      deals = [...deals].sort((a, b) => {
+        const diff = (dealSavings(b) ?? -Infinity) - (dealSavings(a) ?? -Infinity)
+        if (diff !== 0) return diff
+        // Tiebreaker: closing soonest first
+        const ta = a.end_datetime ? new Date(a.end_datetime).getTime() : Infinity
+        const tb = b.end_datetime ? new Date(b.end_datetime).getTime() : Infinity
+        return ta - tb
+      })
     } else if (sort === 'closing') {
       deals = [...deals].sort((a, b) => {
         const ta = a.end_datetime ? new Date(a.end_datetime).getTime() : Infinity
         const tb = b.end_datetime ? new Date(b.end_datetime).getTime() : Infinity
         return ta - tb
       })
+    } else if (sort === 'newest') {
+      deals = [...deals].sort((a, b) => (b.lot_number ?? 0) - (a.lot_number ?? 0))
     }
     // 'discount' is pre-sorted by the API
     return deals
-  }, [data, category, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, sort, starredIds, watchedDealIds])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, category, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, sort, starredIds, watchedDealIds, includeOtherSpirits])
+
+  // Active filter labels — used in empty state hint
+  const activeFilterLabels = [
+    category && `category: ${category}`,
+    minBid > 0 && `min bid $${minBid.toLocaleString()}`,
+    minSavings > 0 && `$${minSavings.toLocaleString()}+ savings`,
+    reserveFilter === 'met-or-none' && 'reserve: met or none',
+    showStarredOnly && 'starred only',
+    showWatchedOnly && 'watchlist only',
+    searchText.trim() && `search: "${searchText.trim()}"`,
+  ].filter(Boolean)
 
   const visibleDeals     = filteredDeals.slice(0, showCount)
   const catCounts        = data?.category_counts ?? {}
   const whiskeyCats      = ['Bourbon','Rye','Tennessee','Scotch','American','Japanese','Irish','Canadian','Distilled Spirits','Blended'].filter(c => catCounts[c])
+  const otherSpiritCats  = includeOtherSpirits ? Object.keys(catCounts).filter(c => !WHISKEY_CATS.has(c) && catCounts[c]).sort() : []
   const MIN_BID_OPTS     = [0, 50, 100, 250, 500, 1000]
   const MIN_SAVINGS_OPTS = [0, 50, 100, 250, 500]
 
@@ -654,68 +724,109 @@ function AuctionsTab() {
         <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', fontSize: '0.85rem', pointerEvents: 'none' }}>🔍</span>
       </div>
 
-      <div className="space-y-3">
-        {/* Category */}
-        <div className="flex flex-wrap gap-2 items-center">
-          <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</span>
-          <Chip tone={!category ? 'copper' : 'neutral'} onClick={() => setCategory('')}>All</Chip>
-          {whiskeyCats.map(c => (
-            <Chip key={c} tone={category === c ? 'copper' : 'neutral'} onClick={() => setCategory(category === c ? '' : c)} count={catCounts[c]}>
-              {c}
-            </Chip>
-          ))}
-        </div>
-
-        {/* Sort + controls */}
-        <div className="flex flex-wrap gap-2 items-center">
-          <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sort</span>
-          <Chip tone={sort === 'discount' ? 'copper' : 'neutral'} onClick={() => setSort('discount')}>Best Discount %</Chip>
-          <Chip tone={sort === 'savings'  ? 'copper' : 'neutral'} onClick={() => setSort('savings')}>$ Saved</Chip>
-          <Chip tone={sort === 'closing'  ? 'copper' : 'neutral'} onClick={() => setSort('closing')}>Closing Soon</Chip>
-          <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <Chip tone={showStarredOnly ? 'copper' : 'neutral'} onClick={() => setShowStarredOnly(v => !v)}>
-              {showStarredOnly ? '★ Starred' : `★${starredIds.size > 0 ? ` (${starredIds.size})` : ''}`}
-            </Chip>
-            <Chip tone={showWatchedOnly ? 'copper' : 'neutral'} onClick={() => setShowWatchedOnly(v => !v)}>
-              {showWatchedOnly ? '👁 Watchlist' : `👁${watchedDealIds.size > 0 ? ` (${watchedDealIds.size})` : ''}`}
-            </Chip>
-            <Chip tone={showMsrp ? 'copper' : 'neutral'} onClick={() => setShowMsrp(v => !v)}>
-              MSRP
-            </Chip>
-          </span>
-        </div>
-
-        {/* Min Bid + Min $ Saved */}
-        <div className="flex flex-wrap gap-2 items-center">
-          <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Min Bid</span>
-          {MIN_BID_OPTS.map(v => (
-            <Chip key={v} tone={minBid === v ? 'copper' : 'neutral'} onClick={() => setMinBid(v)}>
-              {v === 0 ? 'Any' : `$${v.toLocaleString()}+`}
-            </Chip>
-          ))}
-          <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginLeft: 8 }}>$ Saved</span>
-          {MIN_SAVINGS_OPTS.map(v => (
-            <Chip key={`s${v}`} tone={minSavings === v ? 'copper' : 'neutral'} onClick={() => setMinSavings(v)}>
-              {v === 0 ? 'Any' : `$${v.toLocaleString()}+`}
-            </Chip>
-          ))}
-        </div>
-
-        {/* Reserve */}
-        <div className="flex flex-wrap gap-2 items-center">
-          <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reserve</span>
-          <Chip tone={!reserveFilter ? 'copper' : 'neutral'} onClick={() => setReserveFilter('')}>Any</Chip>
-          <Chip tone={reserveFilter === 'met-or-none' ? 'copper' : 'neutral'} onClick={() => setReserveFilter(reserveFilter === 'met-or-none' ? '' : 'met-or-none')}>
-            Met or no reserve
-          </Chip>
+      {/* Mobile filter toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button
+          onClick={() => setFiltersOpen(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '7px 14px', background: filtersOpen ? 'var(--bg-elev-3)' : 'var(--bg-elev-2)',
+            border: `1px solid ${activeFilterLabels.length ? 'var(--copper-500)' : 'var(--hairline-2)'}`,
+            borderRadius: 'var(--r-pill)', color: activeFilterLabels.length ? 'var(--copper-400)' : 'var(--text-muted)',
+            fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer',
+          }}
+        >
+          ⚙ Filters {activeFilterLabels.length > 0 && `(${activeFilterLabels.length} active)`}
+          <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>{filtersOpen ? '▲' : '▼'}</span>
+        </button>
+        {activeFilterLabels.length > 0 && (
+          <button
+            onClick={() => { setCategory(''); setMinBid(0); setMinSavings(0); setReserveFilter(''); setShowStarredOnly(false); setShowWatchedOnly(false); setSearchText('') }}
+            style={{
+              padding: '5px 10px', background: 'transparent', border: '1px solid var(--hairline-2)',
+              borderRadius: 'var(--r-pill)', color: 'var(--text-dim)', fontSize: '0.72rem', cursor: 'pointer',
+            }}
+          >
+            Clear all
+          </button>
+        )}
+        <div style={{ marginLeft: 'auto' }}>
+          <Button variant="primary" size="sm" onClick={fetchDeals} disabled={loading}>
+            {loading ? 'Loading…' : '↺ Refresh'}
+          </Button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button variant="primary" size="sm" onClick={fetchDeals} disabled={loading}>
-          {loading ? 'Loading…' : '↺ Refresh'}
-        </Button>
-      </div>
+      {filtersOpen && (
+        <div className="space-y-3" style={{ padding: '14px 16px', background: 'var(--bg-elev-2)', borderRadius: 'var(--r-md)', border: '1px solid var(--hairline-2)' }}>
+          {/* Category */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: 60 }}>Category</span>
+            <Chip tone={!category ? 'copper' : 'neutral'} onClick={() => setCategory('')}>All</Chip>
+            {whiskeyCats.map(c => (
+              <Chip key={c} tone={category === c ? 'copper' : 'neutral'} onClick={() => setCategory(category === c ? '' : c)} count={catCounts[c]}>
+                {c}
+              </Chip>
+            ))}
+            {otherSpiritCats.map(c => (
+              <Chip key={c} tone={category === c ? 'copper' : 'neutral'} onClick={() => setCategory(category === c ? '' : c)} count={catCounts[c]}>
+                {c}
+              </Chip>
+            ))}
+            <Chip
+              tone={includeOtherSpirits ? 'copper' : 'neutral'}
+              onClick={() => setIncludeOtherSpirits(v => !v)}
+            >
+              {includeOtherSpirits ? '🥃 Whiskey only' : '+ Rum & Tequila'}
+            </Chip>
+          </div>
+
+          {/* Sort + controls */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: 60 }}>Sort</span>
+            <Chip tone={sort === 'discount' ? 'copper' : 'neutral'} onClick={() => setSort('discount')}>Best Discount %</Chip>
+            <Chip tone={sort === 'savings'  ? 'copper' : 'neutral'} onClick={() => setSort('savings')}>$ Saved</Chip>
+            <Chip tone={sort === 'closing'  ? 'copper' : 'neutral'} onClick={() => setSort('closing')}>Closing Soon</Chip>
+            <Chip tone={sort === 'newest'   ? 'copper' : 'neutral'} onClick={() => setSort('newest')}>Newest</Chip>
+            <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <Chip tone={showStarredOnly ? 'copper' : 'neutral'} onClick={() => setShowStarredOnly(v => !v)}>
+                {showStarredOnly ? '★ Starred' : `★${starredIds.size > 0 ? ` (${starredIds.size})` : ''}`}
+              </Chip>
+              <Chip tone={showWatchedOnly ? 'copper' : 'neutral'} onClick={() => setShowWatchedOnly(v => !v)}>
+                {showWatchedOnly ? '👁 Watchlist' : `👁${watchedDealIds.size > 0 ? ` (${watchedDealIds.size})` : ''}`}
+              </Chip>
+              <Chip tone={showMsrp ? 'copper' : 'neutral'} onClick={() => setShowMsrp(v => !v)}>
+                MSRP
+              </Chip>
+            </span>
+          </div>
+
+          {/* Min Bid + Min $ Saved */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: 60 }}>Min Bid</span>
+            {MIN_BID_OPTS.map(v => (
+              <Chip key={v} tone={minBid === v ? 'copper' : 'neutral'} onClick={() => setMinBid(v)}>
+                {v === 0 ? 'Any' : `$${v.toLocaleString()}+`}
+              </Chip>
+            ))}
+            <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginLeft: 8 }}>$ Saved</span>
+            {MIN_SAVINGS_OPTS.map(v => (
+              <Chip key={`s${v}`} tone={minSavings === v ? 'copper' : 'neutral'} onClick={() => setMinSavings(v)}>
+                {v === 0 ? 'Any' : `$${v.toLocaleString()}+`}
+              </Chip>
+            ))}
+          </div>
+
+          {/* Reserve */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: 60 }}>Reserve</span>
+            <Chip tone={!reserveFilter ? 'copper' : 'neutral'} onClick={() => setReserveFilter('')}>Any</Chip>
+            <Chip tone={reserveFilter === 'met-or-none' ? 'copper' : 'neutral'} onClick={() => setReserveFilter(reserveFilter === 'met-or-none' ? '' : 'met-or-none')}>
+              Met or no reserve
+            </Chip>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div style={{ background: 'var(--red-bg)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 12, padding: '16px 20px' }}>
@@ -737,7 +848,22 @@ function AuctionsTab() {
       )}
 
       {!loading && !error && filteredDeals.length === 0 && (
-        <EmptyState icon="Gavel" title="No deals match your filters" />
+        <EmptyState
+          icon="Gavel"
+          title="No deals match your filters"
+          body={activeFilterLabels.length
+            ? `Try removing: ${activeFilterLabels.join(', ')}`
+            : 'Adjust filters and try again'
+          }
+        />
+      )}
+
+      {!loading && !error && filteredDeals.length > 0 && (
+        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+          Showing <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{visibleDeals.length}</span> of{' '}
+          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{filteredDeals.length}</span> lots
+          {category ? ` · ${category}` : ''}
+        </div>
       )}
 
       {!loading && !error && visibleDeals.length > 0 && (
@@ -757,9 +883,9 @@ function AuctionsTab() {
             ))}
           </div>
           {filteredDeals.length > showCount && (
-            <div style={{ textAlign: 'center', paddingTop: 8 }}>
+            <div ref={showMoreRef} style={{ textAlign: 'center', paddingTop: 8 }}>
               <button onClick={() => setShowCount(c => c + 20)} style={{
-                border: 'var(--hairline-2)', borderRadius: 8, padding: '10px 24px',
+                border: '1px solid var(--hairline-2)', borderRadius: 8, padding: '10px 24px',
                 color: 'var(--text-muted)', background: 'transparent', fontSize: '0.85rem', cursor: 'pointer',
               }}>
                 Show more ({filteredDeals.length - showCount} remaining)
@@ -1364,26 +1490,33 @@ function ListingCard({ listing, currentUserEmail, onBinClaim, onDeactivate }) {
 // MARKETPLACE TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
+const MARKETPLACE_CATEGORIES = ['Bourbon', 'Rye', 'Scotch', 'Japanese', 'American', 'Irish', 'Tennessee', 'Other']
+const MARKETPLACE_CONDITIONS  = ['Sealed', 'Open', 'Partial']
+
 function MarketplaceTab({ userEmail }) {
-  const [listings,    setListings]    = useState([])
-  const [loading,     setLoading]     = useState(true)
-  const [error,       setError]       = useState(null)
-  const [typeFilter,  setTypeFilter]  = useState('')
-  const [activeOnly,  setActiveOnly]  = useState(true)
-  const [showCreate,  setShowCreate]  = useState(false)
-  const [claiming,    setClaiming]    = useState(null)
+  const [listings,        setListings]        = useState([])
+  const [loading,         setLoading]         = useState(true)
+  const [error,           setError]           = useState(null)
+  const [typeFilter,      setTypeFilter]      = useState('')
+  const [activeOnly,      setActiveOnly]      = useState(true)
+  const [showCreate,      setShowCreate]      = useState(false)
+  const [claiming,        setClaiming]        = useState(null)
+  const [searchText,      setSearchText]      = useState('')
+  const [categoryFilter,  setCategoryFilter]  = useState('')
+  const [conditionFilter, setConditionFilter] = useState('')
+  const [sort,            setSort]            = useState('newest')
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const params = new URLSearchParams({ ...(typeFilter ? { type: typeFilter } : {}), ...(activeOnly ? { activeOnly: '1' } : {}) })
+      const params = new URLSearchParams({ ...(activeOnly ? { activeOnly: '1' } : {}) })
       const r = await fetch(`/api/marketplace?${params}`)
       const d = await r.json()
       if (!r.ok) throw new Error(d.error ?? 'Failed to load')
       setListings(d.listings ?? [])
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
-  }, [typeFilter, activeOnly])
+  }, [activeOnly])
 
   useEffect(() => { load() }, [load])
 
@@ -1415,9 +1548,46 @@ function MarketplaceTab({ userEmail }) {
     } catch (e) { alert(e.message) }
   }
 
-  const typeCounts = listings.reduce((acc, l) => {
+  const typeCounts = useMemo(() => listings.reduce((acc, l) => {
     acc[l.type] = (acc[l.type] ?? 0) + 1; return acc
-  }, {})
+  }, {}), [listings])
+
+  const categoryCounts = useMemo(() => {
+    const counts = {}
+    listings.forEach(l => l.bottles?.forEach(b => {
+      if (b.category) counts[b.category] = (counts[b.category] ?? 0) + 1
+    }))
+    return counts
+  }, [listings])
+
+  const filteredListings = useMemo(() => {
+    let result = listings
+    if (typeFilter) result = result.filter(l => l.type === typeFilter)
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase()
+      result = result.filter(l => l.bottles?.some(b => b.name?.toLowerCase().includes(q)))
+    }
+    if (categoryFilter) result = result.filter(l => l.bottles?.some(b => b.category === categoryFilter))
+    if (conditionFilter) result = result.filter(l => l.bottles?.some(b => b.condition === conditionFilter))
+    if (sort === 'newest') {
+      result = [...result].sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
+    } else if (sort === 'priceLow') {
+      result = [...result].sort((a, b) => (a.askingPrice ?? Infinity) - (b.askingPrice ?? Infinity))
+    } else if (sort === 'priceHigh') {
+      result = [...result].sort((a, b) => (b.askingPrice ?? -Infinity) - (a.askingPrice ?? -Infinity))
+    }
+    return result
+  }, [listings, typeFilter, searchText, categoryFilter, conditionFilter, sort])
+
+  const activeMarketplaceFilters = [
+    typeFilter && `type: ${typeFilter}`,
+    categoryFilter && `category: ${categoryFilter}`,
+    conditionFilter && `condition: ${conditionFilter}`,
+    searchText.trim() && `search: "${searchText.trim()}"`,
+  ].filter(Boolean)
+
+  const availableCategories = MARKETPLACE_CATEGORIES.filter(c => categoryCounts[c] > 0)
+  const availableConditions = MARKETPLACE_CONDITIONS.filter(c => listings.some(l => l.bottles?.some(b => b.condition === c)))
 
   return (
     <div className="space-y-5">
@@ -1439,9 +1609,26 @@ function MarketplaceTab({ userEmail }) {
         }}>+ List Bottle</button>
       </div>
 
-      {/* Filters */}
+      {/* Search */}
+      <div style={{ position: 'relative' }}>
+        <input
+          type="search"
+          placeholder="Search bottles…"
+          value={searchText}
+          onChange={e => setSearchText(e.target.value)}
+          style={{
+            width: '100%', padding: '10px 14px 10px 36px', boxSizing: 'border-box',
+            background: 'var(--bg-elev-2)', border: '1px solid var(--hairline-2)',
+            borderRadius: 'var(--r-md)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none',
+          }}
+        />
+        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', fontSize: '0.85rem', pointerEvents: 'none' }}>🔍</span>
+      </div>
+
+      {/* Type + Active filters */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Chip tone={!typeFilter ? 'copper' : 'neutral'} onClick={() => setTypeFilter('')}>All Types</Chip>
+        <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</span>
+        <Chip tone={!typeFilter ? 'copper' : 'neutral'} onClick={() => setTypeFilter('')}>All</Chip>
         {Object.entries(TYPE_META).map(([key, meta]) => (
           <Chip key={key} tone={typeFilter === key ? 'copper' : 'neutral'}
             onClick={() => setTypeFilter(typeFilter === key ? '' : key)}
@@ -1455,6 +1642,57 @@ function MarketplaceTab({ userEmail }) {
           </Chip>
         </div>
       </div>
+
+      {/* Sort */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sort</span>
+        <Chip tone={sort === 'newest'    ? 'copper' : 'neutral'} onClick={() => setSort('newest')}>Newest</Chip>
+        <Chip tone={sort === 'priceLow'  ? 'copper' : 'neutral'} onClick={() => setSort('priceLow')}>Price: Low → High</Chip>
+        <Chip tone={sort === 'priceHigh' ? 'copper' : 'neutral'} onClick={() => setSort('priceHigh')}>Price: High → Low</Chip>
+      </div>
+
+      {/* Category + Condition — only show rows when data is loaded */}
+      {availableCategories.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</span>
+          <Chip tone={!categoryFilter ? 'copper' : 'neutral'} onClick={() => setCategoryFilter('')}>All</Chip>
+          {availableCategories.map(c => (
+            <Chip key={c} tone={categoryFilter === c ? 'copper' : 'neutral'} onClick={() => setCategoryFilter(categoryFilter === c ? '' : c)} count={categoryCounts[c]}>
+              {c}
+            </Chip>
+          ))}
+        </div>
+      )}
+
+      {availableConditions.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Condition</span>
+          <Chip tone={!conditionFilter ? 'copper' : 'neutral'} onClick={() => setConditionFilter('')}>Any</Chip>
+          {availableConditions.map(c => (
+            <Chip key={c} tone={conditionFilter === c ? 'copper' : 'neutral'} onClick={() => setConditionFilter(conditionFilter === c ? '' : c)}>
+              {c}
+            </Chip>
+          ))}
+        </div>
+      )}
+
+      {/* Result count + clear */}
+      {!loading && filteredListings.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            Showing <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{filteredListings.length}</span> listing{filteredListings.length !== 1 ? 's' : ''}
+            {!activeOnly ? ' (incl. inactive)' : ''}
+          </span>
+          {activeMarketplaceFilters.length > 0 && (
+            <button
+              onClick={() => { setTypeFilter(''); setSearchText(''); setCategoryFilter(''); setConditionFilter('') }}
+              style={{ padding: '3px 10px', background: 'transparent', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r-pill)', color: 'var(--text-dim)', fontSize: '0.72rem', cursor: 'pointer' }}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
 
       {loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1474,19 +1712,24 @@ function MarketplaceTab({ userEmail }) {
         </div>
       )}
 
-      {!loading && !error && listings.length === 0 && (
+      {!loading && !error && filteredListings.length === 0 && (
         <EmptyState
           icon="Store"
-          title="No listings yet"
-          body="Be the first to post a bottle"
-          ctaLabel="Post a listing"
-          onCta={() => setShowCreate(true)}
+          title={listings.length === 0 ? 'No listings yet' : 'No listings match your filters'}
+          body={listings.length === 0
+            ? 'Be the first to post a bottle'
+            : activeMarketplaceFilters.length
+              ? `Try removing: ${activeMarketplaceFilters.join(', ')}`
+              : 'Adjust filters and try again'
+          }
+          ctaLabel={listings.length === 0 ? 'Post a listing' : undefined}
+          onCta={listings.length === 0 ? () => setShowCreate(true) : undefined}
         />
       )}
 
-      {!loading && listings.length > 0 && (
+      {!loading && filteredListings.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {listings.map(l => (
+          {filteredListings.map(l => (
             <ListingCard
               key={l.id} listing={l}
               currentUserEmail={userEmail}
