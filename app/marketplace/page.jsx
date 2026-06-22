@@ -573,15 +573,6 @@ function AuctionsTab() {
       .catch(() => {})
   }, [])
 
-  // Infinite scroll — auto-load next page when sentinel enters viewport
-  useEffect(() => {
-    if (!showMoreRef.current) return
-    const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting) setShowCount(c => c + 20)
-    }, { rootMargin: '200px' })
-    observer.observe(showMoreRef.current)
-    return () => observer.disconnect()
-  }, [filteredDeals.length, showCount])
 
   function toggleStar(lotId) {
     if (!lotId) return
@@ -650,6 +641,17 @@ function AuctionsTab() {
     return deals
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, category, minBid, minSavings, reserveFilter, searchText, showStarredOnly, showWatchedOnly, sort, starredIds, watchedDealIds, includeOtherSpirits])
+
+  // Infinite scroll — auto-load next page when sentinel enters viewport
+  // (placed after filteredDeals to avoid temporal dead zone in dep array)
+  useEffect(() => {
+    if (!showMoreRef.current) return
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setShowCount(c => c + 20)
+    }, { rootMargin: '200px' })
+    observer.observe(showMoreRef.current)
+    return () => observer.disconnect()
+  }, [filteredDeals.length, showCount])
 
   // Active filter labels — used in empty state hint
   const activeFilterLabels = [
