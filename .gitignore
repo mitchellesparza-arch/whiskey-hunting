@@ -29,3 +29,17 @@ unicorn_scraper/debug_screenshots/
 unicorn_scraper/*.db
 unicorn_scraper/*.html
 # unicorn_scraper/latest_deals.json  ← tracked so Vercel has a fallback
+
+# Local scratch / debug artifacts (data dumps, scrape samples, scout output)
+/logs/
+/scripts/scout-output/
+/scripts/express-scout-results.json
+/all_brands.json
+/all_product_names.json
+/liquor_sample_1000.json
+/rare_collectible_products.json
+/weller_*.json
+/algolia_testing_report.txt
+/Test.jpg
+# stray shell-redirect typo artifact
+/{}*
