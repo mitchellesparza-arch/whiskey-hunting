@@ -4209,6 +4209,59 @@
     "type": "Bourbon"
   },
   {
+    "name": "Jack Daniel's 10 Year",
+    "aliases": [
+      "jack daniels 10 year",
+      "jack daniels 10",
+      "jd 10 year",
+      "jack daniel's 10 year old",
+      "jack daniels 10 year old tennessee whiskey"
+    ],
+    "rarity": "Allocated",
+    "msrp": 70,
+    "secondary": {
+      "low": 130,
+      "avg": 180,
+      "high": 250
+    },
+    "lastUpdated": "2025-01",
+    "distillery": "Jack Daniel's Distillery",
+    "proof": 97,
+    "age": "10 Year",
+    "sizes": [
+      "750ml"
+    ],
+    "origin": "USA",
+    "region": "Tennessee",
+    "type": "Tennessee Whiskey"
+  },
+  {
+    "name": "Jack Daniel's 12 Year",
+    "aliases": [
+      "jack daniels 12 year",
+      "jack daniels 12",
+      "jd 12 year",
+      "jack daniel's 12 year old"
+    ],
+    "rarity": "Allocated",
+    "msrp": 80,
+    "secondary": {
+      "low": 140,
+      "avg": 200,
+      "high": 280
+    },
+    "lastUpdated": "2025-01",
+    "distillery": "Jack Daniel's Distillery",
+    "proof": 107,
+    "age": "12 Year",
+    "sizes": [
+      "750ml"
+    ],
+    "origin": "USA",
+    "region": "Tennessee",
+    "type": "Tennessee Whiskey"
+  },
+  {
     "name": "Jack Daniel's Single Barrel Select",
     "aliases": [
       "jack daniel's single barrel",
