@@ -16,7 +16,7 @@ import { upsertBottle } from '../../../../lib/bottle-db.js'
 
 const ALG_APP   = process.env.ALGOLIA_APP_ID  ?? 'Z25A2A928M'
 const ALG_KEY   = process.env.ALGOLIA_API_KEY ?? '88b6125855a0bbd845447e35de8d51c5'
-const ALG_INDEX = 'Products_Production_AB_Test'
+const ALG_INDEX = 'Products_Production'
 const STORE_47  = '47'   // Binny's Orland Park
 const BATCH     = 20     // parallel upserts per page
 
