@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getToken }     from 'next-auth/jwt'
 import { Redis }        from '@upstash/redis'
+import { upsertBottle } from '../../../../lib/bottle-db.js'
 
 /**
  * POST /api/bottles/save
@@ -72,12 +73,43 @@ export async function POST(req) {
     addedAt:     new Date().toISOString(),
   }
 
+  // Confidence source: a reviewed/edited save ('user') is authoritative; a raw
+  // AI suggestion pick ('ai') is lower confidence so curated data still wins.
+  const source = body.source === 'user' ? 'user' : 'ai'
+
   try {
     const redis = getRedis()
     await Promise.all([
       redis.set(`wh:bottles:${norm}`, JSON.stringify(record)),
       redis.hset('wh:bottle-index', { [norm]: name }),
     ])
+
+    // Also write the canonical record the bottle detail page actually reads
+    // (/api/bottle/lookup). Without this the saved metadata only powered search
+    // autocomplete and never appeared on the bottle page.
+    try {
+      const sec = body.secondary
+      await upsertBottle({
+        name,
+        distillery:  record.distillery,
+        category:    record.category,
+        proof:       record.proof,
+        age:         record.age != null ? `${record.age} Year` : null,
+        msrp:        record.msrp,
+        region:      body.region ?? null,
+        origin:      body.origin ?? null,
+        rarity:      body.rarity ?? null,
+        releaseYear: record.releaseYear,
+        market: (sec && (sec.low != null || sec.avg != null || sec.high != null))
+          ? { low: sec.low ?? null, avg: sec.avg ?? null, high: sec.high ?? null,
+              msrp: record.msrp, source: 'Member-provided', lastUpdated: new Date().toISOString().slice(0, 7) }
+          : null,
+      }, source)
+    } catch (e) {
+      console.error('[bottles/save] canonical upsert failed:', e)
+      // Non-fatal — the legacy index write above already succeeded.
+    }
+
     return NextResponse.json({ ok: true, name })
   } catch (err) {
     console.error('[bottles/save] error:', err)

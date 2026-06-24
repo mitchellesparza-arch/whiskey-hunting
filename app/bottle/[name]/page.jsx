@@ -2,7 +2,7 @@
 import { useSession }     from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState }  from 'react'
-import { ChevronLeft, Eye, Check, Plus, MapPin, Search, ArrowLeftRight, DollarSign, BarChart2 } from 'lucide-react'
+import { ChevronLeft, Eye, Check, Plus, MapPin, Search, ArrowLeftRight, DollarSign, BarChart2, Sparkles } from 'lucide-react'
 import Sparkline           from '../../components/Sparkline.jsx'
 import PriceHistoryChart   from '../../components/PriceHistoryChart.jsx'
 import Button              from '../../components/ui/Button.jsx'
@@ -10,6 +10,8 @@ import SectionHeader       from '../../components/ui/SectionHeader.jsx'
 import EmptyState          from '../../components/ui/EmptyState.jsx'
 import Chip                from '../../components/ui/Chip.jsx'
 import { namesRefer }      from '../../../lib/bottle-match.js'
+import { isPro }           from '../../../lib/tier.js'
+import AutoFillSheet       from './AutoFillSheet.jsx'
 
 const RARITY_COLOR = {
   'Unicorn':          'var(--violet)',
@@ -156,6 +158,8 @@ export default function BottleDetailPage() {
   const [yearVariants, setYearVariants] = useState([])
   const [fairInput,    setFairInput]    = useState('')
   const [fairOpen,     setFairOpen]     = useState(false)
+  const [autoFillOpen, setAutoFillOpen] = useState(false)
+  const [reloadKey,    setReloadKey]    = useState(0)
 
   useEffect(() => {
     if (!bottleName) return
@@ -178,7 +182,28 @@ export default function BottleDetailPage() {
       fetch(`/api/ua-image?name=${enc}`).then(r => r.json()).catch(() => ({ imageUrl: null })),
     ]).then(([canonRes, priceRes, histRes, imgRes, findsRes, reviewRes, mktRes, holdRes, catRes, uaCatRes, uaImgRes]) => {
       const canonical = canonRes?.found ? canonRes.bottle : null
-      setPrice(canonical?.market ?? priceRes.price ?? null)
+      const mkt = priceRes.price ?? null
+      // Merge the canonical record (flat fields + its market sub-object) with the
+      // market-price route. The old `canonical?.market ??` dropped every flat
+      // field (distillery/proof/age/msrp) whenever a canonical record existed,
+      // so enriched/curated metadata never rendered.
+      const merged = (canonical || mkt) ? {
+        low:         canonical?.market?.low  ?? mkt?.low  ?? null,
+        avg:         canonical?.market?.avg  ?? mkt?.avg  ?? null,
+        high:        canonical?.market?.high ?? mkt?.high ?? null,
+        msrp:        canonical?.msrp ?? canonical?.market?.msrp ?? mkt?.msrp ?? null,
+        rarity:      canonical?.rarity     ?? mkt?.rarity     ?? null,
+        distillery:  canonical?.distillery ?? mkt?.distillery ?? null,
+        proof:       canonical?.proof      ?? mkt?.proof      ?? null,
+        age:         canonical?.age        ?? mkt?.age        ?? null,
+        type:        canonical?.category   ?? canonical?.type ?? mkt?.type ?? null,
+        origin:      canonical?.origin     ?? mkt?.origin     ?? null,
+        region:      canonical?.region     ?? mkt?.region     ?? null,
+        sizes:       canonical?.sizes      ?? mkt?.sizes      ?? null,
+        source:      canonical?.market?.source      ?? mkt?.source      ?? null,
+        lastUpdated: canonical?.market?.lastUpdated ?? mkt?.lastUpdated ?? null,
+      } : null
+      setPrice(merged)
       setHistory(histRes.history ?? [])
       // Image priority: canonical DB → Binny's Algolia → Unicorn Auctions → nothing
       setImageUrl(canonical?.imageUrl ?? imgRes.imageUrl ?? uaImgRes?.imageUrl ?? null)
@@ -197,7 +222,7 @@ export default function BottleDetailPage() {
       // client-side navigation (this effect re-runs on bottleName change).
       setYearVariants(variants.length > 1 ? variants : [])
     }).finally(() => setLoading(false))
-  }, [bottleName])
+  }, [bottleName, reloadKey])
 
   const allFinds   = [...finds, ...archived]
   const sightings  = allFinds
@@ -205,6 +230,9 @@ export default function BottleDetailPage() {
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 10)
   const storeHist  = deriveStoreHistory(allFinds, bottleName).slice(0, 5)
+
+  // Pro-only "Auto-fill with AI" — offered when the bottle is missing core data.
+  const canAutoFill = !loading && isPro(session?.user?.tier) && (!price?.msrp || !price?.distillery)
 
   async function handleWatch() {
     setWatching(true)
@@ -341,6 +369,23 @@ export default function BottleDetailPage() {
           <Plus size={16} /> Collection
         </Button>
       </div>
+
+      {/* Auto-fill with AI (Pro) — surfaced when core data is missing */}
+      {canAutoFill && (
+        <div style={divider}>
+          <Button
+            variant="secondary"
+            fullWidth
+            onClick={() => setAutoFillOpen(true)}
+            style={{ color: 'var(--amber)', borderColor: 'rgba(245,184,58,0.3)', background: 'rgba(245,184,58,0.06)' }}
+          >
+            <Sparkles size={16} /> Auto-fill details with AI
+          </Button>
+          <div style={{ fontSize: 'var(--fs-overline)', color: 'var(--text-dim)', textAlign: 'center', marginTop: 'var(--sp-2)' }}>
+            Pro · review &amp; edit before saving
+          </div>
+        </div>
+      )}
 
       {/* Year / Vintage selector */}
       {yearVariants.length > 1 && (
@@ -798,6 +843,14 @@ export default function BottleDetailPage() {
           </div>
         )}
       </div>
+
+      {autoFillOpen && (
+        <AutoFillSheet
+          bottleName={bottleName}
+          onClose={() => setAutoFillOpen(false)}
+          onSaved={() => { setAutoFillOpen(false); setReloadKey(k => k + 1) }}
+        />
+      )}
 
     </div>
   )
