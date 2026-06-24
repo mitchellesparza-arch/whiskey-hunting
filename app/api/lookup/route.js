@@ -2,6 +2,7 @@ import { NextResponse }                          from 'next/server'
 import { getToken }                              from 'next-auth/jwt'
 import { Redis }                                 from '@upstash/redis'
 import { getBottleByUpc, getBottleByName, searchBottles } from '../../../lib/whiskey-db.js'
+import { findBottle }                                     from '../../../lib/bottle-db.js'
 
 async function authed(req) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
@@ -58,12 +59,21 @@ export async function GET(req) {
   const search = searchParams.get('search')?.trim()
 
   if (upc) {
+    // Canonical store first — a user-corrected record (saved with this UPC)
+    // must win over the seed/upcitemdb fallback, so corrections show on scans.
+    const clean = upc.replace(/\D/g, '')
+    const canon = await findBottle({ upc: clean }).catch(() => null)
+    if (canon) return NextResponse.json({ found: true, bottle: { ...canon, source: 'canonical' } })
+
     const result = await getBottleByUpc(upc)
     if (!result) return NextResponse.json({ found: false })
     return NextResponse.json({ found: true, bottle: result })
   }
 
   if (name) {
+    const canon = await findBottle({ name }).catch(() => null)
+    if (canon) return NextResponse.json({ found: true, bottle: { ...canon, source: 'canonical' } })
+
     const result = getBottleByName(name)
     if (!result) return NextResponse.json({ found: false })
     return NextResponse.json({ found: true, bottle: result })
