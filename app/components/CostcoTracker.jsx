@@ -106,7 +106,19 @@ function AlertRow({ alert, dim, storeLookup }) {
 }
 
 function FavoriteStoreCard({ store, alerts }) {
-  const inStockAlerts = alerts.filter(a => a.status === 'in_stock').slice(0, 3)
+  // alerts are newest-first; keep only the most recent alert per product so a
+  // stale in_stock entry can't surface behind a newer out_of_stock for the same item
+  const latestByProduct = []
+  const seenProducts = new Set()
+  for (const a of alerts) {
+    const key = a.itemNumber || a.productName
+    if (!seenProducts.has(key)) {
+      seenProducts.add(key)
+      latestByProduct.push(a)
+    }
+  }
+
+  const inStockAlerts = latestByProduct.filter(a => a.status === 'in_stock').slice(0, 3)
   const lastAlert     = alerts[0]
   const hasAny        = inStockAlerts.length > 0
 
