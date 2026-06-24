@@ -3,6 +3,7 @@ import { useSession }  from 'next-auth/react'
 import { useRouter }   from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import BarcodeScanner    from '../finds/BarcodeScanner.jsx'
+import { sameBottleLine } from '../../lib/bottle-match.js'
 import AppHeader from '../components/AppHeader.jsx'
 import Button from '../components/ui/Button.jsx'
 import { Camera, Search, X, Tag, Loader } from 'lucide-react'
@@ -54,6 +55,9 @@ export default function SearchPage() {
     if (n === q)                            return 100
     if (n.startsWith(q) || q.startsWith(n)) return 80
     if (n.includes(q) || q.includes(n))     return 60
+    // Brand + numeric gate: don't award a token-overlap score to a different
+    // brand/age that merely shares a generic token ("10", "year", "barrel").
+    if (!sameBottleLine(query, name)) return 0
     const qWords = new Set(q.split(' ').filter(w => w.length >= 2))
     const nWords = n.split(' ').filter(w => w.length >= 2)
     const hits   = nWords.filter(w => qWords.has(w)).length

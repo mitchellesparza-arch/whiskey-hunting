@@ -9,6 +9,7 @@ import Button              from '../../components/ui/Button.jsx'
 import SectionHeader       from '../../components/ui/SectionHeader.jsx'
 import EmptyState          from '../../components/ui/EmptyState.jsx'
 import Chip                from '../../components/ui/Chip.jsx'
+import { namesRefer }      from '../../../lib/bottle-match.js'
 
 const RARITY_COLOR = {
   'Unicorn':          'var(--violet)',
@@ -41,11 +42,12 @@ function fmtTimeAgo(ts) {
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+// Brand/number-aware "same bottle?" check. The old version used a bidirectional
+// substring test, which over-matched: it pulled every Weller SKU onto the plain
+// "Weller" page and blended a $40 Eagle Rare 10yr with a $300 17yr in the
+// store-history median. namesRefer requires brand + age agreement.
 function nameMatches(a, b) {
-  if (!a || !b) return false
-  const al = a.toLowerCase()
-  const bl = b.toLowerCase()
-  return al.includes(bl) || bl.includes(al)
+  return namesRefer(a, b)
 }
 
 function deriveStoreHistory(allFinds, bottleName) {
@@ -191,7 +193,9 @@ export default function BottleDetailPage() {
       setHolders(holdRes?.holders ?? [])
       // Year variants: catalog entries that have a `year` field and share the same base name
       const variants = (catRes.results ?? []).filter(r => r.year != null)
-      if (variants.length > 1) setYearVariants(variants)
+      // Always assign so stale variants from a previously-viewed bottle clear on
+      // client-side navigation (this effect re-runs on bottleName change).
+      setYearVariants(variants.length > 1 ? variants : [])
     }).finally(() => setLoading(false))
   }, [bottleName])
 
