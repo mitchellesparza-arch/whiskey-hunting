@@ -42,6 +42,7 @@ export default function SearchPage() {
   const photoInputRef = useRef(null)
   const timerRef      = useRef(null)
   const inputRef      = useRef(null)
+  const searchSeq     = useRef(0)   // monotonic id so stale searches can't overwrite fresh results
 
   // Unified relevance scoring used to merge Algolia + local-lookup hits.  Same
   // logic regardless of source so a saved AI-confirmed bottle that exactly
@@ -70,6 +71,7 @@ export default function SearchPage() {
 
   async function doSearch(q, explicit = false) {
     if (q.trim().length < 2) { setResults([]); setCatalogResults([]); return }
+    const seq = ++searchSeq.current
     setSearching(true)
     const limit = explicit ? 50 : 20
     try {
@@ -78,6 +80,10 @@ export default function SearchPage() {
         fetch(`/api/lookup?search=${encodeURIComponent(q)}`).then(r => r.json()),
         fetch(`/api/catalog/search?q=${encodeURIComponent(q)}&limit=${limit}`).then(r => r.json()),
       ])
+
+      // A newer search was kicked off while these were in flight — discard so a
+      // slow early keystroke ("we") can't overwrite a later one ("weller").
+      if (seq !== searchSeq.current) return
 
       const algolia  = algoliaRes.status  === 'fulfilled' ? (algoliaRes.value.results ?? []) : []
       const local    = localRes.status    === 'fulfilled'
@@ -118,11 +124,15 @@ export default function SearchPage() {
       const topNorms = new Set(sorted.map(r => normKey(r.name ?? '')))
       const filteredCatalog = catalogScored.filter(e => !topNorms.has(normKey(e.name ?? '')))
       setCatalogResults(filteredCatalog)
-    } catch {
+    } catch (err) {
+      if (seq !== searchSeq.current) return
+      console.error('[search] doSearch failed:', err)
       setResults([])
       setCatalogResults([])
     } finally {
-      setSearching(false)
+      // Only the latest search owns the spinner — a stale one finishing late
+      // must not clear it while a newer search is still running.
+      if (seq === searchSeq.current) setSearching(false)
     }
   }
 
@@ -137,7 +147,8 @@ export default function SearchPage() {
       if (q === query) {
         setAiSuggestions(Array.isArray(d.suggestions) ? d.suggestions : [])
       }
-    } catch {
+    } catch (err) {
+      console.error('[search] AI fallback failed:', err)
       if (q === query) setAiSuggestions([])
     } finally {
       setAiLoading(false)
@@ -152,7 +163,7 @@ export default function SearchPage() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(suggestion),
-    }).catch(() => {})
+    }).catch(err => console.error('[search] AI-pick save failed:', err))
     router.push(bottleHref(suggestion.name))
   }
 
@@ -231,7 +242,7 @@ export default function SearchPage() {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ code: lastUpc, name: d.bottle.name }),
-          }).catch(() => {})
+          }).catch(err => console.error('[search] UPC cache write failed:', err))
         }
         router.push(bottleHref(d.bottle.name))
       } else {

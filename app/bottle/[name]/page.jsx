@@ -243,7 +243,9 @@ export default function BottleDetailPage() {
         body:    JSON.stringify({ name: bottleName }),
       })
       if (res.ok) setWatched(true)
-    } catch {}
+    } catch (err) {
+      console.error('[bottle] watch failed:', err)
+    }
     setWatching(false)
   }
 
