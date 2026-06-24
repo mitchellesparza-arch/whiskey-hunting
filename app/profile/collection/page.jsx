@@ -6,7 +6,7 @@ import Link           from 'next/link'
 import {
   ArrowLeft, Plus, X, Camera, Tag, ChevronLeft, ChevronRight, Gavel,
   Star, Wine, FlaskConical, BarChart2, Image as ImageIcon,
-  CheckCircle, SkipForward, RefreshCw, Pencil, Loader, EyeOff, Printer,
+  CheckCircle, SkipForward, RefreshCw, Pencil, Loader, EyeOff, Printer, Sparkles,
 } from 'lucide-react'
 import BarcodeScanner   from '../../finds/BarcodeScanner.jsx'
 import Button           from '../../components/ui/Button.jsx'
@@ -773,6 +773,8 @@ function AddBottleSheet({ open, onClose, onAdd }) {
   const [error,       setError]       = useState(null)
   const [catalogImg,  setCatalogImg]  = useState({ imageUrl: null, candidates: null, loading: false, source: null })
   const [catalogIdx,  setCatalogIdx]  = useState(0)
+  const [enriching,   setEnriching]   = useState(false)
+  const { data: session } = useSession()
   const photoInputRef = useRef(null)
   const nameDebounce  = useRef(null)
 
@@ -798,6 +800,40 @@ function AddBottleSheet({ open, onClose, onAdd }) {
     if (b.msrp)       setMsrp(String(b.msrp))
     if (msg)          setLookupMsg(msg)
     setSuggestions([])
+  }
+
+  // Pro "Auto-fill with AI" — generate a draft for the typed name and prefill
+  // the form. The user still reviews/edits before submitting.
+  async function handleEnrich() {
+    if (name.trim().length < 3) return
+    setEnriching(true)
+    setLookupMsg(null)
+    try {
+      const r = await fetch('/api/bottles/enrich', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ name }),
+      })
+      const d = await r.json()
+      if (!r.ok) {
+        setLookupMsg(d.upgradeRequired ? 'AI auto-fill is a Pro feature' : (d.error ?? 'Could not auto-fill'))
+        return
+      }
+      const dr = d.draft ?? {}
+      if (dr.name)              setName(dr.name)
+      if (dr.distillery)        setDistillery(dr.distillery)
+      if (dr.category)          setCategory(dr.category)
+      if (dr.proof != null)     setProof(String(dr.proof))
+      if (dr.msrp != null)      setMsrp(String(dr.msrp))
+      if (dr.secondary?.avg != null) setSecondary(String(dr.secondary.avg))
+      fetchCatalogImg(dr.name ?? name)
+      setLookupMsg('AI-filled — verify details below')
+    } catch (err) {
+      console.error('[collection] enrich failed:', err)
+      setLookupMsg('Auto-fill failed — try again')
+    } finally {
+      setEnriching(false)
+    }
   }
 
   async function handleBarcode(code) {
@@ -1127,6 +1163,33 @@ function AddBottleSheet({ open, onClose, onAdd }) {
             </div>
           )}
         </div>
+
+        {isPro(session?.user?.tier) && name.trim().length >= 3 && (
+          <button
+            type="button"
+            onClick={handleEnrich}
+            disabled={enriching}
+            style={{
+              display:      'flex',
+              alignItems:   'center',
+              justifyContent: 'center',
+              gap:          6,
+              width:        '100%',
+              marginTop:    'var(--sp-2)',
+              padding:      'var(--sp-2)',
+              background:   'rgba(245,184,58,0.08)',
+              border:       '1px dashed rgba(245,184,58,0.4)',
+              borderRadius: 'var(--r-md)',
+              color:        'var(--amber)',
+              fontSize:     'var(--fs-meta)',
+              fontWeight:   700,
+              cursor:       enriching ? 'default' : 'pointer',
+              fontFamily:   'inherit',
+            }}
+          >
+            <Sparkles size={13} strokeWidth={1.75} /> {enriching ? 'Filling…' : 'Auto-fill details with AI'}
+          </button>
+        )}
 
         <label style={labelStyle}>Distillery</label>
         <input style={inputStyle} placeholder="e.g. Buffalo Trace" value={distillery} onChange={e => setDistillery(e.target.value)} />
