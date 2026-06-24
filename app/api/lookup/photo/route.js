@@ -82,7 +82,7 @@ Return only the JSON object.`,
     const result = {
       name:       parsed.name       ?? null,
       distillery: parsed.distillery ?? seed?.distillery ?? null,
-      category:   parsed.category   ?? seed?.category   ?? 'Bourbon',
+      category:   parsed.category   ?? seed?.category   ?? 'Other',
       proof:      parsed.proof      ?? seed?.proof       ?? null,
       age:        parsed.age        ?? null,
       msrp:       parsed.msrp      ?? seed?.msrp        ?? null,
