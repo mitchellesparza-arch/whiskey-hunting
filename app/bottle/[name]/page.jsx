@@ -202,6 +202,7 @@ export default function BottleDetailPage() {
         sizes:       canonical?.sizes      ?? mkt?.sizes      ?? null,
         source:      canonical?.market?.source      ?? mkt?.source      ?? null,
         lastUpdated: canonical?.market?.lastUpdated ?? mkt?.lastUpdated ?? null,
+        estimated:   canonical?._fieldMeta?.msrp?.source === 'ai' || mkt?.estimated === true,
       } : null
       setPrice(merged)
       setHistory(histRes.history ?? [])
@@ -232,7 +233,7 @@ export default function BottleDetailPage() {
   const storeHist  = deriveStoreHistory(allFinds, bottleName).slice(0, 5)
 
   // Pro-only "Auto-fill with AI" — offered when the bottle is missing core data.
-  const canAutoFill = !loading && isPro(session?.user?.tier) && (!price?.msrp || !price?.distillery)
+  const canAutoFill = !loading && isPro(session?.user?.tier) && (!price?.msrp || !price?.distillery || price?.estimated)
 
   async function handleWatch() {
     setWatching(true)
@@ -447,7 +448,20 @@ export default function BottleDetailPage() {
             <div style={{ display: 'flex', gap: 'var(--sp-5)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
               {price.msrp != null && (
                 <div>
-                  <div style={overlineStyle}>MSRP</div>
+                  <div style={overlineStyle}>
+                    MSRP
+                    {price.estimated && (
+                      <span style={{
+                        marginLeft:   'var(--sp-1)',
+                        color:        'var(--text-dim)',
+                        fontWeight:   600,
+                        letterSpacing: 0,
+                        textTransform: 'none',
+                      }}>
+                        · estimated
+                      </span>
+                    )}
+                  </div>
                   <div style={{ fontWeight: 700, fontSize: 'var(--fs-h2)', color: 'var(--copper-400)', lineHeight: 1 }}>
                     ${price.msrp}
                   </div>
