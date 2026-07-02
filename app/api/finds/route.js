@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 import { getFinds, addFind, removeFind, voteFind, getMonthLeaderboard } from '../../../lib/finds.js'
 import { getUserProfile }        from '../../../lib/friends.js'
 import { sendBroadcast }         from '../../../lib/push.js'
-import { postNewFind, postBoBFind } from '../../../lib/discord.js'
+import { postJonFind, postBoBFind } from '../../../lib/discord.js'
 
 /**
  * GET /api/finds
@@ -68,7 +68,7 @@ export async function POST(request) {
     })
 
     // Fire all Discord webhooks — both awaited so Vercel doesn't kill them early
-    await postNewFind(entry).catch(() => {})
+    await postJonFind(entry).catch(() => {})
     await postBoBFind(entry).catch(() => {})
     sendBroadcast({
       title: '📍 New Find',
