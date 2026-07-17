@@ -170,12 +170,22 @@ export default function FindsPage() {
     if (status === 'authenticated' && session?.user?.approved === false) router.replace('/pending')
   }, [status, session])
 
+  // Remember collapse state for the report form across visits
+  useEffect(() => {
+    const stored = localStorage.getItem('finds:showReportForm')
+    if (stored !== null) setShowReportForm(stored === 'true')
+  }, [])
+  useEffect(() => {
+    localStorage.setItem('finds:showReportForm', String(showReportForm))
+  }, [showReportForm])
+
   // ── State ──────────────────────────────────────────────────────────────────
   const [finds,        setFinds]        = useState([])
   const [archived,     setArchived]     = useState([])
   const [leaderboard,  setLeaderboard]  = useState([])
   const [loading,      setLoading]      = useState(true)
   const [showArchived, setShowArchived] = useState(false)
+  const [showReportForm, setShowReportForm] = useState(true)
 
   // Form
   const [bottleName,   setBottleName]   = useState('')
@@ -577,10 +587,23 @@ export default function FindsPage() {
 
         {/* Submit Form */}
         <Card style={{ padding: 'var(--sp-5)', marginBottom: 'var(--sp-5)' }}>
-          <div style={{ fontWeight: 800, fontSize: 'var(--fs-h3)', color: 'var(--text-primary)', marginBottom: 14 }}>
-            📍 Report a Find
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowReportForm(s => !s)}
+            style={{
+              display:        'flex', alignItems: 'center', justifyContent: 'space-between',
+              width:          '100%',
+              background:     'none', border: 'none', cursor: 'pointer', padding: 0,
+              marginBottom:   showReportForm ? 14 : 0,
+            }}
+          >
+            <span style={{ fontWeight: 800, fontSize: 'var(--fs-h3)', color: 'var(--text-primary)' }}>
+              📍 Report a Find
+            </span>
+            {showReportForm ? <ChevronUp size={18} color="var(--text-dim)" /> : <ChevronDown size={18} color="var(--text-dim)" />}
+          </button>
 
+          {showReportForm && (
           <form onSubmit={handleSubmit}>
 
             {/* Quick-scan buttons — mirror the dual barcode/label flow used in
@@ -898,6 +921,7 @@ export default function FindsPage() {
               📍 {submitting ? 'Submitting…' : 'Submit Find'}
             </Button>
           </form>
+          )}
         </Card>
 
         {/* Leaderboard */}
