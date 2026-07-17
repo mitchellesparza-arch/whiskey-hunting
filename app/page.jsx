@@ -170,15 +170,6 @@ export default function FindsPage() {
     if (status === 'authenticated' && session?.user?.approved === false) router.replace('/pending')
   }, [status, session])
 
-  // Remember collapse state for the report form across visits
-  useEffect(() => {
-    const stored = localStorage.getItem('finds:showReportForm')
-    if (stored !== null) setShowReportForm(stored === 'true')
-  }, [])
-  useEffect(() => {
-    localStorage.setItem('finds:showReportForm', String(showReportForm))
-  }, [showReportForm])
-
   // ── State ──────────────────────────────────────────────────────────────────
   const [finds,        setFinds]        = useState([])
   const [archived,     setArchived]     = useState([])
@@ -232,6 +223,15 @@ export default function FindsPage() {
 
   const storeInputRef   = useRef(null)
   const autocompleteRef = useRef(null)
+
+  // Remember collapse state for the report form across visits
+  useEffect(() => {
+    const stored = localStorage.getItem('finds:showReportForm')
+    if (stored !== null) setShowReportForm(stored === 'true')
+  }, [])
+  useEffect(() => {
+    localStorage.setItem('finds:showReportForm', String(showReportForm))
+  }, [showReportForm])
 
   // ── Load finds ─────────────────────────────────────────────────────────────
   function loadFinds() {
