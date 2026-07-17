@@ -11,12 +11,14 @@
  *   - Multi-find popup has ‹ Prev / Next › navigation
  *
  * Props:
- *   finds: Find[]  — array of find objects with store.lat / store.lng
+ *   finds:    Find[]     — array of find objects with store.lat / store.lng
+ *   checkins: Checkin[]  — array of {store, submitterName, timestamp}, rendered
+ *                          as smaller gray dots ("stopped by, nothing notable")
  */
 
 import { useEffect, useRef } from 'react'
 
-export default function FindsMap({ finds }) {
+export default function FindsMap({ finds, checkins = [] }) {
   const containerRef = useRef(null)
   const mapRef       = useRef(null)
   const markersRef   = useRef([])
@@ -67,14 +69,14 @@ export default function FindsMap({ finds }) {
     }
   }, [])
 
-  // Update markers when finds change (after map init)
+  // Update markers when finds or checkins change (after map init)
   useEffect(() => {
     if (!mapRef.current) return
     import('leaflet').then(mod => {
       const L = mod.default
       addMarkers(L, mapRef.current)
     })
-  }, [finds])
+  }, [finds, checkins])
 
   function escHtml(str) {
     return String(str ?? '')
@@ -154,6 +156,64 @@ export default function FindsMap({ finds }) {
           ${find.store?.address ? `<div style="font-size:11px;color:#888;font-weight:400">${escHtml(find.store.address)}</div>` : ''}
         </div>
         ${findHtml(find)}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid #eee">
+          <button data-nav="-1" style="${navBtnStyle}">‹</button>
+          <span style="font-size:12px;color:#888">${idx + 1} of ${total}</span>
+          <button data-nav="1" style="${navBtnStyle}">›</button>
+        </div>
+      </div>
+    `
+  }
+
+  // Build HTML for one check-in's content
+  function checkinHtml(checkin) {
+    return `
+      <div style="font-size:12px;color:#555;margin-bottom:2px">
+        🔍 Checked — nothing notable
+      </div>
+      <div style="font-size:11px;color:#888">
+        ${escHtml(fmtTs(checkin.timestamp))}${checkin.timestamp ? ` · ${escHtml(timeAgo(checkin.timestamp))}` : ''}
+        ${checkin.submitterName ? ` · <span style="color:#9a7c55">${escHtml(checkin.submitterName)}</span>` : ''}
+      </div>
+    `
+  }
+
+  // Single check-in popup
+  function buildSingleCheckinPopup(checkin) {
+    return `
+      <div style="font-family:system-ui;line-height:1.4;min-width:180px">
+        <div style="font-weight:700;font-size:13px;color:#555;margin-bottom:6px">
+          📍 ${escHtml(checkin.store?.name ?? '—')}
+          ${checkin.store?.address ? `<div style="font-size:11px;color:#888;font-weight:400">${escHtml(checkin.store.address)}</div>` : ''}
+        </div>
+        ${checkinHtml(checkin)}
+      </div>
+    `
+  }
+
+  // Multi check-in popup with nav arrows (same pattern as buildMultiPopup)
+  function buildMultiCheckinPopup(groupCheckins, idx) {
+    const checkin = groupCheckins[idx]
+    const total   = groupCheckins.length
+    const navBtnStyle = [
+      'padding:6px 16px',
+      'border-radius:4px',
+      'border:none',
+      'cursor:pointer',
+      'background:#6b7280',
+      'color:#fff',
+      'font-size:16px',
+      'font-weight:700',
+      'touch-action:manipulation',
+      '-webkit-tap-highlight-color:transparent',
+    ].join(';')
+    return `
+      <div style="font-family:system-ui;line-height:1.4;min-width:200px">
+        <div style="font-weight:700;font-size:13px;color:#555;margin-bottom:6px">
+          📍 ${escHtml(checkin.store?.name ?? '—')}
+          ${checkin.store?.address ? `<div style="font-size:11px;color:#888;font-weight:400">${escHtml(checkin.store.address)}</div>` : ''}
+        </div>
+        ${checkinHtml(checkin)}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid #eee">
           <button data-nav="-1" style="${navBtnStyle}">‹</button>
           <span style="font-size:12px;color:#888">${idx + 1} of ${total}</span>
@@ -255,6 +315,83 @@ export default function FindsMap({ finds }) {
 
         marker.on('popupopen', attachNavHandlers)
 
+        markersRef.current.push(marker)
+      }
+    })
+
+    // ── Check-in markers ("saw nothing") — gray, smaller, secondary to finds ──
+    const validCheckins = checkins.filter(c => c.store?.lat != null && c.store?.lng != null)
+
+    const checkinGroups = {}
+    for (const checkin of validCheckins) {
+      const key = checkin.store.placeId
+        || `${checkin.store.lat.toFixed(5)},${checkin.store.lng.toFixed(5)}`
+      if (!checkinGroups[key]) checkinGroups[key] = { store: checkin.store, checkins: [] }
+      checkinGroups[key].checkins.push(checkin)
+    }
+
+    Object.values(checkinGroups).forEach(({ store, checkins: groupCheckins }) => {
+      const count = groupCheckins.length
+      const size  = count > 1 ? 18 : 11
+      const icon  = L.divIcon({
+        className: '',
+        html: `<div style="
+          background:#6b7280;
+          border:2px solid #9ca3af;
+          border-radius:50%;
+          width:${size}px;
+          height:${size}px;
+          box-shadow:0 0 4px rgba(107,114,128,0.5);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-size:9px;
+          font-weight:700;
+          color:#fff;
+          line-height:1;
+        ">${count > 1 ? count : ''}</div>`,
+        iconSize:   [size, size],
+        iconAnchor: [size / 2, size / 2],
+      })
+
+      if (count === 1) {
+        const popup  = L.popup({ maxWidth: 260 }).setContent(buildSingleCheckinPopup(groupCheckins[0]))
+        const marker = L.marker([store.lat, store.lng], { icon }).addTo(map).bindPopup(popup)
+
+        marker.on('popupopen', () => {
+          const el = marker.getPopup()?.getElement()
+          if (el) {
+            L.DomEvent.disableClickPropagation(el)
+            L.DomEvent.disableScrollPropagation(el)
+          }
+        })
+
+        markersRef.current.push(marker)
+      } else {
+        let idx = 0
+        const popup  = L.popup({ maxWidth: 270 }).setContent(buildMultiCheckinPopup(groupCheckins, 0))
+        const marker = L.marker([store.lat, store.lng], { icon }).addTo(map).bindPopup(popup)
+
+        function attachNavHandlers() {
+          const popupEl = marker.getPopup()?.getElement()
+          if (!popupEl) return
+
+          L.DomEvent.disableClickPropagation(popupEl)
+          L.DomEvent.disableScrollPropagation(popupEl)
+
+          popupEl.querySelectorAll('[data-nav]').forEach(btn => {
+            L.DomEvent.off(btn)
+            L.DomEvent.on(btn, 'click', function(e) {
+              L.DomEvent.stopPropagation(e)
+              const dir = Number(btn.getAttribute('data-nav'))
+              idx = (idx + dir + groupCheckins.length) % groupCheckins.length
+              marker.setPopupContent(buildMultiCheckinPopup(groupCheckins, idx))
+              setTimeout(attachNavHandlers, 0)
+            })
+          })
+        }
+
+        marker.on('popupopen', attachNavHandlers)
         markersRef.current.push(marker)
       }
     })

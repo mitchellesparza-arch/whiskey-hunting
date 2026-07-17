@@ -177,6 +177,14 @@ export default function FindsPage() {
   const [loading,      setLoading]      = useState(true)
   const [showArchived, setShowArchived] = useState(false)
   const [showReportForm, setShowReportForm] = useState(true)
+  const [reportTab,    setReportTab]    = useState('find')   // 'find' | 'checkin'
+
+  // Check-ins ("saw nothing") — gray dots on the map
+  const [checkins,           setCheckins]           = useState([])
+  const [checkinSubmitting,  setCheckinSubmitting]  = useState(false)
+  const [checkinSubmitError, setCheckinSubmitError] = useState(null)
+  const [checkinSubmitted,   setCheckinSubmitted]   = useState(false)
+  const checkinSubmittedTimerRef = useRef(null)
 
   // Form
   const [bottleName,   setBottleName]   = useState('')
@@ -246,17 +254,28 @@ export default function FindsPage() {
       .finally(() => setLoading(false))
   }
 
+  function loadCheckins() {
+    fetch('/api/checkins')
+      .then(r => r.json())
+      .then(d => setCheckins(d.checkins ?? []))
+      .catch(() => {})
+  }
+
   useEffect(() => {
     loadFinds()
+    loadCheckins()
     function onVisible() {
-      if (document.visibilityState === 'visible') loadFinds()
+      if (document.visibilityState === 'visible') { loadFinds(); loadCheckins() }
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
-  // Cleanup submitted banner timer on unmount
-  useEffect(() => () => clearTimeout(submittedTimerRef.current), [])
+  // Cleanup submitted banner timers on unmount
+  useEffect(() => () => {
+    clearTimeout(submittedTimerRef.current)
+    clearTimeout(checkinSubmittedTimerRef.current)
+  }, [])
 
   // ── Google Places autocomplete ─────────────────────────────────────────────
   useEffect(() => {
@@ -517,6 +536,36 @@ export default function FindsPage() {
     }
   }
 
+  // ── Check-in submit ("saw nothing") ───────────────────────────────────────
+  async function handleCheckinSubmit(e) {
+    e.preventDefault()
+    if (!store) return setCheckinSubmitError('Please select a store from the dropdown')
+
+    setCheckinSubmitting(true)
+    setCheckinSubmitError(null)
+
+    try {
+      const res  = await fetch('/api/checkins', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ store }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Submit failed')
+
+      setCheckins(prev => [data.checkin, ...prev])
+      setStore(null)
+      setStoreInput('')
+      setCheckinSubmitted(true)
+      clearTimeout(checkinSubmittedTimerRef.current)
+      checkinSubmittedTimerRef.current = setTimeout(() => setCheckinSubmitted(false), 3000)
+    } catch (err) {
+      setCheckinSubmitError(err.message)
+    } finally {
+      setCheckinSubmitting(false)
+    }
+  }
+
   // ── Vote ───────────────────────────────────────────────────────────────────
   async function handleVote(id, type) {
     try {
@@ -604,8 +653,38 @@ export default function FindsPage() {
           </button>
 
           {showReportForm && (
-          <form onSubmit={handleSubmit}>
+          <>
+            {/* Tabs — "Found Something" is the full find form; "Saw Nothing"
+                is a one-field check-in that only needs a store. */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              {[
+                { key: 'find',    label: '🥃 Found Something' },
+                { key: 'checkin', label: '🔍 Saw Nothing' },
+              ].map(t => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setReportTab(t.key)}
+                  style={{
+                    flex:         1,
+                    padding:      'var(--sp-2) 0',
+                    borderRadius: 'var(--r-md)',
+                    border:       '1px solid var(--hairline-2)',
+                    cursor:       'pointer',
+                    background:   reportTab === t.key ? 'var(--copper-500)' : 'var(--bg-elev-3)',
+                    color:        reportTab === t.key ? 'var(--text-inverse)' : 'var(--text-muted)',
+                    fontSize:     'var(--fs-body)',
+                    fontWeight:   700,
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
 
+          <form onSubmit={reportTab === 'find' ? handleSubmit : handleCheckinSubmit}>
+
+            {reportTab === 'find' && (<>
             {/* Quick-scan buttons — mirror the dual barcode/label flow used in
                 the Add to Collection sheet so members can fill the form by
                 scanning either the UPC or the bottle's label. */}
@@ -852,6 +931,7 @@ export default function FindsPage() {
                 onClose={() => setShowScanner(false)}
               />
             )}
+            </>)}
 
             <label style={labelStyle}>Store Location *</label>
             <input
@@ -868,6 +948,7 @@ export default function FindsPage() {
               </p>
             )}
 
+            {reportTab === 'find' && (<>
             <label style={labelStyle}>Price (optional)</label>
             <input
               style={inputStyle}
@@ -920,7 +1001,18 @@ export default function FindsPage() {
             <Button type="submit" disabled={submitting} variant="primary" fullWidth style={{ marginTop: 'var(--sp-4)', fontSize: 'var(--fs-h3)' }}>
               📍 {submitting ? 'Submitting…' : 'Submit Find'}
             </Button>
+            </>)}
+
+            {reportTab === 'checkin' && (<>
+            {checkinSubmitError && <p style={{ color: 'var(--red)', fontSize: 'var(--fs-body)', margin: 'var(--sp-3) 0 0' }}>{checkinSubmitError}</p>}
+            {checkinSubmitted && <p style={{ color: 'var(--green)', fontSize: 'var(--fs-body)', margin: 'var(--sp-3) 0 0' }}>✓ Check-in reported — thanks for the intel.</p>}
+
+            <Button type="submit" disabled={checkinSubmitting} variant="primary" fullWidth style={{ marginTop: 'var(--sp-4)', fontSize: 'var(--fs-h3)' }}>
+              🔍 {checkinSubmitting ? 'Submitting…' : 'Report Empty Check-in'}
+            </Button>
+            </>)}
           </form>
+          </>
           )}
         </Card>
 
@@ -985,11 +1077,13 @@ export default function FindsPage() {
 
           {loading && <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-body)' }}>Loading finds…</p>}
 
-          {!loading && finds.length === 0 && archived.length === 0 && (
+          {!loading && finds.length === 0 && archived.length === 0 && checkins.length === 0 && (
             <EmptyState icon="MapPin" title="No finds yet" body="Be the first to report one!" />
           )}
 
-          {!loading && finds.length > 0 && view === 'map' && <FindsMap finds={finds} />}
+          {!loading && (finds.length > 0 || checkins.length > 0) && view === 'map' && (
+            <FindsMap finds={finds} checkins={checkins} />
+          )}
 
           {!loading && view === 'list' && (
             <>
