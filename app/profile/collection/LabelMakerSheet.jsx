@@ -15,12 +15,27 @@ const SIZES = [
 
 async function tryLoadImage(src) {
   if (!src) return null
+
+  // Fetch the bytes ourselves and load from a blob: URL rather than setting
+  // crossOrigin on an <img> pointed at the same URL other parts of the app
+  // already loaded without crossOrigin — browsers (notably Safari/iOS) can
+  // reuse that plain cached response for the "anonymous" request, which
+  // silently taints the canvas and makes toDataURL() throw later.
+  let objectUrl
+  try {
+    const res = await fetch(src, { mode: 'cors' })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    objectUrl  = URL.createObjectURL(blob)
+  } catch {
+    return null
+  }
+
   return new Promise(resolve => {
-    const img    = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload  = () => resolve(img)
-    img.onerror = () => resolve(null)
-    img.src = src
+    const img   = new Image()
+    img.onload  = () => { URL.revokeObjectURL(objectUrl); resolve(img) }
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(null) }
+    img.src = objectUrl
     setTimeout(() => resolve(null), 5000)
   })
 }
@@ -477,10 +492,14 @@ export default function LabelMakerSheet({ open, onClose, bottle, bottles = [], s
   function handleDownload() {
     const canvas = canvasRef.current
     if (!canvas) return
-    const link    = document.createElement('a')
-    link.download = `${(name || 'sample').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_label.png`
-    link.href     = canvas.toDataURL('image/png')
-    link.click()
+    try {
+      const link    = document.createElement('a')
+      link.download = `${(name || 'sample').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_label.png`
+      link.href     = canvas.toDataURL('image/png')
+      link.click()
+    } catch {
+      setGenError('Could not export label — try Generate Label with AI first, then download.')
+    }
   }
 
   async function handleBluetooth() {
