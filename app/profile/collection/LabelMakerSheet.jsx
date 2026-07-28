@@ -492,11 +492,26 @@ export default function LabelMakerSheet({ open, onClose, bottle, bottles = [], s
   function handleDownload() {
     const canvas = canvasRef.current
     if (!canvas) return
+    const filename = `${(name || 'sample').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_label.png`
+
     try {
-      const link    = document.createElement('a')
-      link.download = `${(name || 'sample').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_label.png`
-      link.href     = canvas.toDataURL('image/png')
-      link.click()
+      canvas.toBlob(blob => {
+        if (!blob) {
+          setGenError('Could not export label — try Generate Label with AI first, then download.')
+          return
+        }
+        // Blob/object URL + DOM-attached anchor is required for Safari (incl. PWA
+        // standalone mode) to reliably fire the download instead of just flashing
+        // and navigating nowhere — data: URIs and detached anchors are unreliable there.
+        const url  = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.download = filename
+        link.href     = url
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      }, 'image/png')
     } catch {
       setGenError('Could not export label — try Generate Label with AI first, then download.')
     }
