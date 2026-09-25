@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server'
 import { Redis }        from '@upstash/redis'
+import { CATALOG_KEY, getUAIndex, getUAEntries, normName as norm } from '../../../lib/ua-catalog.js'
 
-const CATALOG_KEY = 'wh:ua:catalog'
-
-function norm(s) {
-  return (s ?? '')
-    .toLowerCase()
-    .replace(/['''''']/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
+// Response depends only on the query string — let the CDN absorb repeat lookups.
+const CACHE_HEADERS = { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' }
 
 function scoreMatch(queryNorm, candidateNorm) {
   const qw = queryNorm.split(/\s+/).filter(w => w.length >= 3)
@@ -44,19 +37,12 @@ export async function GET(request) {
     // for image resolution. HGET is O(1) vs HGETALL on a large catalog.
     if (lookup) {
       const val = await redis.hget(CATALOG_KEY, norm(lookup))
-      if (!val) return NextResponse.json({ result: null })
+      if (!val) return NextResponse.json({ result: null }, { headers: CACHE_HEADERS })
       const meta = typeof val === 'string' ? JSON.parse(val) : val
-      return NextResponse.json({ result: meta })
+      return NextResponse.json({ result: meta }, { headers: CACHE_HEADERS })
     }
 
-    const raw   = await redis.hgetall(CATALOG_KEY)
-
-    if (!raw) return NextResponse.json({ results: [], total: 0 })
-
-    let entries = Object.entries(raw).map(([normKey, val]) => {
-      const meta = typeof val === 'string' ? JSON.parse(val) : val
-      return { normKey, ...meta }
-    })
+    let entries = await getUAIndex()
 
     if (category) {
       entries = entries.filter(e => e.category === category)
@@ -65,18 +51,16 @@ export async function GET(request) {
     if (q && q.length >= 2) {
       const qn = norm(q)
       entries = entries
-        .map(e    => ({ ...e, _score: scoreMatch(qn, norm(e.name)) }))
+        .map(e    => ({ ...e, _score: scoreMatch(qn, e.nameNorm) }))
         .filter(e => e._score >= 0.3)
         .sort((a, b) => b._score - a._score)
-      entries.forEach(e => delete e._score)
     } else {
-      entries.sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen))
+      entries = [...entries].sort((a, b) => b.lastSeen.localeCompare(a.lastSeen))
     }
 
-    return NextResponse.json({
-      results: entries.slice(0, limit),
-      total:   entries.length,
-    })
+    const results = await getUAEntries(entries.slice(0, limit).map(e => e.normKey))
+
+    return NextResponse.json({ results, total: entries.length }, { headers: CACHE_HEADERS })
   } catch (err) {
     console.warn('[ua-catalog] Redis error:', err?.message)
     return NextResponse.json({ results: [], total: 0 })

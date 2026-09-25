@@ -7,12 +7,29 @@ import { hotlineBottles }                          from '../../../lib/bottles.js
  * GET /api/history
  *
  * Returns truck delivery events, newest first.
- * Public read-only — no auth required.
+ * Public read-only — no auth required. CDN-cached briefly: the underlying
+ * data only changes on the hourly cron or a manual report, and each uncached
+ * hit reads every store's event list from Redis.
  */
 export async function GET() {
   try {
     const [events, lastCheckedAt] = await Promise.all([getHistory(), getLastCheckedAt()])
-    return NextResponse.json({ events, lastCheckedAt })
+
+    // checkFor is the same hotline checklist repeated on every event from a
+    // distributor (~85% of the payload). Send each unique list once and have
+    // events reference it by index; the tracker page rehydrates.
+    const checkForLists = []
+    const listIdx       = new Map()
+    const slimEvents    = events.map(({ checkFor, ...e }) => {
+      if (!checkFor) return e
+      const key = JSON.stringify(checkFor)
+      if (!listIdx.has(key)) { listIdx.set(key, checkForLists.length); checkForLists.push(checkFor) }
+      return { ...e, checkForIdx: listIdx.get(key) }
+    })
+
+    return NextResponse.json({ events: slimEvents, checkForLists, lastCheckedAt }, {
+      headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600' },
+    })
   } catch (err) {
     console.error('[history] GET error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

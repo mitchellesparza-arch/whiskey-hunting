@@ -458,12 +458,16 @@ export default function TrackerPage() {
     try { localStorage.setItem(TAB_LS_KEY, next) } catch {}
   }
 
-  const loadHistory = useCallback(async () => {
+  const loadHistory = useCallback(async (bypassCache = false) => {
     try {
-      const res  = await fetch('/api/history')
+      // /api/history is CDN-cached for 2 min; an explicit refresh skips it
+      const res  = await fetch(bypassCache ? `/api/history?t=${Date.now()}` : '/api/history')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      setTruckEvents(data.events ?? [])
+      const lists = data.checkForLists ?? []
+      setTruckEvents((data.events ?? []).map(({ checkForIdx, ...e }) =>
+        checkForIdx == null ? e : { ...e, checkFor: lists[checkForIdx] }
+      ))
       setLastCheckedAt(data.lastCheckedAt ?? null)
     } catch {
       setTruckEvents([])
@@ -476,7 +480,7 @@ export default function TrackerPage() {
 
   const refresh = useCallback(async () => {
     setRefreshing(true)
-    await loadHistory()
+    await loadHistory(true)
     setRefreshing(false)
   }, [loadHistory])
 

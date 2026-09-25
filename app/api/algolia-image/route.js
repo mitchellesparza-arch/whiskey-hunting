@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getToken }    from 'next-auth/jwt'
 import { Redis }       from '@upstash/redis'
+import { getUAIndex }  from '../../../lib/ua-catalog.js'
 
 const ALGOLIA_APP_ID  = process.env.ALGOLIA_APP_ID
 const ALGOLIA_API_KEY = process.env.ALGOLIA_API_KEY
@@ -74,7 +75,7 @@ async function uaImageFallback(name) {
     // 3. Fuzzy scan of catalog keys — catches cases where the collection bottle name
     //    is shorter/different than the full auction lot name stored as a catalog key
     //    (e.g. "Pappy Van Winkle 15 Year" vs "pappy van winkle s family reserve 15 year old bourbon")
-    const catalogKeys = await redis.hkeys('wh:ua:catalog')
+    const catalogKeys = (await getUAIndex()).map(e => e.normKey)
     if (catalogKeys.length) {
       let bestKey = null
       let bestScore = 0

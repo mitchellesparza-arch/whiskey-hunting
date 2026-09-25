@@ -1,17 +1,9 @@
 import { NextResponse }    from 'next/server'
 import { searchCatalog }  from '../../../../lib/catalog.js'
-import { Redis }          from '@upstash/redis'
+import { getUAIndex, getUAEntries, normName as norm } from '../../../../lib/ua-catalog.js'
 
-const UA_CATALOG_KEY = 'wh:ua:catalog'
-
-function norm(s) {
-  return (s ?? '')
-    .toLowerCase()
-    .replace(/['''''']/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
+// Response depends only on the query string — let the CDN absorb repeat lookups.
+const CACHE_HEADERS = { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' }
 
 function scoreWords(queryNorm, candidateNorm) {
   const qw = queryNorm.split(/\s+/).filter(w => w.length >= 3)
@@ -24,24 +16,20 @@ function scoreWords(queryNorm, candidateNorm) {
   return hits / qw.length
 }
 
-async function searchUACatalog(q, staticResults) {
+async function searchUACatalog(q, staticResults, limit) {
   try {
-    const redis = Redis.fromEnv()
-    const raw   = await redis.hgetall(UA_CATALOG_KEY)
-    if (!raw) return []
-
     // Normalized names already returned by the static catalog — skip duplicates
     const staticNorms = new Set(staticResults.map(r => norm(r.name ?? '')))
 
-    const qn = norm(q)
-    return Object.values(raw)
-      .map(val => {
-        const meta = typeof val === 'string' ? JSON.parse(val) : val
-        return { ...meta, _score: scoreWords(qn, norm(meta.name ?? '')) }
-      })
-      .filter(e => e._score >= 0.4 && !staticNorms.has(norm(e.name ?? '')))
+    const qn   = norm(q)
+    const hits = (await getUAIndex())
+      .map(e => ({ normKey: e.normKey, nameNorm: e.nameNorm, _score: scoreWords(qn, e.nameNorm) }))
+      .filter(e => e._score >= 0.4 && !staticNorms.has(e.nameNorm))
       .sort((a, b) => b._score - a._score)
-      .map(({ _score, normKey, ...rest }) => ({
+      .slice(0, limit)
+
+    return (await getUAEntries(hits.map(h => h.normKey)))
+      .map(({ normKey, ...rest }) => ({
         ...rest,
         source:   'unicorn_auctions',
         msrp:     null,
@@ -64,18 +52,15 @@ export async function GET(request) {
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '10'), 25)
 
   if (!q || q.length < 2) {
-    return NextResponse.json({ results: [] })
+    return NextResponse.json({ results: [] }, { headers: CACHE_HEADERS })
   }
 
   const staticResults = searchCatalog(q, limit)
-  const uaResults     = await searchUACatalog(q, staticResults)
+  const remaining     = limit - staticResults.length
+  const uaResults     = remaining > 0 ? await searchUACatalog(q, staticResults, remaining) : []
 
   // Fill remaining slots with UA results not already covered by the static catalog
-  const remaining = limit - staticResults.length
-  const merged    = [
-    ...staticResults,
-    ...uaResults.slice(0, Math.max(remaining, 0)),
-  ]
+  const merged = [...staticResults, ...uaResults]
 
-  return NextResponse.json({ results: merged, total: merged.length })
+  return NextResponse.json({ results: merged, total: merged.length }, { headers: CACHE_HEADERS })
 }

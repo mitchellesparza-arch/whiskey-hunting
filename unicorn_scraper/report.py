@@ -429,9 +429,9 @@ def push_bottle_catalog_to_redis(bottles: list[dict]) -> None:
     for i in range(0, len(norm_keys), BATCH_SIZE):
         batch_keys = norm_keys[i : i + BATCH_SIZE]
         try:
-            results = _pipeline([["HGET", "wh:ua:catalog", nk] for nk in batch_keys])
-            for nk, result in zip(batch_keys, results):
-                raw = result.get("result")
+            # One HMGET per batch (1 billed command) instead of one HGET per bottle
+            results = _pipeline([["HMGET", "wh:ua:catalog", *batch_keys]])
+            for nk, raw in zip(batch_keys, results[0].get("result") or []):
                 if raw:
                     try:
                         existing[nk] = json.loads(raw)
