@@ -7,6 +7,7 @@ import {
   ArrowLeft, Plus, X, Camera, Tag, ChevronLeft, ChevronRight, Gavel,
   Star, Wine, FlaskConical, BarChart2, Image as ImageIcon,
   CheckCircle, SkipForward, RefreshCw, Pencil, Loader, EyeOff, Printer, Sparkles,
+  Upload, Download, Lock,
 } from 'lucide-react'
 import BarcodeScanner   from '../../finds/BarcodeScanner.jsx'
 import Button           from '../../components/ui/Button.jsx'
@@ -17,6 +18,7 @@ import SectionHeader    from '../../components/ui/SectionHeader.jsx'
 import Sheet            from '../../components/ui/Sheet.jsx'
 import LabelMakerSheet  from './LabelMakerSheet.jsx'
 import { isPro }        from '../../../lib/tier.js'
+import { bottlesToCsv } from '../../../lib/collection-csv.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -622,7 +624,8 @@ function EditBottleSheet({ bottle, open, onClose, onSave }) {
 
         <label style={labelStyle}>Category</label>
         <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}>
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          {/* Include the bottle's own category so CSV-imported types (Gin, Rum…) aren't silently overwritten */}
+          {[...new Set([...CATEGORIES, bottle.category].filter(Boolean))].map(c => <option key={c} value={c}>{c}</option>)}
         </select>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--sp-2)' }}>
@@ -1631,6 +1634,120 @@ function FillPhotosSheet({ bottles, onDone }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+// ── Import CSV Sheet (Pro) ────────────────────────────────────────────────────
+
+function ImportCsvSheet({ open, onClose, onImported }) {
+  const fileRef = useRef(null)
+  const [csv,       setCsv]       = useState(null)
+  const [fileName,  setFileName]  = useState('')
+  const [summary,   setSummary]   = useState(null)
+  const [busy,      setBusy]      = useState(false)
+  const [error,     setError]     = useState(null)
+
+  async function post(text, dryRun) {
+    const res  = await fetch('/api/collection/import', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ csv: text, dryRun }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || 'Import failed')
+    return data
+  }
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setError(null); setSummary(null); setBusy(true)
+    try {
+      const text = await file.text()
+      setCsv(text); setFileName(file.name)
+      setSummary(await post(text, true))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleConfirm() {
+    setError(null); setBusy(true)
+    try {
+      const data = await post(csv, false)
+      onImported(data.bottles, data.added)
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+
+  const metaStyle = { fontSize: 'var(--fs-meta)', color: 'var(--text-muted)', marginTop: 'var(--sp-1)' }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Import from CSV">
+      <p style={{ fontSize: 'var(--fs-body)', color: 'var(--text-muted)', marginBottom: 'var(--sp-3)' }}>
+        Upload a spreadsheet saved as CSV. It needs a <b>name</b> column; distillery, category/type,
+        proof, qty, MSRP and secondary are picked up if present. Exports from other trackers
+        (like BarrelBook) work too — extra columns are ignored.
+      </p>
+
+      <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={handleFile} style={{ display: 'none' }} />
+      <Button
+        variant="secondary"
+        fullWidth
+        disabled={busy}
+        icon={busy && !summary ? <Loader size={14} strokeWidth={2} /> : <Upload size={14} strokeWidth={2} />}
+        onClick={() => fileRef.current?.click()}
+      >
+        {fileName ? 'Choose a different file' : 'Choose CSV file'}
+      </Button>
+
+      {summary && (
+        <div style={{ marginTop: 'var(--sp-3)', padding: 'var(--sp-3)', background: 'var(--bg-elev-2)', border: '1px solid var(--hairline-2)', borderRadius: 'var(--r-md)' }}>
+          <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', marginBottom: 'var(--sp-2)' }}>{fileName}</div>
+          <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+            {summary.added} bottle{summary.added !== 1 ? 's' : ''} ready to import
+          </div>
+          {summary.preview?.length > 0 && (
+            <ul style={{ margin: 'var(--sp-2) 0 0', paddingLeft: 'var(--sp-4)', fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
+              {summary.preview.map((b, i) => (
+                <li key={i}>{b.name} · {b.category}{b.proof ? ` · ${b.proof}°` : ''}</li>
+              ))}
+              {summary.added > summary.preview.length && <li>…and {summary.added - summary.preview.length} more</li>}
+            </ul>
+          )}
+          {summary.duplicates > 0 && (
+            <div style={metaStyle}>{summary.duplicates} already in your collection — will be skipped</div>
+          )}
+          {summary.skipped?.length > 0 && (
+            <div style={metaStyle}>
+              {summary.skipped.length} row{summary.skipped.length !== 1 ? 's' : ''} skipped
+              ({[...new Set(summary.skipped.map(s => s.reason))].slice(0, 3).join(', ')})
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && <p style={{ color: 'var(--red)', fontSize: 'var(--fs-meta)', marginTop: 'var(--sp-3)' }}>{error}</p>}
+
+      {summary && summary.added > 0 && (
+        <div style={{ marginTop: 'var(--sp-4)' }}>
+          <Button
+            variant="primary"
+            fullWidth
+            disabled={busy}
+            icon={busy ? <Loader size={14} strokeWidth={2} /> : <CheckCircle size={14} strokeWidth={2} />}
+            onClick={handleConfirm}
+          >
+            Import {summary.added} bottle{summary.added !== 1 ? 's' : ''}
+          </Button>
+        </div>
+      )}
+    </Sheet>
+  )
+}
+
 export default function CollectionPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -1643,6 +1760,8 @@ export default function CollectionPage() {
   const [removing,      setRemoving]      = useState(null)
   const [editingBottle, setEditingBottle] = useState(null)
   const [showFillPhotos, setShowFillPhotos] = useState(false)
+  const [showImport,    setShowImport]    = useState(false)
+  const [importNotice,  setImportNotice]  = useState(null)
   const [unicornDeals,  setUnicornDeals]  = useState([])
   const [marketPrices,  setMarketPrices]  = useState({})
 
@@ -1665,7 +1784,9 @@ export default function CollectionPage() {
       .then(d => {
         const bs = d.bottles ?? []
         setBottles(bs)
-        const names = [...new Set(bs.map(b => b.name))]
+        // Market price only renders on bottles with no secondary value — skip the
+        // rest so large (e.g. CSV-imported) collections don't fan out one request per bottle.
+        const names = [...new Set(bs.filter(b => !b.secondary).map(b => b.name))]
         Promise.all(
           names.map(name =>
             fetch(`/api/market-price?name=${encodeURIComponent(name)}`)
@@ -1711,6 +1832,26 @@ export default function CollectionPage() {
     } finally {
       setRemovingSample(null)
     }
+  }
+
+  const userIsPro = isPro(session?.user?.tier)
+
+  function handleExport() {
+    if (!userIsPro) { router.push('/upgrade'); return }
+    const blob = new Blob([bottlesToCsv(bottles)], { type: 'text/csv;charset=utf-8' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `tater-tracker-collection-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  function handleImportClick() {
+    if (!userIsPro) { router.push('/upgrade'); return }
+    setShowImport(true)
   }
 
   function handleLabelBottle(bottle) {
@@ -1886,6 +2027,32 @@ export default function CollectionPage() {
 
         {/* ── Bottles tab ─────────────────────────────────────────── */}
         {tab === 'bottles' && <>
+          {/* CSV import / export (Pro) */}
+          <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-3)' }}>
+            <div style={{ flex: 1 }}>
+              <Button
+                variant="secondary" size="sm" fullWidth
+                icon={userIsPro ? <Upload size={14} strokeWidth={2} /> : <Lock size={14} strokeWidth={2} />}
+                onClick={handleImportClick}
+              >
+                Import CSV
+              </Button>
+            </div>
+            <div style={{ flex: 1 }}>
+              <Button
+                variant="secondary" size="sm" fullWidth
+                disabled={userIsPro && !bottles.length}
+                icon={userIsPro ? <Download size={14} strokeWidth={2} /> : <Lock size={14} strokeWidth={2} />}
+                onClick={handleExport}
+              >
+                Export CSV
+              </Button>
+            </div>
+          </div>
+          {importNotice && (
+            <p style={{ fontSize: 'var(--fs-meta)', color: 'var(--copper-500)', marginBottom: 'var(--sp-3)' }}>{importNotice}</p>
+          )}
+
           {/* Sort bar */}
           <div style={{ display: 'flex', gap: 'var(--sp-1)', overflowX: 'auto', marginBottom: 'var(--sp-3)', paddingBottom: 'var(--sp-1)' }}>
             {SORT_OPTIONS.map(o => (
@@ -1999,6 +2166,18 @@ export default function CollectionPage() {
           onDone={(updatedBottles, close = true) => {
             if (updatedBottles) setBottles(updatedBottles)
             if (close) setShowFillPhotos(false)
+          }}
+        />
+      )}
+
+      {showImport && (
+        <ImportCsvSheet
+          open={showImport}
+          onClose={() => setShowImport(false)}
+          onImported={(updated, count) => {
+            setBottles(updated)
+            setShowImport(false)
+            setImportNotice(`Imported ${count} bottle${count !== 1 ? 's' : ''}.`)
           }}
         />
       )}
