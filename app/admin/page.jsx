@@ -393,15 +393,8 @@ export default function AdminPage() {
                 method: 'GET',
               },
               {
-                key:    'reservebar',
-                label:  '7. ReserveBar Monitor',
-                desc:   'Checks ReserveBar for deals. Independent of other crons.',
-                url:    '/api/reservebar-monitor',
-                method: 'GET',
-              },
-              {
                 key:    'audit',
-                label:  '8. Catalog Audit',
+                label:  '7. Catalog Audit',
                 desc:   'Audits the bottle catalog and sends a report. Run last.',
                 url:    '/api/cron/catalog-audit',
                 method: 'GET',

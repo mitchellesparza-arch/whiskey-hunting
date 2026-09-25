@@ -8,7 +8,6 @@ const ALLOWED_PATHS = new Set([
   '/api/cron',
   '/api/cron/algolia-sweep',
   '/api/cron/import-upcs',
-  '/api/reservebar-monitor',
   '/api/cron/catalog-audit',
 ])
 
