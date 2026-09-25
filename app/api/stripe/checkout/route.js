@@ -37,6 +37,7 @@ export async function POST(req) {
         price:    PRICE_ID,
         quantity: 1,
       }],
+      allow_promotion_codes: true,   // shows "Add promotion code" on Stripe checkout
       customer_email:    token.email,
       metadata:          { email: token.email },
       success_url:       `${base}/upgrade?success=1`,
