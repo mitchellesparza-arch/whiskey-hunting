@@ -37,10 +37,14 @@ export default function IndependentsMap({ retailers, allFinds, selected, onSelec
 
       mapRef.current = map
 
-      // Dark tile layer matching app theme
+      // Dark tile layer matching app theme (CARTO basemaps now require an API key)
       L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        { maxZoom: 18 }
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: 16, attribution: 'Tiles &copy; Esri' }
+      ).addTo(map)
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: 16 }
       ).addTo(map)
 
       // Build markers

@@ -49,11 +49,13 @@ export default function FindsMap({ finds, checkins = [] }) {
       })
       mapRef.current = map
 
-      // Dark CartoDB tiles
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains:  'abcd',
-        maxZoom:     19,
+      // Dark Esri tiles (CARTO basemaps now require an API key)
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+        maxZoom:     16,
+      }).addTo(map)
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom:     16,
       }).addTo(map)
 
       addMarkers(L, map)
