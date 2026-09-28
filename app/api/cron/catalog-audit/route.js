@@ -3,6 +3,7 @@ import { readFileSync }              from 'fs'
 import { Resend }                    from 'resend'
 import path                          from 'path'
 import { listBottleSlugs, bottleCount } from '../../../../lib/bottle-db.js'
+import { scanUACatalog }             from '../../../../lib/ua-catalog.js'
 
 const DATA_PATH = path.join(process.cwd(), 'lib', 'market-prices-data.json')
 
@@ -227,14 +228,14 @@ export async function GET(request) {
     const { Redis } = await import('@upstash/redis')
     const redis = Redis.fromEnv()
 
-    // ── 1. Fetch raw data in parallel ────────────────────────────────────────
-    const [rawCatalog, rawDeals] = await Promise.all([
-      redis.hgetall('wh:ua:catalog'),
-      redis.get('wh:unicorn:deals'),
-    ])
+    // ── 1. Fetch raw data ────────────────────────────────────────────────────
+    // wh:ua:catalog exceeds Upstash's 10 MB max response, so page through it
+    // with HSCAN rather than HGETALL.
+    const rawDeals       = await redis.get('wh:unicorn:deals')
+    const catalogEntries = []
+    for await (const entry of scanUACatalog(redis)) catalogEntries.push(entry)
 
     // ── 2. Analyze UA catalog ────────────────────────────────────────────────
-    const catalogEntries = Object.entries(rawCatalog ?? {})
     const categories  = {}
     let newThisWeek = 0, updatedThisWeek = 0, staleSinceWeek = 0
     let missingImage = 0, missingLotUrl = 0, needsBoth = 0
@@ -304,9 +305,14 @@ export async function GET(request) {
 
       if (total > 0) {
         const slugs = await listBottleSlugs(0, total)
-        const cp = redis.pipeline()
-        for (const s of slugs) cp.get(`wh:bottle:${s}`)
-        const records = await cp.exec()
+        // Batched — one pipeline for all ~9K records returns >10 MB, which
+        // exceeds Upstash's max response size.
+        const records = []
+        for (let i = 0; i < slugs.length; i += 500) {
+          const cp = redis.pipeline()
+          for (const s of slugs.slice(i, i + 500)) cp.get(`wh:bottle:${s}`)
+          records.push(...await cp.exec())
+        }
 
         for (const raw of records) {
           if (!raw) continue
