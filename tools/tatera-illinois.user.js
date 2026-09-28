@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Tater Tracker — Tatera Illinois relay
-// @namespace    https://whiskey-hunter.vercel.app/
+// @namespace    https://tatertracker.app/
 // @version      0.3.2
 // @description  Watch the Tatera.io #illinois Discord channel for Costco bourbon alerts and POST them to Tater Tracker's /api/ingest/tatera endpoint.
 // @match        https://discord.com/channels/*
@@ -25,7 +25,7 @@
  * ========================================================================== */
 const CONFIG = {
   CHANNEL_URL:    'https://discord.com/channels/REPLACE_GUILD/REPLACE_CHANNEL',
-  API_BASE:       'https://whiskey-hunter.vercel.app',
+  API_BASE:       'https://tatertracker.app',
   INGEST_SECRET:  'REPLACE_ME',
   BOT_AUTHOR:     'Tatera.io',
 }

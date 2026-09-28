@@ -9,7 +9,7 @@ const find = {
   },
   price:    49.99,
   notes:    'This is a test post — not a real find',
-  photoUrl: 'https://whiskey-hunter.vercel.app/Test.jpg',
+  photoUrl: 'https://tatertracker.app/Test.jpg',
 }
 
 const threadName = `🥃 ${find.bottleName} — ${find.store.name}`
@@ -23,9 +23,9 @@ if (find.notes)          fields.push({ name: '📝 Notes',   value: find.notes, 
 const payload = {
   thread_name: threadName,
   username:    'Tater Tracker',
-  avatar_url:  'https://whiskey-hunter.vercel.app/CURRENT.png',
+  avatar_url:  'https://tatertracker.app/CURRENT.png',
   embeds: [{
-    description: `**${find.submitterName}** just spotted this — [tap here to see the full find](https://whiskey-hunter.vercel.app/finds)`,
+    description: `**${find.submitterName}** just spotted this — [tap here to see the full find](https://tatertracker.app/finds)`,
     color:       0xe8943a,
     fields,
     image:       find.photoUrl ? { url: find.photoUrl } : undefined,

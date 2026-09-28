@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getToken }     from 'next-auth/jwt'
+import { SITE_URL } from '../../../lib/site.js'
 
 export async function GET(request) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
@@ -20,7 +21,7 @@ export async function GET(request) {
   const payload = {
     thread_name: '🥃 [DEBUG] Orland Park test',
     username:    'Tater Tracker',
-    avatar_url:  'https://whiskey-hunter.vercel.app/CURRENT.png',
+    avatar_url:  `${SITE_URL}/CURRENT.png`,
     embeds: [{
       description: 'Debug test post — suburbs routing check',
       color:       0xe8943a,

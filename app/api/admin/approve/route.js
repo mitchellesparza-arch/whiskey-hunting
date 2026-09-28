@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getToken }     from 'next-auth/jwt'
 import { approveUser }  from '../../../../lib/auth-users.js'
 import crypto           from 'crypto'
+import { SITE_URL } from '../../../../lib/site.js'
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ export async function GET(req) {
   await approveUser(email)
 
   // Redirect to a simple success page (or just show a plain HTML response)
-  const appUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://whiskey-hunter.vercel.app'
+  const appUrl = SITE_URL
   return new Response(
     `<!DOCTYPE html>
 <html lang="en">

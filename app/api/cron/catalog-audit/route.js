@@ -4,6 +4,7 @@ import { Resend }                    from 'resend'
 import path                          from 'path'
 import { listBottleSlugs, bottleCount } from '../../../../lib/bottle-db.js'
 import { scanUACatalog }             from '../../../../lib/ua-catalog.js'
+import { EMAIL_FROM }               from '../../../../lib/site.js'
 
 const DATA_PATH = path.join(process.cwd(), 'lib', 'market-prices-data.json')
 
@@ -199,7 +200,7 @@ async function sendAuditEmail(stats) {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY)
     const { data, error } = await resend.emails.send({
-      from:    'Tater Tracker <onboarding@resend.dev>',
+      from:    EMAIL_FROM,
       to,
       subject,
       html,

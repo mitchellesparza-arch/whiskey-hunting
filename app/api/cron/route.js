@@ -42,7 +42,7 @@ function hotlineCheckList(distributor) {
  *
  * Manual trigger:
  *   curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
- *        https://whiskey-hunter.vercel.app/api/cron
+ *        https://tatertracker.app/api/cron
  */
 export async function GET(request) {
   // ── Auth ───────────────────────────────────────────────────────────────────

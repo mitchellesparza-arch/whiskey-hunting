@@ -12,7 +12,7 @@ export const maxDuration = 300   // Iowa catalog has ~10k rows; allow ample marg
  *
  * Manual trigger:
  *   curl -H "Authorization: Bearer $CRON_SECRET" \
- *        https://whiskey-hunter.vercel.app/api/cron/import-upcs
+ *        https://tatertracker.app/api/cron/import-upcs
  */
 export async function GET(request) {
   const secret = process.env.CRON_SECRET

@@ -55,7 +55,7 @@ if (process.argv.includes('--debug')) {
 // ── Dynamic imports — env vars must be set first ──────────────────────────────
 const { checkAllRetailers, RETAILERS } = await import('../lib/independents/index.js')
 
-const BASE_URL    = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://whiskey-hunter.vercel.app'
+const BASE_URL    = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://tatertracker.app'
 const CRON_SECRET = process.env.CRON_SECRET
 
 if (!CRON_SECRET) {

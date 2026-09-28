@@ -24,7 +24,7 @@ function getRedis() {
  *
  * Manual trigger:
  *   curl -X POST -H "Authorization: Bearer YOUR_CRON_SECRET" \
- *        https://whiskey-hunter.vercel.app/api/cron/independents
+ *        https://tatertracker.app/api/cron/independents
  */
 export async function POST(request) {
   const secret = process.env.CRON_SECRET
